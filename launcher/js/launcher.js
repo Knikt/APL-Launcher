@@ -607,7 +607,7 @@
               shelfHtml: '<div class="brandcard__glyph vtile--sources">' + APL.icon("source", 180, 1.3) + '</div>',
               run: function () { APL.openSources(); } },
             // Samsung's own home: the way out now that Vetro keeps the Home key for the launcher.
-            // Hidden like any app (Settings › Apps › Smart Hub Tile, or hold OK › Hide App).
+            // Hidden like any app (Settings › Apps › Show on Home Screen, or hold OK › Hide App).
             { id: SAMSUNG_HOME_TILE, name: "Smart Hub", virtual: true, accent: "#1428a0", eyebrow: "SYSTÈME",
               tileHtml: '<div class="vtile vtile--samsunghome">' + APL.icon("apps", 92, 1.6) + '</div>',
               shelfHtml: '<div class="brandcard__glyph vtile--samsunghome">' + APL.icon("apps", 180, 1.3) + '</div>',
