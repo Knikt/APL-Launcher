@@ -8,7 +8,6 @@ This guide installs APL Launcher on a Samsung Tizen TV or Smart Monitor from a W
 - Windows 10 or 11, on the same network as the screen.
 - [Tizen Studio](https://developer.tizen.org/development/tizen-studio/download) with the **CLI**. In the Package Manager, add **Samsung Certificate Extension** under *Extension SDK*.
 - A **Samsung certificate** (author + distributor) made for your screen. Create it in Tizen Studio's *Certificate Manager*, or with a tool such as Apps2Samsung. The installer looks for it in both places. Keep a copy somewhere safe: updates must be signed with the same certificate, or the screen refuses them.
-- [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) with the C# workload, and the [.NET 6 runtime](https://dotnet.microsoft.com/download/dotnet/6.0). The installer uses them to build APL Overlay, the small native helper behind the Home button, the Control Center over videos, the Alexa glow and the closing of unused apps. Without them, the launcher still works without those.
 
 **On the screen**
 - **Developer Mode**: open *Apps*, type `1 2 3 4 5` on the remote, turn Developer Mode on, enter the PC's IP address, then restart the screen.
@@ -21,7 +20,7 @@ This guide installs APL Launcher on a Samsung Tizen TV or Smart Monitor from a W
 1. Download **APL Launcher Setup** (`APL-Launcher-Setup.exe`) from the [latest release](https://github.com/Knikt/APL-Launcher-for-TizenOS/releases/latest) and open it. Windows may say the app is not signed: *More info › Run anyway*. It needs nothing else to run.
 2. On the **Install** page:
    - the app finds the screen with **Find**, or type its IP address (*Settings › Connection › Network › Network Status*); it is remembered for next time, and the app checks that Vetro answers;
-   - it checks the PC: Tizen Studio and `sdb`, a Samsung certificate, the C# compiler and .NET 6;
+   - it checks the PC: Tizen Studio and `sdb`, a Samsung certificate;
    - enter the optional API keys and personal websites (see below).
 3. Click **Install**. The app:
    - prepares the profile avatars (see below);

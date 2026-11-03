@@ -435,17 +435,7 @@ namespace APL.Setup
                 PcRow(Status.Fail, T("No Samsung certificate"),
                       T("The screen only accepts apps signed by you. Create an author and a distributor certificate in Tizen Studio's Certificate Manager (Samsung Certificate Extension), or with Apps2Samsung."));
 
-            bool cs = Json.Bool(Check, "csharp"), net6 = Json.Bool(Check, "net6");
-            if (cs && net6)
-                PcRow(Status.Ok, T("C# compiler and .NET 6"), T("APL Overlay will be installed too: Control Center over videos, Alexa glow, closing unused apps."));
-            else
-            {
-                var links = new List<string>();
-                if (!cs) { links.Add(T("Build Tools for Visual Studio")); links.Add(BuildToolsDownload); }
-                if (!net6) { links.Add(T(".NET 6 runtime")); links.Add(Net6Download); }
-                PcRow(Status.Warn, T("C# compiler and .NET 6 · optional"),
-                      T("Needed for APL Overlay: Control Center over videos, Alexa glow, closing unused apps."), links.ToArray());
-            }
+            // APL Overlay comes built in the launcher's package (hybrid .wgt): no C# compiler or .NET 6 needed on the PC any more.
         }
 
         /// <summary>C:\tizen-studio\tools\ide\bin\tizen.bat → C:\tizen-studio</summary>

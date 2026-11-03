@@ -32,7 +32,7 @@ $homeFailed = $false
 try {
     $cur = Invoke-RestMethod -Uri "$vetro/remap" -TimeoutSec 15
     $keep = @($cur.rules | Where-Object {
-        -not ($_.actions | Where-Object { $_.type -eq 'launch' -and ($_.appId -eq 'APLauncher.Home' -or $_.appId -eq 'apl.launcher.overlay') })
+        -not ($_.actions | Where-Object { $_.type -eq 'launch' -and ($_.appId -eq 'APLauncher.Home' -or $_.appId -eq 'APLauncher.Overlay' -or $_.appId -eq 'apl.launcher.overlay') })
     })
     $removed = @($cur.rules).Count - $keep.Count
     $body = @{ rules = $keep } | ConvertTo-Json -Depth 8

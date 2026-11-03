@@ -26,9 +26,6 @@ fonction par fonction : [docs/compatibility.md](docs/compatibility.md).
 - **Un certificat Samsung** (auteur + distributeur) fait pour ton écran, par
   Tizen Studio ou Apps2Samsung. L'installateur le trouve tout seul. Garde-le
   précieusement : les mises à jour doivent être signées avec le même.
-- **Visual Studio Build Tools** (C#) et le **runtime .NET 6**, pour APL Overlay.
-  Sans eux, le launcher marche, mais sans Centre de contrôle sur les vidéos,
-  sans bulle Alexa et sans fermeture des apps inutilisées.
 
 TizenBrew et TizenTube ne sont **pas** nécessaires. Rien d'autre que le launcher
 et son petit assistant, APL Overlay, n'est installé sur l'écran.
@@ -40,7 +37,7 @@ et son petit assistant, APL Overlay, n'est installé sur l'écran.
    [dernière version](https://github.com/Knikt/APL-Launcher-for-TizenOS/releases/latest) et ouvre-le. Si Windows dit que l'app n'est pas signée :
    *Informations complémentaires › Exécuter quand même*.
 3. Page **Installer** : le logiciel trouve l'écran (ou tape son adresse IP),
-   vérifie Tizen Studio, le certificat Samsung, le compilateur C# et .NET 6 sur le PC, et prend les clés
+   vérifie Tizen Studio, le certificat Samsung sur le PC, et prend les clés
    TMDB, YouTube et Fanart.tv (facultatives) et les sites à afficher comme des apps.
    Clique sur **Installer** : il compile, signe, installe le launcher et APL Overlay
    par Vetro, puis ouvre le launcher.

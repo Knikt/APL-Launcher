@@ -58,7 +58,7 @@ A small .NET app for Tizen's native toolkit, kept hidden in memory:
 - **Stuck keys:** releases a key the screen still believes is down after Vetro's input helper restarts (`KeyGuard.cs`).
 - **Idle apps:** closes an app left in the background for 10 minutes (`IdleApps.cs`): the launcher's apps, those seen in front and Samsung's that open by themselves (after 1 minute when they were never in front: they reopen at every wake-up and hold about 250 MB), never the one in front, Samsung's home, the TV inputs or AirPlay. The launcher sends the delay (`apl_idle`, 0 to turn it off) and its app list (`apl_apps`).
 
-`scripts/05-build-overlay.ps1` builds it with the C# compiler from Visual Studio Build Tools and .NET 6, using the Tizen libraries copied from the screen. The **Install** page of APL Launcher Setup runs it. It is not updated automatically like the launcher. Without it, the launcher takes the Home key back, gives the other keys back to Samsung and says so in an alert, and everything else works.
+`tools/make-overlay.sh` builds it in CI with the Tizen .NET workload, and `tools/make-package.sh --overlay` adds it to the launcher's `.wgt`: the full package, `apl-launcher-full-vX.Y.Z.wgt` (hybrid; manifest in `overlay/hybrid/`). APL Launcher Setup installs that package: `scripts/03-build-launcher.ps1` downloads it from the release, adds the personal files and signs it, `scripts/05-build-overlay.ps1` hands the buttons to the overlay and removes the old separate `apl.launcher.overlay` package.
 
 ### Talking to Vetro and the screen
 

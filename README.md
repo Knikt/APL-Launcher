@@ -54,7 +54,6 @@ What works on which screen and remote: [docs/compatibility.md](docs/compatibilit
 | **PC** | Windows 10 or 11 on the same network as the screen. |
 | **Tizen Studio** | With the CLI and the *Samsung Certificate Extension* — [download](https://developer.tizen.org/development/tizen-studio/download). |
 | **Samsung certificate** | An author + distributor certificate for your screen (Tizen Studio Certificate Manager, or one made with Apps2Samsung). APL Launcher Setup finds it. Keep it safe: every later install must be signed with the same certificate, or the screen refuses it. |
-| **C# compiler and .NET 6** | [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022) (C# workload) and the [.NET 6 runtime](https://dotnet.microsoft.com/download/dotnet/6.0), to build APL Overlay. Without them the launcher works, but the Control Center over videos, the Alexa glow and the closing of unused apps are missing. |
 
 TizenBrew and TizenTube are **not** needed. If you use them, the launcher opens them and leaves them alone.
 
@@ -62,7 +61,7 @@ TizenBrew and TizenTube are **not** needed. If you use them, the launcher opens 
 
 1. **Install Vetro** on the screen, following Vetro's guide, and check that `http://<screen-ip>:8099` opens on the PC.
 2. **Download APL Launcher Setup** (`APL-Launcher-Setup.exe`) from the [latest release](https://github.com/Knikt/APL-Launcher-for-TizenOS/releases/latest) and open it. Windows may say the app is not signed: *More info › Run anyway*.
-3. On the **Install** page, the app finds the screen (or type its IP address), checks Tizen Studio, the Samsung certificate, the C# compiler and .NET 6 on the PC, and takes the optional API keys (TMDB, YouTube, Fanart.tv) and websites to show as apps. Click **Install**: it builds, signs and installs the launcher and APL Overlay through Vetro, then opens the launcher.
+3. On the **Install** page, the app finds the screen (or type its IP address), checks Tizen Studio, the Samsung certificate on the PC, and takes the optional API keys (TMDB, YouTube, Fanart.tv) and websites to show as apps. Click **Install**: it builds, signs and installs the launcher and APL Overlay through Vetro, then opens the launcher.
 4. Finish once, as the app shows you:
    - on the screen: *Settings › All Settings › Advanced Features* → **Autorun Smart Hub** off, **Autorun Last App** on;
    - in Vetro › **Remapper**: choose your remote in the device list (*Smart Control 2016* when it is paired over Bluetooth, *wt61p807 rc device* when it works by infrared only), map **Home** to **APL Launcher** and turn on **Remote interception**. Then click **Done — set up the buttons** in the app: it hands Home and ⏯ to APL Overlay, and Samsung TV Plus or Prime Video too when AquaPlay or TizenTube is installed.
