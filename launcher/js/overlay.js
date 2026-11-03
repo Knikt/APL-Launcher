@@ -7,9 +7,9 @@
    starts it hidden so that it responds right away, and passes it the theme,
    the "Return to the Launcher" setting and the delay for closing background apps.
 
-   With no overlay installed, keys still handed to it in Vetro do nothing: at start-up the
-   launcher reads the Vetro rules and tells which ones to change in Vetro's Remapper.
-   It never changes them itself.
+   With no overlay installed, the Home key must stay with the launcher and the others
+   with Samsung: the Vetro rules are put back at start-up, so that no key is lost, and an
+   alert says what was changed.
    ============================================================ */
 (function (global) {
     "use strict";
@@ -56,25 +56,41 @@
         } catch (e) {}
     }
 
-    /* Keys handed to the overlay while it is not there. The launcher only reads Vetro's rules and
-       says which keys to change: it never writes them, the Remapper belongs to the user. */
+    /* Keys handed to the overlay while it is not there: Home goes back to the launcher, the others to
+       Samsung. Only the rules that launch the overlay change (the ones APL Launcher Setup made), and
+       the person at the screen is told what changed: nothing happens behind their back. */
     var KEY_NAMES = { "63": "Home", "244": "⏯", "560": "Samsung TV Plus", "221": "Prime Video" };
+    function keyName(rule) {
+        var code = rule.trigger && String(rule.trigger.value);
+        return KEY_NAMES[code] || APL.t("key {code}", { code: code });
+    }
     function checkHomeRule() {
         sys.vetroGet("/remap").then(function (r) {
-            var keys = ((r && r.rules) || []).filter(function (rule) {
-                return rule.enabled !== false && (rule.actions || []).some(function (a) { return a.type === "launch" && a.appId === OVERLAY; });
-            }).map(function (rule) {
-                var code = rule.trigger && String(rule.trigger.value);
-                return KEY_NAMES[code] || (rule.id === HOME_RULE ? "Home" : APL.t("key {code}", { code: code }));
+            var rules = (r && r.rules) || [], changed = false, home = false, freed = [];
+            rules = rules.filter(function (rule) {
+                var mine = (rule.actions || []).filter(function (a) { return a.type === "launch" && a.appId === OVERLAY; });
+                if (!mine.length) return true;
+                changed = true;
+                mine.forEach(function (a) { a.appId = LAUNCHER; });
+                if (rule.id === HOME_RULE) { home = true; return true; }
+                freed.push(keyName(rule));
+                return false;
             });
-            if (!keys.length || !APL.alert) return;
-            APL.alert({
-                title: APL.t("APL Overlay is not installed"),
-                message: APL.t("Vetro still sends {keys} to it, so these buttons do nothing. Open the Vetro dashboard (http://<screen IP>:8099) › Remapper: set Home to open APL Launcher ({app}) and delete the rules of the other buttons to give them back to Samsung.",
-                               { keys: keys.join(", "), app: LAUNCHER }),
-                buttons: [{ label: APL.t("OK") }]
-            });
+            if (!changed) return;
+            sys.vetroPost("/remap", { rules: rules }).then(function () { tellRepaired(home, freed); }).catch(function () {});
         }, function () {});
+    }
+    function tellRepaired(home, freed) {
+        if (!APL.alert) return;
+        var keys = freed.join(", "), many = freed.length > 1, message;
+        if (home && freed.length) message = many
+            ? APL.t("Home now opens APL Launcher, and {keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.", { keys: keys })
+            : APL.t("Home now opens APL Launcher, and {keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.", { keys: keys });
+        else if (home) message = APL.t("Home now opens APL Launcher. Run APL Launcher Setup again to get the overlay back.");
+        else message = many
+            ? APL.t("{keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.", { keys: keys })
+            : APL.t("{keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.", { keys: keys });
+        APL.alert({ title: APL.t("APL Overlay is not installed"), message: message, buttons: [{ label: APL.t("OK") }] });
     }
 
     function start() {

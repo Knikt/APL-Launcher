@@ -542,5 +542,9 @@ window.APL_LANG_FR = {
     "Going back to the installed version…": "Retour à la version installée…",
     "APL Overlay is not installed": "APL Overlay n'est pas installé",
     "key {code}": "touche {code}",
-    "Vetro still sends {keys} to it, so these buttons do nothing. Open the Vetro dashboard (http://<screen IP>:8099) › Remapper: set Home to open APL Launcher ({app}) and delete the rules of the other buttons to give them back to Samsung.": "Vetro lui envoie encore {keys} : ces boutons ne font donc rien. Ouvre le tableau de bord de Vetro (http://<IP de l'écran>:8099) › Remapper : règle Home sur l'ouverture d'APL Launcher ({app}) et supprime les règles des autres boutons pour les rendre à Samsung."
+    "Home now opens APL Launcher, and {keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.": "Home ouvre maintenant APL Launcher, et {keys} reviennent à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
+    "Home now opens APL Launcher, and {keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.": "Home ouvre maintenant APL Launcher, et {keys} revient à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
+    "Home now opens APL Launcher. Run APL Launcher Setup again to get the overlay back.": "Home ouvre maintenant APL Launcher. Relance APL Launcher Setup pour retrouver l'overlay.",
+    "{keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} reviennent à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
+    "{keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} revient à Samsung. Relance APL Launcher Setup pour retrouver l'overlay."
 };
