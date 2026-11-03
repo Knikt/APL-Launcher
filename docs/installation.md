@@ -32,6 +32,16 @@ Nothing else is installed on the screen. Vetro is required: **Install** stays of
 
 Your keys and websites stay on your PC (`%APPDATA%\APL-Launcher\keys.local.js`) and are never uploaded to GitHub.
 
+### Without a Windows PC: Apps2Samsung
+
+Every release also has the launcher alone as `apl-launcher-vX.Y.Z.wgt`, for [Apps2Samsung](https://github.com/Apps2Samsung/Apps2Samsung). It is signed with the Tizen SDK's default certificate, and Apps2Samsung re-signs it for your screen. Vetro is still required.
+
+1. Download `apl-launcher-vX.Y.Z.wgt` from the [latest release](https://github.com/Knikt/APL-Launcher-for-TizenOS/releases/latest) and install it in Apps2Samsung as a custom `.wgt` (or send it to TV-Store at `http://<screen-ip>:8077/upload`). Apps2Samsung asks for the optional API keys below and writes them into the package.
+2. If the launcher is already installed with another certificate, uninstall it first: the screen refuses a package signed with a different certificate.
+3. Do [3. Replace Samsung's home screen](#3-replace-samsungs-home-screen) by hand: in Vetro's **Remapper**, Home → **APL Launcher** (`APLauncher.Home`), and **Remote interception** on. Skip step 5 there.
+
+This package has no APL Overlay (a separate native package that only APL Launcher Setup installs): Home opens the launcher, but there is no app switcher on Home twice, no Control Center over videos (hold Home or ⏯), no Alexa glow and no closing of unused apps. No personal websites, Memoji or SF Pro fonts either. Automatic updates work the same way.
+
 ### Optional API keys
 
 | Key | What it adds | Where to get it |
