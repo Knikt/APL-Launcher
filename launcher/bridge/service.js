@@ -27,11 +27,16 @@
 
 var http = require("http");
 var fs = require("fs");
+var os = require("os");
 
 var PORT_NAME = "APL_BRIDGE";
 var APP_ID = "APLauncher.Home", REPLY_PORT = "APL_BRIDGE_REPLY";
-/* Tizen 9 refuses 127.0.0.1 to services (EHOSTUNREACH), but not the same local address written in IPv6. */
-var HOSTS = ["::ffff:127.0.0.1", "127.0.0.1"], VETRO_PORT = 8099, hostIndex = 0;
+/* Tizen 9 refuses 127.0.0.1 to services (EHOSTUNREACH), but not the same local address written in IPv6.
+   Some screens (The Frame 2025) silently drop both: the connection hangs ~2 min, then ETIMEDOUT.
+   The screen's own LAN address works there (Vetro listens on every interface). */
+var HOSTS = ["::ffff:127.0.0.1", "127.0.0.1"].concat(lanAddresses()), VETRO_PORT = 8099, hostIndex = 0;
+/* req.setTimeout never fires on these screens: own timers, one to connect, one for the answer. */
+var CONNECT_MS = 5000;
 var ALLOWED = /^\/(status|screen|tv-settings|tv-menu|exec|components\/action|control|apps)(\/|\?|$)/;
 var IDLE_MS = 15 * 60 * 1000;
 var CHUNK = 4000;                       // characters per message (at most 12 KB once encoded)
@@ -89,27 +94,65 @@ function onMessage(data) {
     vetro(method, path, Buffer.from(body || "", "utf8"), 150000, function (status, text) { answer(id, status, text); });
 }
 
+/* The screen's IPv4 addresses on the network, tried after the two loopback forms. */
+function lanAddresses() {
+    var out = [];
+    try {
+        var nets = os.networkInterfaces();
+        Object.keys(nets).forEach(function (name) {
+            nets[name].forEach(function (a) { if (a.family === "IPv4" && !a.internal) out.push(a.address); });
+        });
+    } catch (e) {}
+    return out;
+}
+
 /* A request to Vetro; done(status, text) is called once. */
 function vetro(method, path, buf, timeoutMs, done, retries) {
     if (retries === undefined) retries = HOSTS.length - 1;
+    var host = HOSTS[hostIndex], finished = false, timer = null;
+    function finish(status, text) {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        done(status, text);
+    }
+    function fail(e) {
+        if (finished) return;
+        // The request did not go out (refused, or no answer to connect): try the next address
+        if (retries > 0 && /EHOSTUNREACH|EACCES|ECONNREFUSED|ENETUNREACH|EINVAL|ETIMEDOUT/.test(e.code)) {
+            finished = true;
+            clearTimeout(timer);
+            if (HOSTS[hostIndex] === host) hostIndex = (hostIndex + 1) % HOSTS.length;
+            vetro(method, path, buf, timeoutMs, done, retries - 1);
+            return;
+        }
+        finish(502, JSON.stringify({ ok: false, error: "Vetro unreachable: " + e.message }));
+    }
     var req = http.request({
-        host: HOSTS[hostIndex], port: VETRO_PORT, path: path, method: method,
+        host: host, port: VETRO_PORT, path: path, method: method,
         headers: { "Content-Type": "application/json", "Content-Length": buf.length }
     }, function (res) {
         var chunks = [];
         res.on("data", function (c) { chunks.push(c); });
-        res.on("end", function () { done(res.statusCode || 502, Buffer.concat(chunks).toString("utf8")); });
+        res.on("end", function () { finish(res.statusCode || 502, Buffer.concat(chunks).toString("utf8")); });
     });
-    req.on("error", function (e) {
-        // Connection refused: the request did not go out, try the other way of writing the address
-        if (retries > 0 && /EHOSTUNREACH|EACCES|ECONNREFUSED|ENETUNREACH|EINVAL/.test(e.code)) {
-            hostIndex = (hostIndex + 1) % HOSTS.length;
-            vetro(method, path, buf, timeoutMs, done, retries - 1);
-            return;
+    req.on("error", fail);
+    timer = setTimeout(function () {
+        var e = new Error("no answer from " + host); e.code = "ETIMEDOUT";
+        fail(e);
+        try { req.abort(); } catch (x) {}
+    }, CONNECT_MS);
+    req.on("socket", function (sock) {
+        // Connected: a slow answer is only a timeout, the address is kept
+        function connected() {
+            clearTimeout(timer);
+            timer = setTimeout(function () {
+                finish(504, JSON.stringify({ ok: false, error: "Vetro did not answer in time" }));
+                try { req.abort(); } catch (x) {}
+            }, timeoutMs);
         }
-        done(502, JSON.stringify({ ok: false, error: "Vetro unreachable: " + e.message }));
+        if (sock.connecting) sock.once("connect", connected); else connected();
     });
-    req.setTimeout(timeoutMs, function () { req.abort(); });
     req.end(buf);
 }
 
