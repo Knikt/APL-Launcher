@@ -40,6 +40,8 @@ namespace APL
         private static VconfChanged fullscreenChanged;
         private Timer homeCheck;
         private bool returnToLauncher = true;
+        // The Smart Hub tile opened Samsung's home on purpose: leave it until something else is in front
+        private bool samsungHomeWanted;
         private Alexa alexa;
         private string alexaFile, alexaList;
         private readonly KeyGuard keyGuard = new KeyGuard();
@@ -117,6 +119,7 @@ namespace APL
             string apps = Extra(e, "apl_apps");
             if (!string.IsNullOrEmpty(apps)) idleApps.HomeApps(apps);
             if (action == "stay") return;                  // started by the launcher, to be ready
+            if (action == "samsung_home") { samsungHomeWanted = true; Note("Smart Hub opened from the launcher"); return; }
             if (action == "open") { panel.Open(); return; }
             KeyPressed();
         }
@@ -154,14 +157,20 @@ namespace APL
         /// <summary>Samsung's home flashes by while apps start: it counts only if it stays.</summary>
         private void OnFullscreenChanged()
         {
-            idleApps.Front(FullscreenApp());
-            if (!returnToLauncher || !IsSamsungHome(FullscreenApp())) return;
+            string front = FullscreenApp();
+            idleApps.Front(front);
+            if (samsungHomeWanted)
+            {
+                if (IsSamsungHome(front)) return;          // the one the tile opened
+                samsungHomeWanted = false;                 // the user went elsewhere: back to normal
+            }
+            if (!returnToLauncher || !IsSamsungHome(front)) return;
             if (homeCheck == null)
             {
                 homeCheck = new Timer(350);
                 homeCheck.Tick += delegate
                 {
-                    if (returnToLauncher && IsSamsungHome(FullscreenApp())) OpenLauncher();
+                    if (returnToLauncher && !samsungHomeWanted && IsSamsungHome(FullscreenApp())) OpenLauncher();
                     return false;
                 };
             }

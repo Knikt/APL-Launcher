@@ -605,8 +605,27 @@
             { id: "apl.sources", name: "Sources", virtual: true, accent: "#2c5cc5", eyebrow: "SYSTÈME",
               tileHtml: '<div class="vtile vtile--sources">' + APL.icon("source", 92, 1.6) + '</div>',
               shelfHtml: '<div class="brandcard__glyph vtile--sources">' + APL.icon("source", 180, 1.3) + '</div>',
-              run: function () { APL.openSources(); } }
+              run: function () { APL.openSources(); } },
+            // Samsung's own home: the way out now that Vetro keeps the Home key for the launcher.
+            // Hidden like any app (Settings › Apps › Smart Hub Tile, or hold OK › Hide App).
+            { id: SAMSUNG_HOME_TILE, name: "Smart Hub", virtual: true, accent: "#1428a0", eyebrow: "SYSTÈME",
+              tileHtml: '<div class="vtile vtile--samsunghome">' + APL.icon("apps", 92, 1.6) + '</div>',
+              shelfHtml: '<div class="brandcard__glyph vtile--samsunghome">' + APL.icon("apps", 180, 1.3) + '</div>',
+              run: openSamsungHome }
         ];
+    }
+
+    /* Samsung's home ignores a plain app-control launch (Vetro's dock found the same): the platform's
+       own app_launcher, as root through Vetro, shows it. The overlay is told first, or it would put the
+       launcher back over it within a second ("Return to the Launcher"). */
+    var SAMSUNG_HOME_TILE = "apl.samsunghome";
+    function openSamsungHome() {
+        if (APL.sys.PREVIEW) { toast(APL.t("Opens Samsung's Smart Hub on the screen")); return; }
+        if (APL.overlay && APL.overlay.passSamsungHome) APL.overlay.passSamsungHome();
+        setTimeout(function () {
+            APL.sys.vetroPost("/exec", { cmd: "/usr/bin/app_launcher -s com.samsung.tv.csfs >/dev/null 2>&1 &" })
+                .catch(function () { toast(APL.t("Vetro is not responding")); });
+        }, 300);
     }
 
     function boot() {

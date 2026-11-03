@@ -314,6 +314,7 @@ html, body {
 }
 .vtile--settings { background: linear-gradient(180deg, #e4e4e9 0%, #a3a3ab 100%); color: #3a3a3f; }
 .vtile--sources  { background: linear-gradient(180deg, #3d7bf0 0%, #1d47b5 100%); color: #fff; }
+.vtile--samsunghome { background: linear-gradient(180deg, #2a4fd6 0%, #1428a0 100%); color: #fff; }
 
 /* ===================== SETTINGS (tvOS split view) ===================== */
 .settings {

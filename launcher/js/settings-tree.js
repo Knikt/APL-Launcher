@@ -190,6 +190,8 @@
 
             /* -------- Apps -------- */
             menu(APL.t("Apps"), "apps", [
+                { type: "hide", label: APL.t("Smart Hub Tile"), id: "apl.samsunghome",
+                  desc: APL.t("A tile that opens Samsung's Smart Hub, the way out now that the Home button opens the launcher. Press Home there to come back.") },
                 menu(APL.t("Show on Home Screen"), "apps", apps.map(function (a) {
                     return { type: "hide", label: a.name, id: a.id, desc: APL.t("OK to show or hide “{name}” on the Home Screen.", { name: a.name }) };
                 }), APL.t("Choose the apps shown on the Home Screen.")),
