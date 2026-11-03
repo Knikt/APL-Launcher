@@ -45,14 +45,18 @@ var BOOT_WINDOW_S = 240, LAUNCH_TRIES = 5;
    later it freezes the apps, and the timer then misses its ticks (the fallback signal). */
 var SLEEP_CHECKS = 4, POLL_MS = 3000, TICK_MS = 5000, ASLEEP_MS = 20000, HIDDEN_GRACE_MS = 45000;
 var WAKE_WATCH_MS = 90000, SETTLE_MS = 15000;
+/* The Frame: Art Mode hides the launcher but the screen stays on (memory/pm/state 1). Leaving it with the
+   power key shows the TV input: watched while Art Mode is in front. */
+var ART_APP = /^org\.tizen\.art-app$/, ART_POLL_MS = 1500;
+var STATE = "vconftool get memory/pm/state; vconftool get memory/appfw/current_fullscreen_appid; vconftool get memory/system/source_type";
 
 var port = null, idle = null, openedAtBoot = false;
-var launcherFront = false, hiddenAt = 0, lastTick = Date.now(), ticking = null, sleeping = false, waking = false;
+var launcherFront = false, hiddenAt = 0, lastTick = Date.now(), ticking = null, sleeping = false, waking = false, inArt = false;
 
 function stopLater() {
     clearTimeout(idle);
     // Stays while the launcher is in front or the screen sleeps on it, to bring it back at wake-up
-    if (launcherFront || sleeping || waking) return;
+    if (launcherFront || sleeping || waking || inArt) return;
     idle = setTimeout(function () {
         try { tizen.application.getCurrentApplication().exit(); } catch (e) {}
     }, IDLE_MS);
@@ -171,19 +175,45 @@ function shell(command, done) {
 }
 function vconfValue(out, key) { return (new RegExp(key + ", value = (\\S+)").exec(out) || [])[1]; }
 
+/* Screen state, app in front and source in one read: { pm: "1", app: "appId", source: 0 }. */
+function readState(done) {
+    shell(STATE, function (out) {
+        done({ pm: vconfValue(out, "memory/pm/state"), app: vconfValue(out, "current_fullscreen_appid"),
+               source: parseInt(vconfValue(out, "source_type"), 10) });
+    });
+}
+/* The screen shows the TV input (antenna, no device) or Samsung's home: the launcher should come back. */
+function onTvInput(st) { return !!st.app && ((/tv-viewer/.test(st.app) && st.source === 0) || /csfs|home\.sidebar/.test(st.app)); }
+
 /* The launcher was just hidden: by another app, or by the screen going to sleep? */
+/* The launcher was just hidden: by another app, by Art Mode, or by the screen going to sleep? */
 function checkSleep(tries) {
-    if (sleeping || waking) return;
-    shell("vconftool get memory/pm/state", function (out) {
-        var state = vconfValue(out, "memory/pm/state");
-        if (state && state !== "1") { sleeping = true; stopLater(); watchWake(); return; }
+    if (sleeping || waking || inArt) return;
+    readState(function (st) {
+        if (st.pm && st.pm !== "1") { sleeping = true; stopLater(); watchWake(); return; }
+        if (st.app && ART_APP.test(st.app)) { inArt = true; stopLater(); watchArt(); return; }
         if (tries > 1 && !launcherFront) setTimeout(function () { checkSleep(tries - 1); }, 1000);
     });
 }
+/* The reading that shows the wake is passed on: Vetro restarts its agent a moment later and only
+   answers again after about 15 s, so reading again would keep the TV input on screen meanwhile. */
 function watchWake() {
-    shell("vconftool get memory/pm/state", function (out) {
-        if (vconfValue(out, "memory/pm/state") === "1") { sleeping = false; wokeUp(true); return; }
+    readState(function (st) {
+        if (st.pm === "1") { sleeping = false; wokeUp(true, st); return; }
         setTimeout(watchWake, POLL_MS);
+    });
+}
+/* Art Mode in front: wait until it is left. To the TV input or Samsung's home, the launcher comes back;
+   to an HDMI input (a device that switched the screen on) or another app, nothing is done. */
+function watchArt() {
+    if (launcherFront || !inArt) { inArt = false; stopLater(); return; }
+    readState(function (st) {
+        if (launcherFront) { inArt = false; stopLater(); return; }
+        if (st.pm && st.pm !== "1") { inArt = false; sleeping = true; stopLater(); watchWake(); return; }   // Art Mode, then off
+        if (!st.app || ART_APP.test(st.app)) { setTimeout(watchArt, ART_POLL_MS); return; }
+        inArt = false;
+        if (onTvInput(st)) { try { tizen.application.launch(APP_ID, function () {}, function () {}); } catch (e) {} }
+        stopLater();
     });
 }
 
@@ -194,26 +224,25 @@ function tick() {
     lastTick = now;
 }
 
-function wokeUp(wasFront) {
+function wokeUp(wasFront, first) {
     if (waking || !wasFront) return;
     waking = true;
     var until = Date.now() + WAKE_WATCH_MS, launcherSince = 0;
     function done() { waking = false; stopLater(); }
+    function decided(st) {               // true when nothing more is needed
+        if (!st || !st.app) return false;
+        if (onTvInput(st)) {
+            try { tizen.application.launch(APP_ID, function () {}, function () {}); } catch (e) {}
+            return true;
+        }
+        if (st.app !== APP_ID) return true;
+        if (!launcherSince) launcherSince = Date.now();
+        return Date.now() - launcherSince > SETTLE_MS;                          // the screen came back on it
+    }
+    if (decided(first)) { done(); return; }
     (function look() {
-        shell("vconftool get memory/appfw/current_fullscreen_appid; vconftool get memory/system/source_type", function (out) {
-            var app = vconfValue(out, "current_fullscreen_appid");
-            var source = parseInt(vconfValue(out, "source_type"), 10);
-            if (app) {
-                if ((/tv-viewer/.test(app) && source === 0) || /csfs|home\.sidebar/.test(app)) {
-                    try { tizen.application.launch(APP_ID, function () {}, function () {}); } catch (e) {}
-                    done();
-                    return;
-                }
-                if (app !== APP_ID) { done(); return; }
-                if (!launcherSince) launcherSince = Date.now();
-                if (Date.now() - launcherSince > SETTLE_MS) { done(); return; }    // the screen came back on it
-            }
-            if (Date.now() > until) { done(); return; }
+        readState(function (st) {
+            if (decided(st) || Date.now() > until) { done(); return; }
             setTimeout(look, POLL_MS);
         });
     })();
