@@ -47,7 +47,9 @@
 
     var VETRO = { name: "Vetro", accent: "#3b6fd8", eyebrow: "SYSTEM" };
     var STORE = { name: "App Store", accent: "#1c6ef2", eyebrow: "APPS" };
-    var STORE_ID = /\.store$|samsungapps|^org\.volt\.apps/i;
+    // Samsung's own store ids only: a third-party app whose id ends in ".Store" (Apps2Samsung's
+    // TV-Store, A2STVStore.Store) is an app of its own, not a second App Store tile to drop.
+    var STORE_ID = /^com\.samsung\.[\w.]*\.store$|samsungapps|^org\.volt\.apps/i;
 
     function lookup(id, name) {
         if (isTizenTube(id, name)) return TIZENTUBE;
