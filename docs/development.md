@@ -43,7 +43,7 @@ docs/                Documentation and screenshots
 | `switcher.js` | App switcher (Home pressed twice) |
 | `widgets.js` | Continue Watching cards above the dock and in the switcher |
 | `services.js` | Stops Samsung services the launcher no longer needs, and restores them |
-| `overlay.js` | Starts APL Overlay, sends it the theme and app list, gives Home back if it is missing |
+| `overlay.js` | Starts APL Overlay, sends it the theme and app list; if it is missing while Vetro still sends keys to it, says which rules to change in Vetro (never changes them) |
 | `updater.js` | Automatic updates from GitHub |
 | `preview.js` | PC/phone preview frame and on-screen remote (does nothing on a screen) |
 
@@ -58,7 +58,7 @@ A small .NET app for Tizen's native toolkit, kept hidden in memory:
 - **Stuck keys:** releases a key the screen still believes is down after Vetro's input helper restarts (`KeyGuard.cs`).
 - **Idle apps:** closes an app left in the background for 10 minutes (`IdleApps.cs`): the launcher's apps, those seen in front and Samsung's that open by themselves (after 1 minute when they were never in front: they reopen at every wake-up and hold about 250 MB), never the one in front, Samsung's home, the TV inputs or AirPlay. The launcher sends the delay (`apl_idle`, 0 to turn it off) and its app list (`apl_apps`).
 
-`scripts/05-build-overlay.ps1` builds it with the C# compiler from Visual Studio Build Tools and .NET 6, using the Tizen libraries copied from the screen. The **Install** page of APL Launcher Setup runs it. It is not updated automatically like the launcher. Without it, the launcher takes the Home key back and everything else works.
+`scripts/05-build-overlay.ps1` builds it with the C# compiler from Visual Studio Build Tools and .NET 6, using the Tizen libraries copied from the screen. The **Install** page of APL Launcher Setup runs it. It is not updated automatically like the launcher. Without it, everything else works; if Vetro's Remapper still sends Home or other keys to it, the launcher says so at start-up, and the rules are changed by hand in Vetro.
 
 ### Talking to Vetro and the screen
 

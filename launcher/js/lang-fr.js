@@ -539,5 +539,8 @@ window.APL_LANG_FR = {
     "Update failed: the launcher's GitHub repository is private (it must be public).": "Mise à jour impossible : le dépôt GitHub du launcher est privé (il doit être public).",
     "Update failed: {error}. Try again later.": "Mise à jour impossible : {error}. Réessaie plus tard.",
     "no network": "pas de réseau",
-    "Going back to the installed version…": "Retour à la version installée…"
+    "Going back to the installed version…": "Retour à la version installée…",
+    "APL Overlay is not installed": "APL Overlay n'est pas installé",
+    "key {code}": "touche {code}",
+    "Vetro still sends {keys} to it, so these buttons do nothing. Open the Vetro dashboard (http://<screen IP>:8099) › Remapper: set Home to open APL Launcher ({app}) and delete the rules of the other buttons to give them back to Samsung.": "Vetro lui envoie encore {keys} : ces boutons ne font donc rien. Ouvre le tableau de bord de Vetro (http://<IP de l'écran>:8099) › Remapper : règle Home sur l'ouverture d'APL Launcher ({app}) et supprime les règles des autres boutons pour les rendre à Samsung."
 };

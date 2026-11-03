@@ -114,7 +114,7 @@ if (($res.Trim() -split '\s+')[-1] -eq '0') { throw (Tr "the screen did not inst
 Write-Host (Tr "        APL Overlay is installed." "        APL Overlay est installé.") -ForegroundColor Green
 }
 
-# The Home button goes to the overlay if it went to the launcher. The launcher takes it back if the overlay disappears.
+# The Home button goes to the overlay if it went to the launcher. If the overlay disappears, the launcher says which rules to change in Vetro (it never changes them).
 try {
 $cur = Invoke-RestMethod -Uri "$Base/remap" -TimeoutSec 15
 $changed = $false
