@@ -119,7 +119,7 @@ namespace APL
             string apps = Extra(e, "apl_apps");
             if (!string.IsNullOrEmpty(apps)) idleApps.HomeApps(apps);
             if (action == "stay") return;                  // started by the launcher, to be ready
-            if (action == "samsung_home") { samsungHomeWanted = true; Note("Smart Hub opened from the launcher"); return; }
+            if (action == "samsung_home") { OpenSamsungHome(); return; }
             if (action == "open") { panel.Open(); return; }
             KeyPressed();
         }
@@ -286,6 +286,19 @@ namespace APL
         private static bool IsSamsungHome(string app)
         {
             return string.IsNullOrEmpty(app) ? false : app.Contains("csfs") || app.Contains("home.sidebar");
+        }
+
+        /// <summary>
+        /// The launcher's Smart Hub tile. Samsung's home ignores a plain app-control launch (Vetro's dock
+        /// found the same); the platform's app_launcher, as root through Vetro, shows it. It then stays:
+        /// "Return to the Launcher" waits until something else is in front (OnFullscreenChanged).
+        /// </summary>
+        private async void OpenSamsungHome()
+        {
+            samsungHomeWanted = true;
+            Note("Smart Hub opened from the launcher");
+            try { await Vetro.Exec("/usr/bin/app_launcher -s com.samsung.tv.csfs >/dev/null 2>&1"); }
+            catch (Exception ex) { samsungHomeWanted = false; Note("Smart Hub: " + ex.Message); }
         }
 
         public static async void OpenLauncher(string action = "")

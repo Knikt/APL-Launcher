@@ -621,11 +621,11 @@
     var SAMSUNG_HOME_TILE = "apl.samsunghome";
     function openSamsungHome() {
         if (APL.sys.PREVIEW) { toast(APL.t("Opens Samsung's Smart Hub on the screen")); return; }
-        if (APL.overlay && APL.overlay.passSamsungHome) APL.overlay.passSamsungHome();
-        setTimeout(function () {
-            APL.sys.vetroPost("/exec", { cmd: "/usr/bin/app_launcher -s com.samsung.tv.csfs >/dev/null 2>&1 &" })
-                .catch(function () { toast(APL.t("Vetro is not responding")); });
-        }, 300);
+        // The overlay opens it itself (it reaches Vetro on its own, without the bridge) and then
+        // leaves it on screen; without the overlay, the launcher asks Vetro.
+        if (APL.overlay && APL.overlay.isInstalled() && APL.overlay.openSamsungHome) { APL.overlay.openSamsungHome(); return; }
+        APL.sys.vetroPost("/exec", { cmd: "/usr/bin/app_launcher -s com.samsung.tv.csfs >/dev/null 2>&1 &" })
+            .catch(function () { toast(APL.t("Vetro is not responding")); });
     }
 
     function boot() {

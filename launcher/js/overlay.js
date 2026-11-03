@@ -56,9 +56,9 @@
         } catch (e) {}
     }
 
-    /* The Smart Hub tile opens Samsung's home on purpose: the overlay leaves it on screen until
-       something else comes in front (overlay/Program.cs, apl_action samsung_home). */
-    function passSamsungHome() {
+    /* The Smart Hub tile: the overlay opens Samsung's home and leaves it on screen until something
+       else comes in front (overlay/Program.cs, apl_action samsung_home). */
+    function openSamsungHome() {
         if (!installed || sys.PREVIEW) return;
         try {
             var T = global.tizen;
@@ -125,7 +125,7 @@
             send();
         },
         refresh: send,
-        passSamsungHome: passSamsungHome,
+        openSamsungHome: openSamsungHome,
         isInstalled: function () { return installed; }
     };
 })(window);
