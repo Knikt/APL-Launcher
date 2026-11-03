@@ -547,7 +547,6 @@ window.APL_LANG_FR = {
     "Home now opens APL Launcher. Run APL Launcher Setup again to get the overlay back.": "Home ouvre maintenant APL Launcher. Relance APL Launcher Setup pour retrouver l'overlay.",
     "{keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} reviennent à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
     "{keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} revient à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
-    "Smart Hub Tile": "Tuile Smart Hub",
     "A tile that opens Samsung's Smart Hub, the way out now that the Home button opens the launcher. Press Home there to come back.": "Une tuile qui ouvre le Smart Hub de Samsung, la porte de sortie maintenant que le bouton Home ouvre le launcher. Appuie sur Home pour revenir.",
     "Opens Samsung's Smart Hub on the screen": "Ouvre le Smart Hub de Samsung sur l'écran"
 };

@@ -190,11 +190,13 @@
 
             /* -------- Apps -------- */
             menu(APL.t("Apps"), "apps", [
-                { type: "hide", label: APL.t("Smart Hub Tile"), id: "apl.samsunghome",
-                  desc: APL.t("A tile that opens Samsung's Smart Hub, the way out now that the Home button opens the launcher. Press Home there to come back.") },
-                menu(APL.t("Show on Home Screen"), "apps", apps.map(function (a) {
+                menu(APL.t("Show on Home Screen"), "apps", [
+                    // The launcher's own Smart Hub tile first: the way out to Samsung's home
+                    { type: "hide", label: "Smart Hub", id: "apl.samsunghome",
+                      desc: APL.t("A tile that opens Samsung's Smart Hub, the way out now that the Home button opens the launcher. Press Home there to come back.") }
+                ].concat(apps.map(function (a) {
                     return { type: "hide", label: a.name, id: a.id, desc: APL.t("OK to show or hide “{name}” on the Home Screen.", { name: a.name }) };
-                }), APL.t("Choose the apps shown on the Home Screen.")),
+                })), APL.t("Choose the apps shown on the Home Screen.")),
                 info(APL.t("Rearrange"), function () { return APL.t("Hold OK"); },
                     APL.t("On the Home Screen, hold OK on an app: Edit Home Screen, Hide App or Delete App.")),
                 action(APL.t("Reset Home Screen"), function () {
