@@ -46,6 +46,10 @@ var BOOT_WINDOW_S = 240, LAUNCH_TRIES = 5;
    later it freezes the apps, and the timer then misses its ticks (the fallback signal). */
 var SLEEP_CHECKS = 4, POLL_MS = 3000, TICK_MS = 5000, ASLEEP_MS = 20000, HIDDEN_GRACE_MS = 45000;
 var WAKE_WATCH_MS = 90000, SETTLE_MS = 15000;
+/* Right after a wake the first readings are not reliable yet (no app in front, or a short-lived one), and
+   Vetro's agent drops ~1.5 s later for ~15 s: read back to back for a while, and only take another app
+   for the user's choice once it has stayed in front. */
+var WAKE_FAST_MS = 6000, OTHER_APP_STAYS_MS = 4000;
 /* The Frame: Art Mode hides the launcher but the screen stays on (memory/pm/state 1). Leaving it with the
    power key shows the TV input: watched while Art Mode is in front. */
 var ART_APP = /^org\.tizen\.art-app$/, ART_POLL_MS = 1500;
@@ -227,7 +231,7 @@ function tick() {
 function wokeUp(wasFront, first) {
     if (waking || !wasFront) return;
     waking = true;
-    var until = Date.now() + WAKE_WATCH_MS, launcherSince = 0;
+    var woke = Date.now(), until = woke + WAKE_WATCH_MS, launcherSince = 0, other = null, otherSince = 0;
     function done() { waking = false; stopLater(); }
     function decided(st) {               // true when nothing more is needed
         if (!st || !st.app) return false;
@@ -235,9 +239,14 @@ function wokeUp(wasFront, first) {
             try { tizen.application.launch(APP_ID, function () {}, function () {}); } catch (e) {}
             return true;
         }
-        // The Frame often wakes up in Art Mode: leaving it later is watched like any other Art Mode
+        // Art Mode in front at wake: leaving it later is watched like any other Art Mode
         if (ART_APP.test(st.app)) { inArt = true; watchArt(); return true; }
-        if (st.app !== APP_ID) return true;
+        if (st.app !== APP_ID) {
+            // Another app: the user's choice only if it stays (wake-up screens come and go)
+            if (st.app !== other) { other = st.app; otherSince = Date.now(); return false; }
+            return Date.now() - otherSince >= OTHER_APP_STAYS_MS;
+        }
+        other = null;
         if (!launcherSince) launcherSince = Date.now();
         return Date.now() - launcherSince > SETTLE_MS;                          // the screen came back on it
     }
@@ -245,7 +254,7 @@ function wokeUp(wasFront, first) {
     (function look() {
         readState(function (st) {
             if (decided(st) || Date.now() > until) { done(); return; }
-            setTimeout(look, POLL_MS);
+            setTimeout(look, Date.now() - woke > WAKE_FAST_MS ? POLL_MS : 100);   // back to back at first
         });
     })();
 }

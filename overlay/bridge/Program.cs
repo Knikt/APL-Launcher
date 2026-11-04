@@ -48,6 +48,10 @@ namespace APL.Bridge
         // power key shows the TV input. Watched while Art Mode is in front.
         private static readonly Regex ArtApp = new Regex(@"^org\.tizen\.art-app$");
         private static readonly TimeSpan ArtPoll = TimeSpan.FromSeconds(1.5);
+        // Right after a wake the first readings are not reliable yet (no app in front, or a short-lived one), and
+        // Vetro's agent drops ~1.5 s later for ~15 s: read back to back for a while, and only take another app
+        // for the user's choice once it has stayed in front.
+        private static readonly TimeSpan WakeFast = TimeSpan.FromSeconds(6), OtherAppStays = TimeSpan.FromSeconds(4);
         private const string StateCommand = "vconftool get memory/pm/state; vconftool get memory/appfw/current_fullscreen_appid; vconftool get memory/system/source_type";
 
         // Answers go through the platform call without a local port: with one attached (MessagePort.Send,
@@ -162,7 +166,24 @@ namespace APL.Bridge
         /// apps), then the screen's own LAN addresses (The Frame 2025 drops both loopback forms; Vetro listens
         /// on every interface). Read each time, so a LAN address that came up late is there.
         /// </summary>
+        private static List<string> cachedHosts;
+        private static DateTime hostsUntil = DateTime.MinValue;
+        private static readonly TimeSpan HostsFor = TimeSpan.FromMinutes(1);
+
+        /// <summary>The address list, built at most once a minute (requests come every 100 ms at times), or again after every address failed.</summary>
         private static List<string> Hosts()
+        {
+            var cached = cachedHosts;
+            if (cached != null && DateTime.UtcNow < hostsUntil) return cached;
+            cached = BuildHosts();
+            cachedHosts = cached;
+            hostsUntil = DateTime.UtcNow + HostsFor;
+            return cached;
+        }
+
+        private static void ForgetHosts() { hostsUntil = DateTime.MinValue; }
+
+        private static List<string> BuildHosts()
         {
             var hosts = new List<string> { "127.0.0.1", "::ffff:127.0.0.1" };
             try
@@ -217,6 +238,7 @@ namespace APL.Bridge
                 }
                 finally { client.Dispose(); }
             }
+            ForgetHosts();                     // every address failed: the network may have changed
             return (502, "{\"ok\":false,\"error\":\"Vetro unreachable: " + JsonText(lastError) + "\"}");
         }
 
@@ -310,7 +332,7 @@ namespace APL.Bridge
             while (true)
             {
                 State st = await ReadState();
-                if (st.Pm == "1") { sleeping = false; Note("woke up"); WokeUp(true, st); return; }
+                if (st.Pm == "1") { sleeping = false; Note("woke up, in front: " + (string.IsNullOrEmpty(st.App) ? "nothing yet" : st.App)); WokeUp(true, st); return; }
                 await Task.Delay(Poll);
             }
         }
@@ -349,14 +371,23 @@ namespace APL.Bridge
         {
             if (waking || !wasFront) return;
             waking = true;
-            DateTime until = DateTime.UtcNow + WakeWatch, launcherSince = DateTime.MinValue;
+            DateTime woke = DateTime.UtcNow, until = woke + WakeWatch, launcherSince = DateTime.MinValue, otherSince = DateTime.MinValue;
+            string other = null;
             bool Decided(State st)                // true when nothing more is needed
             {
                 if (st == null || string.IsNullOrEmpty(st.App)) return false;
                 if (OnTvInput(st)) { OpenLauncher("woke up on " + st.App); return true; }
-                // The Frame often wakes up in Art Mode: leaving it later is watched like any other Art Mode
-                if (ArtApp.IsMatch(st.App)) { inArt = true; Note("woke up in Art Mode"); WatchArt(); return true; }
-                if (st.App != LauncherId) return true;
+                // Art Mode in front at wake: leaving it later is watched like any other Art Mode
+                if (ArtApp.IsMatch(st.App)) { inArt = true; Note("Art Mode in front after the wake"); WatchArt(); return true; }
+                if (st.App != LauncherId)
+                {
+                    // Another app: the user's choice only if it stays (wake-up screens come and go)
+                    if (st.App != other) { other = st.App; otherSince = DateTime.UtcNow; return false; }
+                    if (DateTime.UtcNow - otherSince < OtherAppStays) return false;
+                    Note(st.App + " stayed in front: left alone");
+                    return true;
+                }
+                other = null;
                 if (launcherSince == DateTime.MinValue) launcherSince = DateTime.UtcNow;
                 return DateTime.UtcNow - launcherSince > Settle;              // the screen came back on it
             }
@@ -366,7 +397,8 @@ namespace APL.Bridge
                 {
                     State st = await ReadState();
                     if (Decided(st) || DateTime.UtcNow > until) break;
-                    await Task.Delay(Poll);
+                    // Back to back at first (a reading takes ~0.5 s), never faster than 10 a second
+                    await Task.Delay(DateTime.UtcNow - woke > WakeFast ? Poll : TimeSpan.FromMilliseconds(100));
                 }
             }
             waking = false;

@@ -26,7 +26,24 @@ namespace APL
         /// The addresses tried, in order: loopback, the same in IPv6 form, then the screen's own LAN addresses
         /// (The Frame 2025 blocks both loopback forms for apps; Vetro listens on every interface), as the bridge.
         /// </summary>
+        private static List<string> cachedHosts;
+        private static DateTime hostsUntil = DateTime.MinValue;
+        private static readonly TimeSpan HostsFor = TimeSpan.FromMinutes(1);
+
+        /// <summary>The address list, built at most once a minute (requests come every 100 ms at times), or again after every address failed.</summary>
         private static List<string> Hosts()
+        {
+            var cached = cachedHosts;
+            if (cached != null && DateTime.UtcNow < hostsUntil) return cached;
+            cached = BuildHosts();
+            cachedHosts = cached;
+            hostsUntil = DateTime.UtcNow + HostsFor;
+            return cached;
+        }
+
+        private static void ForgetHosts() { hostsUntil = DateTime.MinValue; }
+
+        private static List<string> BuildHosts()
         {
             var hosts = new List<string> { "127.0.0.1", "::ffff:127.0.0.1" };
             try
@@ -71,6 +88,7 @@ namespace APL
                     last = ex is OperationCanceledException ? new TimeoutException(host + ": no answer") : ex;
                 }
             }
+            ForgetHosts();                     // every address failed: the network may have changed
             throw last ?? new SocketException((int)SocketError.HostUnreachable);
         }
 
