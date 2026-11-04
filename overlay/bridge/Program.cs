@@ -63,7 +63,11 @@ namespace APL.Bridge
         [DllImport("libvconf.so.0")] private static extern int vconf_get_int(string key, out int value);
         [DllImport("libvconf.so.0")] private static extern IntPtr vconf_get_str(string key);
         [DllImport("libc.so.6")] private static extern void free(IntPtr p);
-        private static int directRead;            // 0 not tried yet, 1 works, -1 refused (Vetro is used)
+        private static bool keysLogged, appsLogged;
+        // Read every second straight from the platform when it lets us: sleep and wake are then seen at once,
+        // whatever the launcher reported and whether Vetro answers or not.
+        private static readonly TimeSpan ScreenEvery = TimeSpan.FromSeconds(1);
+        private bool watchingScreen, frontAtSleep;
 
         private MessagePort port;
         private CancellationTokenSource idle;
@@ -75,6 +79,7 @@ namespace APL.Bridge
         {
             public string Pm, App;
             public int Source = -1;
+            public bool SourceKnown;
         }
 
         protected override void OnCreate()
@@ -88,7 +93,8 @@ namespace APL.Bridge
                 Note("listening on " + PortName);
             }
             catch (Exception ex) { Note("listen failed: " + ex.Message); }
-            Ticking();
+            WatchScreen();
+            if (!watchingScreen) Ticking();
             StopLater();
         }
 
@@ -103,7 +109,7 @@ namespace APL.Bridge
         {
             idle?.Cancel();
             idle = null;
-            if (launcherFront || sleeping || waking || inArt) return;
+            if (watchingScreen || launcherFront || sleeping || waking || inArt) return;
             var cts = new CancellationTokenSource();
             idle = cts;
             IdleExit(cts.Token);
@@ -292,44 +298,70 @@ namespace APL.Bridge
             return m.Success ? m.Groups[1].Value : null;
         }
 
-        /// <summary>Screen state, app in front and source in one read: straight from the platform when it lets us, else through Vetro.</summary>
+        /// <summary>
+        /// Screen state, app in front and source: straight from the platform where it lets us (vconf, then the
+        /// app manager for the app in front), Vetro only for what is still missing.
+        /// </summary>
         private static async Task<State> ReadState()
         {
-            if (directRead >= 0)
-            {
-                State direct = ReadDirect();
-                // Trusted once the app in front came through too: a platform that lets us read pm/state but
-                // not the app would otherwise always look like "nothing in front"
-                if (direct != null && (direct.App != null || directRead == 1))
-                {
-                    if (directRead == 0) { directRead = 1; Note("screen state read directly"); }
-                    return direct;
-                }
-                if (direct == null && directRead == 0) { directRead = -1; Note("screen state not readable directly: through Vetro"); }
-            }
+            State st = ReadDirect() ?? new State();
+            if (st.App == null) st.App = await FrontApp();
+            bool needSource = st.App != null && st.App.Contains("tv-viewer") && !st.SourceKnown;
+            if (st.Pm != null && st.App != null && !needSource) return st;
             string output = await Shell(StateCommand);
-            var st = new State { Pm = VconfValue(output, "memory/pm/state"), App = VconfValue(output, "current_fullscreen_appid") };
-            if (int.TryParse(VconfValue(output, "source_type"), out int source)) st.Source = source;
+            if (st.Pm == null) st.Pm = VconfValue(output, "memory/pm/state");
+            if (st.App == null) st.App = VconfValue(output, "current_fullscreen_appid");
+            if (!st.SourceKnown && int.TryParse(VconfValue(output, "source_type"), out int source)) { st.Source = source; st.SourceKnown = true; }
             return st;
         }
 
+        /// <summary>What vconf lets us read directly; null fields are the ones it refused.</summary>
         private static State ReadDirect()
         {
+            var st = new State();
+            int rcPm = -1, rcSource = -1;
+            bool appRead = false;
             try
             {
-                if (vconf_get_int("memory/pm/state", out int pm) != 0) return null;
-                var st = new State { Pm = pm.ToString() };
+                rcPm = vconf_get_int("memory/pm/state", out int pm);
+                if (rcPm == 0) st.Pm = pm.ToString();
                 IntPtr p = vconf_get_str("memory/appfw/current_fullscreen_appid");
                 if (p != IntPtr.Zero)
                 {
+                    appRead = true;
                     string app = Marshal.PtrToStringUTF8(p);
                     free(p);
                     if (!string.IsNullOrEmpty(app)) st.App = app;
                 }
-                if (vconf_get_int("memory/system/source_type", out int source) == 0) st.Source = source;
-                return st;
+                rcSource = vconf_get_int("memory/system/source_type", out int source);
+                if (rcSource == 0) { st.Source = source; st.SourceKnown = true; }
             }
-            catch (Exception ex) { Note("direct read: " + ex.Message); return null; }
+            catch (Exception ex) { Note("direct read: " + ex.Message); }
+            if (!keysLogged)
+            {
+                keysLogged = true;
+                Note("direct read: pm/state " + (rcPm == 0 ? "ok" : "refused") + ", app in front " + (appRead ? (st.App ?? "empty") : "refused") +
+                     ", source " + (rcSource == 0 ? "ok" : "refused"));
+            }
+            return st;
+        }
+
+        /// <summary>The app in front from the app manager, when vconf does not give it: null if unknown.</summary>
+        private static async Task<string> FrontApp()
+        {
+            try
+            {
+                var front = (await ApplicationManager.GetRunningApplicationsAsync())
+                    .Where(a => a.State == AppState.Foreground && a.ApplicationId != "APLauncher.Overlay")
+                    .Select(a => a.ApplicationId).ToList();
+                if (!appsLogged) { appsLogged = true; Note("app manager, in front: " + (front.Count > 0 ? string.Join(", ", front) : "none")); }
+                return front.Count == 1 ? front[0] : null;          // several: not sure which one shows, ask Vetro
+            }
+            catch (Exception ex)
+            {
+                if (!appsLogged) { appsLogged = true; Note("app manager: " + ex.Message); }
+                return null;
+            }
         }
 
         /// <summary>The screen shows the TV input (antenna, no device) or Samsung's home: the launcher should come back.</summary>
@@ -355,7 +387,7 @@ namespace APL.Bridge
             {
                 if (sleeping || waking || inArt) return;
                 State st = await ReadState();
-                if (!string.IsNullOrEmpty(st.Pm) && st.Pm != "1") { sleeping = true; Note("the screen is going to sleep"); StopLater(); WatchWake(); return; }
+                if (!watchingScreen && !string.IsNullOrEmpty(st.Pm) && st.Pm != "1") { sleeping = true; Note("the screen is going to sleep"); StopLater(); WatchWake(); return; }
                 if (!string.IsNullOrEmpty(st.App) && ArtApp.IsMatch(st.App)) { inArt = true; Note("Art Mode in front"); StopLater(); WatchArt(); return; }
                 if (tries <= 1 || launcherFront) return;
                 tries--;
@@ -383,12 +415,58 @@ namespace APL.Bridge
                 if (launcherFront || !inArt) { inArt = false; StopLater(); return; }
                 State st = await ReadState();
                 if (launcherFront) { inArt = false; StopLater(); return; }
-                if (!string.IsNullOrEmpty(st.Pm) && st.Pm != "1") { inArt = false; sleeping = true; StopLater(); WatchWake(); return; }   // Art Mode, then off
+                if (!string.IsNullOrEmpty(st.Pm) && st.Pm != "1")                                                                      // Art Mode, then off
+                {
+                    inArt = false;
+                    if (watchingScreen) { StopLater(); return; }        // the screen watcher saw it too
+                    sleeping = true; StopLater(); WatchWake(); return;
+                }
                 if (string.IsNullOrEmpty(st.App) || ArtApp.IsMatch(st.App)) { await Task.Delay(ArtPoll); continue; }
                 inArt = false;
                 if (OnTvInput(st)) OpenLauncher("left Art Mode to " + st.App);
                 StopLater();
                 return;
+            }
+        }
+
+        /// <summary>
+        /// Reads memory/pm/state straight from the platform every second (when it lets us). Off: remembers whether
+        /// the launcher was on screen (or Art Mode over it). Back on, or the loop missing its beats because the apps
+        /// were frozen: a wake, handled by WokeUp. Nothing here needs Vetro.
+        /// </summary>
+        private async void WatchScreen()
+        {
+            if (ReadDirect().Pm == null) { Note("screen watch: pm/state not readable directly, using the launcher's reports"); return; }
+            watchingScreen = true;
+            Note("screen watch: on");
+            bool on = true;
+            DateTime last = DateTime.UtcNow;
+            while (true)
+            {
+                await Task.Delay(ScreenEvery);
+                DateTime now = DateTime.UtcNow, before = last;
+                bool frozen = now - before > Asleep;
+                last = now;
+                string pm = ReadDirect().Pm;
+                if (pm == null) continue;
+                bool nowOn = pm != "3" && pm != "4";
+                // Judged at the last beat before a freeze: after a long sleep the launcher's "hidden" is always old
+                bool wasFront = launcherFront || inArt || (hiddenAt > DateTime.MinValue && before - hiddenAt < HiddenGrace);
+                if (on && !nowOn)
+                {
+                    frontAtSleep = wasFront;
+                    sleeping = true;
+                    Note("the screen is going to sleep" + (frontAtSleep ? "" : " (launcher not in front)"));
+                }
+                else if ((!on && nowOn) || (frozen && nowOn))
+                {
+                    bool back = on ? wasFront : frontAtSleep;           // frozen without an "off" reading: judge now
+                    sleeping = false;
+                    Note("woke up" + (frozen ? " (after a freeze)" : ""));
+                    inArt = false;
+                    WokeUp(back, null);
+                }
+                on = nowOn;
             }
         }
 
