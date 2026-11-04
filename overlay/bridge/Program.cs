@@ -58,6 +58,13 @@ namespace APL.Bridge
         // whichever port) the screen refuses every message to the launcher's page ("Can't send message").
         [DllImport("libcapi-message-port.so.1")] private static extern int message_port_send_trusted_message(string appId, string port, IntPtr bundle);
 
+        // The screen state keys read straight from the platform: no need for Vetro, whose agent restarts for
+        // ~15 s right after a wake, just when the reading matters most.
+        [DllImport("libvconf.so.0")] private static extern int vconf_get_int(string key, out int value);
+        [DllImport("libvconf.so.0")] private static extern IntPtr vconf_get_str(string key);
+        [DllImport("libc.so.6")] private static extern void free(IntPtr p);
+        private static int directRead;            // 0 not tried yet, 1 works, -1 refused (Vetro is used)
+
         private MessagePort port;
         private CancellationTokenSource idle;
         private bool launcherFront, sleeping, waking, inArt;
@@ -285,13 +292,44 @@ namespace APL.Bridge
             return m.Success ? m.Groups[1].Value : null;
         }
 
-        /// <summary>Screen state, app in front and source in one read.</summary>
+        /// <summary>Screen state, app in front and source in one read: straight from the platform when it lets us, else through Vetro.</summary>
         private static async Task<State> ReadState()
         {
+            if (directRead >= 0)
+            {
+                State direct = ReadDirect();
+                // Trusted once the app in front came through too: a platform that lets us read pm/state but
+                // not the app would otherwise always look like "nothing in front"
+                if (direct != null && (direct.App != null || directRead == 1))
+                {
+                    if (directRead == 0) { directRead = 1; Note("screen state read directly"); }
+                    return direct;
+                }
+                if (direct == null && directRead == 0) { directRead = -1; Note("screen state not readable directly: through Vetro"); }
+            }
             string output = await Shell(StateCommand);
             var st = new State { Pm = VconfValue(output, "memory/pm/state"), App = VconfValue(output, "current_fullscreen_appid") };
             if (int.TryParse(VconfValue(output, "source_type"), out int source)) st.Source = source;
             return st;
+        }
+
+        private static State ReadDirect()
+        {
+            try
+            {
+                if (vconf_get_int("memory/pm/state", out int pm) != 0) return null;
+                var st = new State { Pm = pm.ToString() };
+                IntPtr p = vconf_get_str("memory/appfw/current_fullscreen_appid");
+                if (p != IntPtr.Zero)
+                {
+                    string app = Marshal.PtrToStringUTF8(p);
+                    free(p);
+                    if (!string.IsNullOrEmpty(app)) st.App = app;
+                }
+                if (vconf_get_int("memory/system/source_type", out int source) == 0) st.Source = source;
+                return st;
+            }
+            catch (Exception ex) { Note("direct read: " + ex.Message); return null; }
         }
 
         /// <summary>The screen shows the TV input (antenna, no device) or Samsung's home: the launcher should come back.</summary>
