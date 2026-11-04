@@ -6,6 +6,8 @@
    a large background of the movie / series, with its title and rating.
 
    Sources:
+     Smart Hub        the app's own rows for Samsung's home (Plex's Continue Watching,
+                      Spotify's mixes…), first when there are some — Vetro
      TMDB             current movies and series per service, for France
                       (Netflix, Prime Video, Disney+, CANAL+, TF1+, M6+…) — key
      YouTube Data API trending videos in France, for TizenTube — key
@@ -37,10 +39,10 @@
         paramountplus: 531, crunchyroll: 283, rakutentv: 35, plutotv: 300, canalplus: 381
     };
 
-    function cacheGet(k, anyAge) {
+    function cacheGet(k, anyAge, ttl) {
         try {
             var c = JSON.parse(global.localStorage.getItem("apl.live." + k) || "null");
-            if (c && c.v === CACHE_VERSION && (anyAge || Date.now() - c.t < TTL) && c.items && c.items.length) return c.items;
+            if (c && c.v === CACHE_VERSION && (anyAge || Date.now() - c.t < (ttl || TTL)) && c.items && c.items.length) return c.items;
         } catch (e) {}
         return null;
     }
@@ -290,9 +292,77 @@
         });
     }
 
+    /* Smart Hub Preview: the rows an app publishes for Samsung's home (webapis.preview.setPreviewData),
+       e.g. Plex's Continue Watching or Spotify's mixes. The user's own content, kept by Samsung's content
+       service in its private folder: read as root through Vetro. The image URLs can carry the app's
+       token (Plex): they stay on the screen and are never logged. */
+    var HUB_DB = "/opt/usr/home/owner/apps_rw/com.samsung.tv.contentservicemanager/data/.preview.db";
+    var HUB_TTL = 10 * 60 * 1000;
+    var HUB_JOIN = " from tiles t join sections s on s._id = t.section_id join accelerators a on a._id = s.accelerator_id";
+    var hubPackages = null, hubAt = 0;
+    function hubPackage(app) { var m = /^([A-Za-z0-9]{10})[.]/.exec(app.id || ""); return m ? m[1] : null; }
+    function hubSql(sql) {
+        // Vetro doubles backslashes: none in these commands. Its answer is cut after a few KB.
+        return APL.sys.exec("sqlite3 -readonly -json " + HUB_DB + " \"" + sql + "\" 2>/dev/null").then(function (r) {
+            var out = String(r.output || "").trim();
+            return out ? JSON.parse(out) : [];
+        });
+    }
+    /* Which apps have tiles: read once, then every 10 minutes. */
+    var hubRetry = null;
+    function refreshHub() {
+        if (APL.sys.PREVIEW || Date.now() - hubAt < HUB_TTL) return;
+        hubAt = Date.now();
+        hubSql("select distinct a.app_pkg_name pkg" + HUB_JOIN + " where t.image_url like 'http%'").then(function (rows) {
+            var before = JSON.stringify(hubPackages);
+            hubPackages = {};
+            rows.forEach(function (r) { hubPackages[r.pkg] = true; });
+            // The app in focus may already show something else: it gets its own rows now
+            if (JSON.stringify(hubPackages) !== before && APL.onLiveSources) APL.onLiveSources();
+        }, function () {
+            // After a full start-up Vetro answers late: again in 15 s, without waiting for a focus change
+            hubAt = 0;
+            if (!hubRetry) hubRetry = setTimeout(function () { hubRetry = null; refreshHub(); }, 15000);
+        });
+    }
+    /* The tiles' pictures are small: a larger one when the service has it. */
+    function hubArt(url, w, h) {
+        // Spotify album covers: the size is in the image id (b273 = 640 px, 82c1 = 2000 px)
+        if (/^https:[/][/]i[.]scdn[.]co[/]image[/]ab67616d0000(b273|1e02)/.test(url)) return w > 1000 ? url.replace(/ab67616d0000(b273|1e02)/, "ab67616d000082c1") : url;
+        // Plex: 240×360 posters; the same transcode address gives the 16:9 artwork
+        if (!/[/]photo[/]:[/]transcode[?]/.test(url) || !/%2Fthumb%2F/.test(url)) return url;
+        return url.replace(/width=[0-9]+/, "width=" + w).replace(/height=[0-9]+/, "height=" + h)
+                  .replace(/%2Fthumb%2F[0-9]+/, "%2Fart");
+    }
+    function smartHub(pkg) {
+        return hubSql("select s.title section, t.title, t.subtitle sub, t.image_url url" + HUB_JOIN +
+                      " where a.app_pkg_name = '" + pkg + "' and t.image_url like 'http%'" +
+                      " order by s.position, s._id, t.position, t._id limit 8").then(function (rows) {
+            return rows.map(function (r) {
+                return { bg: hubArt(r.url, 1920, 1080), bgSmall: hubArt(r.url, 480, 270), logo: null,
+                         title: r.title || "", sub: r.section || "",
+                         // Under the title (metaOf): an episode or artists, not a playlist's description
+                         type: [r.sub && r.sub.length <= 48 ? r.sub : "", r.section].filter(Boolean).join(" · ") };
+            });
+        });
+    }
+
     /* Which source for this app? (null = no dynamic Top Shelf) */
+    /* Settings › Apps › Top Shelf Background, in this order: the app's own rows (hubShelf), the content
+       of the moment (liveShelf), then the app's artwork and a plain dark background (launcher.js). */
     function sourceFor(app) {
-        if (!APL.sys.pref("liveShelf")) return null;
+        var pub = APL.sys.pref("liveShelf") ? publicSource(app) : null, pkg = hubPackage(app);
+        if (!APL.sys.pref("hubShelf")) return pub;
+        refreshHub();
+        if (!pkg || !hubPackages || !hubPackages[pkg]) return pub;
+        // The app's own rows first; the public source when it has none any more
+        return { id: "hub-" + pkg, ttl: HUB_TTL, load: function () {
+            return smartHub(pkg).catch(function () { return null; }).then(function (mine) {
+                return mine && mine.length ? mine : pub ? pub.load() : null;
+            });
+        } };
+    }
+    function publicSource(app) {
         if (app.live === "youtube") return KEYS.youtube ? { id: "youtube", load: function () { return youtube(); } } : null;
         if (app.live === "youtube-music") return KEYS.youtube ? { id: "youtube-10", load: function () { return youtube("10"); } }
                                                               : { id: "music-" + REGION, load: appleCharts };
@@ -313,7 +383,7 @@
     function itemsFor(app) {
         var src = sourceFor(app);
         if (!src) return Promise.resolve(null);
-        var cached = cacheGet(src.id);
+        var cached = cacheGet(src.id, false, src.ttl);
         if (cached) return Promise.resolve(cached);
         if (!inflight[src.id]) {
             inflight[src.id] = src.load().then(function (items) {
@@ -385,6 +455,9 @@
             return artOf(hit, imdbId);
         }).catch(function () { return null; });
     }
+
+    // Once Vetro is up (system.js checks it at 4 s): the first app in focus already has its own rows
+    if (!APL.sys.PREVIEW) setTimeout(refreshHub, 6000);
 
     APL.live = {
         searchArt: searchArt,

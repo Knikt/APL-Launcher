@@ -108,7 +108,7 @@ The app runs the PowerShell scripts in `scripts/`, which also work on their own.
 
 **Can it install Android apps (APK)?** No. Tizen cannot run Android apps, and root access does not change that. Look for the app in the Samsung App Store, or add its website as an app.
 
-**Does the Top Shelf show my personal recommendations?** No. Netflix, Crunchyroll and similar services have no public API for account data. The launcher shows what is popular on each service in your country. *Continue Watching* cards exist only for apps that keep their history on the screen (AquaPlay, Hot Player, Stremio).
+**Does the Top Shelf show my personal recommendations?** For apps that publish rows to Samsung's home, yes: Plex shows your *Continue Watching* and recently added titles, Spotify your mixes and playlists (needs Vetro). Netflix, Crunchyroll and similar services have no public API for account data: for them, the launcher shows what is popular on each service in your country. *Continue Watching* cards exist only for apps that keep their history on the screen (AquaPlay, Hot Player, Stremio).
 
 **Is it safe?** Nothing in Samsung's system is deleted. Samsung's home is only closed in the background, and **Restore** in APL Launcher Setup undoes everything.
 
