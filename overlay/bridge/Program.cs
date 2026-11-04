@@ -109,7 +109,7 @@ namespace APL.Bridge
         {
             idle?.Cancel();
             idle = null;
-            if (watchingScreen || launcherFront || sleeping || waking || inArt) return;
+            if (launcherFront || sleeping || waking || inArt) return;
             var cts = new CancellationTokenSource();
             idle = cts;
             IdleExit(cts.Token);
@@ -457,6 +457,7 @@ namespace APL.Bridge
                     frontAtSleep = wasFront;
                     sleeping = true;
                     Note("the screen is going to sleep" + (frontAtSleep ? "" : " (launcher not in front)"));
+                    StopLater();
                 }
                 else if ((!on && nowOn) || (frozen && nowOn))
                 {
@@ -485,7 +486,8 @@ namespace APL.Bridge
 
         private async void WokeUp(bool wasFront, State first)
         {
-            if (waking || !wasFront) return;
+            if (waking) return;
+            if (!wasFront) { StopLater(); return; }
             waking = true;
             DateTime woke = DateTime.UtcNow, until = woke + WakeWatch, launcherSince = DateTime.MinValue, otherSince = DateTime.MinValue;
             string other = null;
