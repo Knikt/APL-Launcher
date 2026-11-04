@@ -90,7 +90,8 @@
             // Two values: OK switches straight from one to the other
             if (item.options.length === 2) {
                 var next = item.options[0][0] === n ? item.options[1] : item.options[0];
-                sys.native.set(item.id, next[0]).then(function () { refreshRow(row); }, function (e) { APL.toast(e.message); });
+                // The other screen settings of the menu too: one switch can change another (Start on APL Launcher, Autorun)
+                sys.native.set(item.id, next[0]).then(function () { refreshNativeRows(row); }, function (e) { APL.toast(e.message); });
                 return;
             }
             var at = 0;
@@ -238,6 +239,10 @@
     }
 
     function refreshRow(row) { fillValue(row); row.querySelector(".srow__acc").innerHTML = accessory(row._item); }
+    function refreshNativeRows(row) {
+        var rows = row.parentNode ? row.parentNode.children : [row];
+        for (var i = 0; i < rows.length; i++) if (rows[i]._item && rows[i]._item.type === "native") refreshRow(rows[i]);
+    }
 
     function onSelect(i, row) {
         var item = row._item, L = cur();
