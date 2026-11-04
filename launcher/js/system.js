@@ -632,12 +632,25 @@
         soundMode:  { get: "GetSoundMode u 0", set: "SetSoundMode uu -- V 1" },
         autoVolume: { get: "GetAutoVolume u 0", set: "SetAutoVolume uu -- V 1" },
         feedback:   { get: "GetSoundFeedback i 0", set: "SetSoundFeedback ii -- 1 V" },
-        smartHub:   { vconf: "db/menu/smart_hub/ontvsetting/auto_start" }
+        smartHub:   { vconf: "db/menu/smart_hub/ontvsetting/auto_start" },
+        /* The screen's home app (db/appfw/home_appid). At power-on the screen puts either the TV input or the
+           home app in front, and Autorun Smart Hub chooses the home app: with the launcher as home app, it is
+           on screen about a second after power-on instead of after the start-up service (~1 min). Off: the
+           screen's own home app again, as the firmware records it in db/first_screen/type. */
+        homeApp:    { home: true }
     };
+    var HOME_KEY = "db/appfw/home_appid", AUTOSTART_KEY = "db/menu/smart_hub/ontvsetting/auto_start";
     var MOCK_NATIVE = {};
     function nativeGet(id) {
         var d = NATIVE[id];
         if (PREVIEW) return Promise.resolve(MOCK_NATIVE[id] || (d.min !== undefined ? Math.round((d.min + d.max) / 2) : 0));
+        if (d.home) {
+            return tvExec("vconftool get " + HOME_KEY + " 2>&1").then(function (r) {
+                var m = /value = (\S+)/.exec(String(r.output || ""));
+                if (!m) throw new Error(APL.t("Unavailable"));
+                return m[1] === "APLauncher.Home" ? 1 : 0;
+            });
+        }
         if (d.vconf) {
             return tvExec("vconftool get " + d.vconf + " 2>&1").then(function (r) {
                 var m = /value = (-?[0-9]+)/.exec(String(r.output || ""));
@@ -655,11 +668,22 @@
     function nativeSet(id, value) {
         var d = NATIVE[id];
         if (PREVIEW) { MOCK_NATIVE[id] = value; return Promise.resolve(value); }
-        var write = d.vconf ? "vconftool set -f -t int " + d.vconf + " " + value + " 2>&1" : AVOC + d.set.replace("V", value) + " 2>&1";
+        var write = d.home ? homeAppCommand(value)
+                  : d.vconf ? "vconftool set -f -t int " + d.vconf + " " + value + " 2>&1" : AVOC + d.set.replace("V", value) + " 2>&1";
         return tvExec(write).then(function () { return nativeGet(id); }).then(function (back) {
             if (back !== value) throw new Error(APL.t("The screen refused this setting for now"));
             return back;
         });
+    }
+    /* On: the launcher becomes the home app and Autorun Smart Hub puts it in front at power-on.
+       Off: back to the screen's own home app (db/first_screen/type, Samsung's home if unreadable). */
+    function homeAppCommand(value) {
+        if (value === 1) {
+            return "vconftool set -f -t string " + HOME_KEY + " APLauncher.Home 2>&1; vconftool set -f -t int " + AUTOSTART_KEY + " 1 2>&1";
+        }
+        return "h=$(vconftool get db/first_screen/type 2>/dev/null | awk '{print $4}'); " +
+               "if [ -z \"$h\" ] || [ \"$h\" = APLauncher.Home ]; then h=com.samsung.tv.csfs; fi; " +
+               "vconftool set -f -t string " + HOME_KEY + " \"$h\" 2>&1; vconftool set -f -t int " + AUTOSTART_KEY + " 0 2>&1";
     }
     function nativeReset(method) { return PREVIEW ? Promise.resolve() : tvExec(AVOC + method + " 2>&1"); }
 

@@ -184,7 +184,8 @@
                 toggle("Alexa (Echo Dot)", "alexaBridge", APL.t("Say “Alexa, discover my devices” once. Then: “Alexa, turn on TizenTube”, “Alexa, turn off the screen”, “Alexa, turn on the AirPods”, “Alexa, turn on game mode”.")),
                 toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down.")),
                 menu(APL.t("Start Screen Option"), "power", [
-                    n("smartHub", APL.t("Autorun Smart Hub"), APL.t("Leave it off so you no longer land on the Samsung home screen."), ON_OFF)
+                    n("homeApp", APL.t("Start on APL Launcher"), APL.t("The screen makes APL Launcher its home app and opens it at power-on, about a second after the picture comes on, instead of the TV input. Off: Samsung's home again."), ON_OFF),
+                    n("smartHub", APL.t("Autorun Smart Hub"), APL.t("Opens the screen's home app at power-on: APL Launcher when “Start on APL Launcher” is on, otherwise Samsung's home screen."), ON_OFF)
                 ], APL.t("Make the screen start on APL Launcher."))
             ], APL.t("Return to the launcher, Alexa, backgrounds, start-up.")),
 

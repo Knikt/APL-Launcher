@@ -72,6 +72,8 @@ The app shows these last two steps when the installation is done.
 
 Then put the screen to sleep from the launcher (*Control Center › Sleep*). It starts on the launcher next time.
 
+Screens without *Autorun last app* (The Frame 2025, for example): in APL Launcher, open *Settings › Advanced Features › Start Screen Option* and turn on **Start on APL Launcher** (needs Vetro). The screen then makes APL Launcher its home app and opens it about a second after power-on, instead of the TV input. Turning it off gives Samsung's home back.
+
 **Home button → APL Launcher** (needs Vetro). Open the Vetro dashboard at `http://<screen-ip>:8099` on the PC, then in **Remapper**:
 1. In the device list, choose your remote: **Smart Control 2016** when it is paired over Bluetooth (needed for Alexa), **wt61p807 rc device** when it works by infrared only. To pair it, point it at the screen and hold **Back** and **⏯** together for 3 seconds.
 2. *Listen for a key* → press **Home** on the remote. Action: *open an app* → **APL Launcher** (`APLauncher.Home`) → **Save**.
