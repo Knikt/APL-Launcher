@@ -72,6 +72,8 @@ if (Test-Path $source) {
 } else {
     # Not every version gets a release (some only go out through the automatic update): then the latest
     # release is installed, and the launcher updates itself from there.
+    # Windows PowerShell 5.1 can default to TLS 1.0 on older Windows 10, which GitHub refuses
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
     $rel = Get-FullRelease "v$version"
     if (-not $rel) {
         $rel = Get-FullRelease ""

@@ -67,8 +67,8 @@ if ($left) {
     Write-Host (Tr "        The old APL Overlay package is kept: $left Vetro rule(s) still open it." "        L'ancien paquet APL Overlay est conservé : $left règle(s) Vetro l'ouvrent encore.") -ForegroundColor DarkYellow
 } else {
     try {
-        # -F: a fixed string, no backslashes (Vetro's /exec doubles them)
-        $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -cF '[$OldOverlay]'"
+        # -F: a fixed string, no backslashes (Vetro's /exec doubles them). || true: grep exits with 1 when it counts 0
+        $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -cF '[$OldOverlay]' || true"
         if (($old.Trim() -split '\s+')[-1] -notin @('', '0')) {
             Invoke-VetroExec $Base "app_launcher -k $OldOverlay >/dev/null 2>&1; pkgcmd -u -n $OldOverlay 2>&1 | tail -1" 120 | Out-Null
             Write-Host (Tr "        Old APL Overlay package removed: it now comes with the launcher." "        Ancien paquet APL Overlay supprimé : il vient maintenant avec le launcher.") -ForegroundColor Green
