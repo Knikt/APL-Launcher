@@ -352,7 +352,7 @@ namespace APL.Bridge
             try
             {
                 var front = (await ApplicationManager.GetRunningApplicationsAsync())
-                    .Where(a => a.State == AppState.Foreground && a.ApplicationId != "APLauncher.Overlay")
+                    .Where(a => a.State.ToString() == "Foreground" && a.ApplicationId != "APLauncher.Overlay")
                     .Select(a => a.ApplicationId).ToList();
                 if (!appsLogged) { appsLogged = true; Note("app manager, in front: " + (front.Count > 0 ? string.Join(", ", front) : "none")); }
                 return front.Count == 1 ? front[0] : null;          // several: not sure which one shows, ask Vetro
