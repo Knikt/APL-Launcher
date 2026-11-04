@@ -275,6 +275,20 @@
             }, plain);
         });
     }
+    /* An item from the app's own Smart Hub rows, opened the way Samsung's home opens its tiles: the
+       tile's data in PAYLOAD, operation eden_resume. Apps read it at start-up only (a running Plex comes
+       to the front but stays where it was), so a running app starts again. As root, through Vetro:
+       the payload goes base64, Vetro doubles backslashes. */
+    function launchDeepLink(id, data) {
+        if (!/^[A-Za-z0-9]{10}[.][A-Za-z0-9._-]+$/.test(id)) return Promise.reject(new Error(global.APL.t("Can't launch the app")));
+        var b64 = global.btoa(unescape(encodeURIComponent(JSON.stringify({ values: data }))));
+        var bin = "/opt/usr/apps/" + id.split(".")[0] + "/bin/" + id;
+        return global.APL.sys.exec("for p in $(ps -eo pid,args | awk '$2 == \"" + bin + "\" {print $1}'); do kill $p; done; sleep 1; " +
+            "P=$(printf '%s' '" + b64 + "' | base64 -d); " +
+            "app_launcher -s " + id + " __APP_SVC_OP_TYPE__ http://samsung.com/appcontrol/operation/eden_resume PAYLOAD \"$P\" 2>&1 | tail -1").then(function (r) {
+            if (!/launched/.test(String(r.output || ""))) throw new Error(global.APL.t("Can't launch the app"));
+        });
+    }
     function resumeApp(id, ok, failed) {
         try {
             var T = global.tizen;
@@ -324,6 +338,7 @@
     global.APL.webApps = webApps;
     global.APL.openUrl = openUrl;
     global.APL.launchApp = launchApp;
+    global.APL.launchDeepLink = launchDeepLink;
     global.APL.launchTizenTube = launchTizenTube;
     global.APL.TIZENTUBE_ART = { tile: asset(TIZENTUBE.tile), bg: asset(TIZENTUBE.bg), bgBlur: asset(TIZENTUBE.bgBlur) };
     global.APL.FAVORITES = FAVORITES;

@@ -29,7 +29,7 @@
     var APL = global.APL;
     var KEYS = global.APL_KEYS || {};
     var TTL = 6 * 3600 * 1000;
-    var CACHE_VERSION = 3;              // 3: movies and series carry their title and their rating
+    var CACHE_VERSION = 4;              // 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link
     var MIN_VOTES = 20;                 // below that, a rating doesn't mean anything yet
     var REGION = "FR";
 
@@ -335,11 +335,11 @@
                   .replace(/%2Fthumb%2F[0-9]+/, "%2Fart");
     }
     function smartHub(pkg) {
-        return hubSql("select s.title section, t.title, t.subtitle sub, t.image_url url" + HUB_JOIN +
+        return hubSql("select s.title section, t.title, t.subtitle sub, t.image_url url, coalesce(t.action_play_url, t.action_click_url) link" + HUB_JOIN +
                       " where a.app_pkg_name = '" + pkg + "' and t.image_url like 'http%'" +
                       " order by s.position, s._id, t.position, t._id limit 8").then(function (rows) {
             return rows.map(function (r) {
-                return { bg: hubArt(r.url, 1920, 1080), bgSmall: hubArt(r.url, 480, 270), logo: null,
+                return { bg: hubArt(r.url, 1920, 1080), bgSmall: hubArt(r.url, 480, 270), logo: null, link: r.link || null,
                          title: r.title || "", sub: r.section || "",
                          // Under the title (metaOf): an episode or artists, not a playlist's description
                          type: [r.sub && r.sub.length <= 48 ? r.sub : "", r.section].filter(Boolean).join(" · ") };

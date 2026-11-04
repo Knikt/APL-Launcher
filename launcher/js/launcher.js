@@ -364,8 +364,10 @@
         im.onerror = function () { item.bad = true; if (apps[nav.index] === app) setLiveBackdrop(app, item, n, items, tries); };
         im.src = item.bg;
     }
+    var liveShown = null;                                 // the Top Shelf item on screen: OK opens it if it can
     function swapLive(app, item, n) {
         var tag = app.id + "#" + n;
+        liveShown = { app: app, item: item, tag: tag };
         if (bgActive.dataset.app === tag) return;
         var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
         next.innerHTML = "";
@@ -452,6 +454,12 @@
         if (APL.sys.PREVIEW) { toast(APL.t("Preview: on your TV, “{name}” would open now", { name: apps[i].name })); return; }
         showVeil();
         var id = apps[i].id;
+        // Your own item in the Top Shelf (Plex's Continue Watching, a Spotify mix): straight to it
+        var shown = liveShown && liveShown.app === apps[i] && bgActive.dataset.app === liveShown.tag ? liveShown.item : null;
+        if (shown && shown.link && APL.launchDeepLink) {
+            APL.launchDeepLink(id, shown.link).catch(function () { APL.launchApp(id).catch(function (err) { hideVeil(); toast(err.message || APL.t("Couldn't open the app")); }); });
+            return;
+        }
         if (TUBE.test(apps[i].name)) { launchTube(id); return; }
         APL.launchApp(id).catch(function (err) { hideVeil(); toast(err.message || APL.t("Couldn't open the app")); });
     }
