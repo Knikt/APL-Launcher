@@ -26,15 +26,6 @@ if (($have.Trim() -split '\s+')[-1] -in @('', '0')) {
     throw $msg
 }
 
-# The old separate package, from before the hybrid one
-try {
-    $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -c '\[$OldOverlay\]'"
-    if (($old.Trim() -split '\s+')[-1] -notin @('', '0')) {
-        Invoke-VetroExec $Base "app_launcher -k $OldOverlay >/dev/null 2>&1; pkgcmd -u -n $OldOverlay 2>&1 | tail -1" 120 | Out-Null
-        Write-Host (Tr "        Old APL Overlay package removed: it now comes with the launcher." "        Ancien paquet APL Overlay supprimé : il vient maintenant avec le launcher.") -ForegroundColor Green
-    }
-} catch { Write-Host ((Tr "        The old APL Overlay package could not be removed: " "        L'ancien paquet APL Overlay n'a pas pu être supprimé : ") + $_.Exception.Message) -ForegroundColor DarkYellow }
-
 # The Home button goes to the overlay if it went to the launcher (or to the old overlay). The launcher takes it back if the overlay disappears, and says so.
 try {
 $cur = Invoke-RestMethod -Uri "$Base/remap" -TimeoutSec 15
@@ -63,8 +54,26 @@ if ($changed) {
     $extra = @(); if ($codes -contains 560) { $extra += "TV Plus = AquaPlay" }; if ($codes -contains 221) { $extra += "Prime Video = TizenTube" }
     Write-Host ((Tr "        Remote: Home twice = open apps, Home held or Pause = Control Center" "        Télécommande : 2 fois Home = apps ouvertes, Home maintenu ou Pause = Centre de contrôle") + $(if ($extra) { ", " + ($extra -join ", ") } else { "" }) + ".") -ForegroundColor Green
 }
+# Read the rules back: the old package goes only if none of them still launches it
+$after = Invoke-RestMethod -Uri "$Base/remap" -TimeoutSec 15
+$left = @(@($after.rules) | Where-Object { @($_.actions) | Where-Object { $_.type -eq 'launch' -and $_.appId -eq $OldOverlay } }).Count
 } catch {
     if ($RemapOnly) { Send-Gui ("APL-RESULT fail " + (Tr "Vetro did not accept the buttons: " "Vetro n'a pas accepté les boutons : ") + $_.Exception.Message); exit 1 }
     throw
 }
+# The old separate package, from before the hybrid one. Removed only once Vetro has no rule left that
+# launches it (read back above): otherwise Home would point to an app that is gone.
+if ($left) {
+    Write-Host (Tr "        The old APL Overlay package is kept: $left Vetro rule(s) still open it." "        L'ancien paquet APL Overlay est conservé : $left règle(s) Vetro l'ouvrent encore.") -ForegroundColor DarkYellow
+} else {
+    try {
+        # -F: a fixed string, no backslashes (Vetro's /exec doubles them)
+        $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -cF '[$OldOverlay]'"
+        if (($old.Trim() -split '\s+')[-1] -notin @('', '0')) {
+            Invoke-VetroExec $Base "app_launcher -k $OldOverlay >/dev/null 2>&1; pkgcmd -u -n $OldOverlay 2>&1 | tail -1" 120 | Out-Null
+            Write-Host (Tr "        Old APL Overlay package removed: it now comes with the launcher." "        Ancien paquet APL Overlay supprimé : il vient maintenant avec le launcher.") -ForegroundColor Green
+        }
+    } catch { Write-Host ((Tr "        The old APL Overlay package could not be removed: " "        L'ancien paquet APL Overlay n'a pas pu être supprimé : ") + $_.Exception.Message) -ForegroundColor DarkYellow }
+}
+
 if ($RemapOnly) { Send-Gui "APL-RESULT ok" }

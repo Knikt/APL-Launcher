@@ -6,7 +6,8 @@
 #   .\scripts\03-build-launcher.ps1 -ProfileName APLauncher -SfProDir "C:\Users\<you>\Downloads\sf-pro-display_2"
 #
 # The package comes from dist\apl-launcher-full-v<version>.wgt when it is there (a build of your own), else
-# from the GitHub release of the version in launcher\config.xml, checked against its SHA256SUMS-wgt.txt.
+# from the GitHub release of the version in launcher\config.xml (the latest release if that one has none),
+# checked against its SHA256SUMS-wgt.txt.
 # Personal files (never published) go into res\wgt\: js\keys.local.js, js\avatars.local.js, your
 # avatars and Memoji, the SF Pro fonts and your sounds.
 param(
@@ -51,19 +52,44 @@ $dist = Split-Path -Parent $OutFile
 if ($dist -and -not (Test-Path $dist)) { New-Item -ItemType Directory -Force -Path $dist | Out-Null }
 $name = "apl-launcher-full-v$version.wgt"
 $source = Join-Path $dist $name
+
+# The release's full package and its SHA256SUMS-wgt.txt, or $null when that release (or the asset) does not exist
+function Get-FullRelease([string]$Tag) {
+    $api = "https://api.github.com/repos/$Repo/releases/" + $(if ($Tag) { "tags/$Tag" } else { "latest" })
+    try { $rel = Invoke-RestMethod -UseBasicParsing -Uri $api -Headers @{ 'User-Agent' = 'APL-Launcher-Setup' } -TimeoutSec 60 }
+    catch {
+        if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $null }
+        throw (Tr "Could not reach GitHub ($api): $($_.Exception.Message)" "GitHub injoignable ($api) : $($_.Exception.Message)")
+    }
+    $pkg = @($rel.assets) | Where-Object { $_.name -match '^apl-launcher-full-v.+[.]wgt$' } | Select-Object -First 1
+    $sum = @($rel.assets) | Where-Object { $_.name -eq 'SHA256SUMS-wgt.txt' } | Select-Object -First 1
+    if (-not $pkg -or -not $sum) { return $null }
+    [pscustomobject]@{ Tag = $rel.tag_name; Name = $pkg.name; Url = $pkg.browser_download_url; Sums = $sum.browser_download_url }
+}
+
 if (Test-Path $source) {
     Write-Host (Tr "Package: $source (local build)" "Paquet : $source (version locale)")
 } else {
-    $url = "https://github.com/$Repo/releases/download/v$version"
-    Write-Title (Tr "Downloading $name (release v$version)" "Téléchargement de $name (version v$version)")
+    # Not every version gets a release (some only go out through the automatic update): then the latest
+    # release is installed, and the launcher updates itself from there.
+    $rel = Get-FullRelease "v$version"
+    if (-not $rel) {
+        $rel = Get-FullRelease ""
+        if (-not $rel) { throw (Tr "No GitHub release of $Repo has the full package (apl-launcher-full-v*.wgt)." "Aucune version GitHub de $Repo n'a le paquet complet (apl-launcher-full-v*.wgt).") }
+        Write-Host (Tr "        No release v$version with the full package: installing the latest release, $($rel.Tag). The launcher updates itself afterwards." "        Pas de version v$version avec le paquet complet : installation de la dernière version, $($rel.Tag). Le launcher se met à jour ensuite.") -ForegroundColor DarkYellow
+    }
+    $name = $rel.Name
+    $source = Join-Path $dist $name
+    Write-Title (Tr "Downloading $name (release $($rel.Tag))" "Téléchargement de $name (version $($rel.Tag))")
     $ProgressPreference = 'SilentlyContinue'
     try {
-        Invoke-WebRequest -UseBasicParsing -Uri "$url/$name" -OutFile $source -TimeoutSec 300
-        $sums = (Invoke-WebRequest -UseBasicParsing -Uri "$url/SHA256SUMS-wgt.txt" -TimeoutSec 60).Content
+        Invoke-WebRequest -UseBasicParsing -Uri $rel.Url -OutFile $source -TimeoutSec 300
+        $sums = (Invoke-WebRequest -UseBasicParsing -Uri $rel.Sums -TimeoutSec 60).Content
     } catch {
         Remove-Item -LiteralPath $source -Force -ErrorAction SilentlyContinue
-        throw (Tr "Could not download $url/$name ($($_.Exception.Message))." "Téléchargement impossible : $url/$name ($($_.Exception.Message)).")
+        throw (Tr "Could not download $($rel.Url) ($($_.Exception.Message))." "Téléchargement impossible : $($rel.Url) ($($_.Exception.Message)).")
     }
+    if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
     $want = ([regex]::Match([string]$sums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($name))\s*$")).Groups[1].Value
     $got = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
     if (-not $want -or $want -ne $got) {
