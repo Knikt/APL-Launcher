@@ -304,6 +304,9 @@
     function hubSql(sql) {
         // Vetro doubles backslashes: none in these commands. Its answer is cut after a few KB.
         return APL.sys.exec("sqlite3 -readonly -json " + HUB_DB + " \"" + sql + "\" 2>/dev/null").then(function (r) {
+            // Vetro not up yet (right after a full start): the bridge answers { ok: false } rather than failing.
+            // That's not "no rows": it fails, so the list is read again in 15 s
+            if (!r || r.ok === false) throw new Error("Vetro not ready");
             var out = String(r.output || "").trim();
             return out ? JSON.parse(out) : [];
         });
