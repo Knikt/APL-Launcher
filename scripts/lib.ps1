@@ -215,6 +215,16 @@ function Install-ViaVetro {
     param([string]$Ip, [string]$Wgt, [string]$AppId = "APLauncher.Home", [string]$Name = "APL Launcher", [switch]$NoLaunch)
     $base = "http://$Ip`:8099"
     $tmp = "/tmp/apl-" + (($AppId -split '\.')[0]).ToLower() + ".wgt"
+    # What the screen must show afterwards: an older package left in place still has the same id
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead($Wgt)
+    try {
+        $reader = New-Object IO.StreamReader($zip.GetEntry('config.xml').Open())
+        $version = ([regex]::Match($reader.ReadToEnd(), '<widget[^>]*\sversion="([^"]+)"')).Groups[1].Value
+        $reader.Close()
+        $hybrid = [bool]$zip.GetEntry('tizen-manifest.xml')
+    } finally { $zip.Dispose() }
+    if (-not $version) { throw (Tr "$Wgt has no version in its config.xml." "$Wgt n'a pas de version dans son config.xml.") }
     $b64 = [Convert]::ToBase64String([IO.File]::ReadAllBytes($Wgt))
     $chunk = 48000
     Invoke-VetroExec $base ": > $tmp.b64" | Out-Null
@@ -240,7 +250,13 @@ function Install-ViaVetro {
 
     # 2) Check the screen's package list.
     function Test-Installed {
-        try { return [bool]((Invoke-VetroExec $base "pkgcmd -l 2>/dev/null | grep -i '$pkg'").Trim()) } catch { return $false }
+        try {
+            $n = Invoke-VetroExec $base "pkgcmd -l 2>/dev/null | grep -iF '[$pkg]' | grep -cF 'version [$version]' || true"
+            if (($n.Trim() -split '\s+')[-1] -in @('', '0')) { return $false }
+            if (-not $hybrid) { return $true }
+            $n = Invoke-VetroExec $base "app_launcher -l 2>/dev/null | grep -c '$pkg.Overlay' || true"
+            return (($n.Trim() -split '\s+')[-1] -notin @('', '0'))
+        } catch { return $false }
     }
     $found = Test-Installed
     if (-not $found) {
@@ -256,7 +272,7 @@ function Install-ViaVetro {
     }
     try { Invoke-VetroExec $base "rm -f $tmp" | Out-Null } catch {}
     if (-not $found) {
-        throw (Tr "the screen did not install $Name. Send me all the text above ('Response from the screen')." "l'écran n'a pas installé $Name. Envoie-moi tout le texte au-dessus (« Réponse de l'écran »).")
+        throw (Tr "the screen did not install $Name $version. Send me all the text above ('Response from the screen')." "l'écran n'a pas installé $Name $version. Envoie-moi tout le texte au-dessus (« Réponse de l'écran »).")
     }
     Write-Host (Tr "        $Name is installed." "        $Name est installé.") -ForegroundColor Green
     if ($NoLaunch) { return }

@@ -455,7 +455,7 @@ if (Test-Vetro $TvIp) {
 if (Test-Vetro $TvIp) {
     Write-Host (Tr "        Control Center over videos (APL Overlay)…" "        Centre de contrôle sur les vidéos (APL Overlay)…")
     try { & "$PSScriptRoot\05-build-overlay.ps1" -TvIp $TvIp -ProfileName $signProfile -TizenCli $tizen }
-    catch { Write-Host ((Tr "        APL Overlay was not installed: " "        APL Overlay n'a pas été installé : ") + $_.Exception.Message + (Tr " The launcher works anyway." " Le launcher marche quand même.")) -ForegroundColor DarkYellow }
+    catch { Write-Host ((Tr "        The remote's buttons were not set up: " "        Les boutons de la télécommande n'ont pas été configurés : ") + $_.Exception.Message + (Tr " The launcher works anyway." " Le launcher marche quand même.")) -ForegroundColor DarkYellow }
 }
 
 Write-Host ""

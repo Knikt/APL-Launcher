@@ -18,8 +18,12 @@ $Overlay = "APLauncher.Overlay"
 $OldOverlay = "apl.launcher.overlay"
 
 # APL Overlay must be on the screen, in the launcher's package
-$have = ''
-try { $have = Invoke-VetroExec $Base "app_launcher -l 2>/dev/null | grep -c '$Overlay'" } catch {}
+try { $have = Invoke-VetroExec $Base "app_launcher -l 2>/dev/null | grep -c '$Overlay' || true" }
+catch {
+    $msg = (Tr "Vetro did not answer: " "Vetro n'a pas répondu : ") + $_.Exception.Message
+    if ($RemapOnly) { Send-Gui ("APL-RESULT fail " + $msg); exit 1 }
+    throw $msg
+}
 if (($have.Trim() -split '\s+')[-1] -in @('', '0')) {
     $msg = Tr "APL Overlay is not on the screen: install APL Launcher first." "APL Overlay n'est pas sur l'écran : installe d'abord APL Launcher."
     if ($RemapOnly) { Send-Gui ("APL-RESULT fail " + $msg); exit 1 }
@@ -30,14 +34,15 @@ if (($have.Trim() -split '\s+')[-1] -in @('', '0')) {
 try {
 $cur = Invoke-RestMethod -Uri "$Base/remap" -TimeoutSec 15
 $changed = $false
-foreach ($rule in @($cur.rules)) {
+# Where-Object: with no rules, @($cur.rules) would be one $null that goes back to Vetro as a rule
+$rules = @($cur.rules | Where-Object { $_ })
+foreach ($rule in $rules) {
     foreach ($a in @($rule.actions)) {
         if ($a.type -eq 'launch' -and ($a.appId -eq 'APLauncher.Home' -or $a.appId -eq $OldOverlay)) { $a.appId = $Overlay; $changed = $true }
     }
 }
 # Pause (244) = Control Center. Samsung TV Plus (560) = AquaPlay and Prime Video (221) = TizenTube, only if
 # the app is installed: otherwise the button keeps its Samsung role. Restore removes them.
-$rules = @($cur.rules)
 $codes = @(244)
 try {
     $installed = Invoke-VetroExec $Base "app_launcher -l 2>/dev/null | grep -o -E 'AquaPlay02.AquaPlay|xvvl3S1bvH.TizenBrewStandalone' | sort -u"
@@ -56,7 +61,7 @@ if ($changed) {
 }
 # Read the rules back: the old package goes only if none of them still launches it
 $after = Invoke-RestMethod -Uri "$Base/remap" -TimeoutSec 15
-$left = @(@($after.rules) | Where-Object { @($_.actions) | Where-Object { $_.type -eq 'launch' -and $_.appId -eq $OldOverlay } }).Count
+$left = @($after.rules | Where-Object { $_ } | Where-Object { @($_.actions) | Where-Object { $_.type -eq 'launch' -and $_.appId -eq $OldOverlay } }).Count
 } catch {
     if ($RemapOnly) { Send-Gui ("APL-RESULT fail " + (Tr "Vetro did not accept the buttons: " "Vetro n'a pas accepté les boutons : ") + $_.Exception.Message); exit 1 }
     throw
@@ -70,7 +75,9 @@ if ($left) {
         # -F: a fixed string, no backslashes (Vetro's /exec doubles them). || true: grep exits with 1 when it counts 0
         $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -cF '[$OldOverlay]' || true"
         if (($old.Trim() -split '\s+')[-1] -notin @('', '0')) {
-            Invoke-VetroExec $Base "app_launcher -k $OldOverlay >/dev/null 2>&1; pkgcmd -u -n $OldOverlay 2>&1 | tail -1" 120 | Out-Null
+            $out = Invoke-VetroExec $Base "app_launcher -k $OldOverlay >/dev/null 2>&1; pkgcmd -u -n $OldOverlay 2>&1 | tail -1" 120
+            $old = Invoke-VetroExec $Base "pkgcmd -l 2>/dev/null | grep -cF '[$OldOverlay]' || true"
+            if (($old.Trim() -split '\s+')[-1] -notin @('', '0')) { throw $out.Trim() }
             Write-Host (Tr "        Old APL Overlay package removed: it now comes with the launcher." "        Ancien paquet APL Overlay supprimé : il vient maintenant avec le launcher.") -ForegroundColor Green
         }
     } catch { Write-Host ((Tr "        The old APL Overlay package could not be removed: " "        L'ancien paquet APL Overlay n'a pas pu être supprimé : ") + $_.Exception.Message) -ForegroundColor DarkYellow }
