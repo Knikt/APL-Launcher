@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace APL
@@ -14,15 +17,67 @@ namespace APL
     /// </summary>
     internal static class Vetro
     {
-        private const string Host = "127.0.0.1";
         private const int Port = 8099;
         private const string InfraredRemote = "/dev/input/event2";
+        private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
+        private static int hostIndex;
+
+        /// <summary>
+        /// The addresses tried, in order: loopback, the same in IPv6 form, then the screen's own LAN addresses
+        /// (The Frame 2025 blocks both loopback forms for apps; Vetro listens on every interface), as the bridge.
+        /// </summary>
+        private static List<string> Hosts()
+        {
+            var hosts = new List<string> { "127.0.0.1", "::ffff:127.0.0.1" };
+            try
+            {
+                foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (nic.OperationalStatus != OperationalStatus.Up || nic.NetworkInterfaceType == NetworkInterfaceType.Loopback) continue;
+                    foreach (var a in nic.GetIPProperties().UnicastAddresses)
+                        if (a.Address.AddressFamily == AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(a.Address))
+                            hosts.Add(a.Address.ToString());
+                }
+            }
+            catch (Exception) { }
+            return hosts.Distinct().ToList();
+        }
+
+        /// <summary>
+        /// Connects to Vetro, starting with the address that worked last and trying the others in turn: one that
+        /// does not let us connect within 5 s moves on to the next. Only a success is remembered, so requests
+        /// failing at the same time cannot push each other off an address that works.
+        /// </summary>
+        private static async Task<TcpClient> Connect()
+        {
+            var hosts = Hosts();
+            int start = Volatile.Read(ref hostIndex);
+            Exception last = null;
+            for (int tries = 0; tries < hosts.Count; tries++)
+            {
+                int index = (start + tries) % hosts.Count;
+                string host = hosts[index];
+                var client = new TcpClient(host.Contains(':') ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork);
+                try
+                {
+                    using (var connect = new CancellationTokenSource(ConnectTimeout))
+                        await client.ConnectAsync(host, Port, connect.Token);
+                    Volatile.Write(ref hostIndex, index);
+                    return client;
+                }
+                catch (Exception ex)
+                {
+                    client.Dispose();
+                    last = ex is OperationCanceledException ? new TimeoutException(host + ": no answer") : ex;
+                }
+            }
+            throw last ?? new SocketException((int)SocketError.HostUnreachable);
+        }
 
         private static async Task<string> Request(string method, string path, string body)
         {
-            using (TcpClient client = new TcpClient())
+            using (TcpClient client = await Connect())
             {
-                await client.ConnectAsync(Host, Port);
                 NetworkStream stream = client.GetStream();
                 byte[] content = Encoding.UTF8.GetBytes(body ?? "");
                 string head = method + " " + path + " HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n" +

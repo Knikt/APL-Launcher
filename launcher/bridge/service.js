@@ -235,6 +235,8 @@ function wokeUp(wasFront, first) {
             try { tizen.application.launch(APP_ID, function () {}, function () {}); } catch (e) {}
             return true;
         }
+        // The Frame often wakes up in Art Mode: leaving it later is watched like any other Art Mode
+        if (ART_APP.test(st.app)) { inArt = true; watchArt(); return true; }
         if (st.app !== APP_ID) return true;
         if (!launcherSince) launcherSince = Date.now();
         return Date.now() - launcherSince > SETTLE_MS;                          // the screen came back on it

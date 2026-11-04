@@ -180,16 +180,20 @@ namespace APL.Bridge
         }
 
         /// <summary>
-        /// A request to Vetro: status and body. An address that does not let us connect within 5 s moves on
-        /// to the next one; once connected, a slow answer is only a timeout and the address is kept.
+        /// A request to Vetro: status and body. Starts with the address that worked last; one that does not let us
+        /// connect within 5 s moves on to the next. Once connected, a slow answer is only a timeout. Only a
+        /// successful connection is remembered, so requests failing at the same time cannot push each other off
+        /// an address that works.
         /// </summary>
         private static async Task<(int, string)> Vetro(string method, string path, string body, TimeSpan timeout)
         {
             var hosts = Hosts();
+            int start = Volatile.Read(ref hostIndex);
             string lastError = "";
             for (int tries = 0; tries < hosts.Count; tries++)
             {
-                string host = hosts[hostIndex % hosts.Count];
+                int index = (start + tries) % hosts.Count;
+                string host = hosts[index];
                 var client = new TcpClient(host.Contains(':') ? AddressFamily.InterNetworkV6 : AddressFamily.InterNetwork);
                 try
                 {
@@ -199,10 +203,10 @@ namespace APL.Bridge
                         catch (Exception ex)
                         {
                             lastError = host + ": " + (ex is OperationCanceledException ? "no answer" : ex.Message);
-                            hostIndex = (hostIndex + 1) % hosts.Count;
-                            if (tries + 1 < hosts.Count) Note("Vetro " + lastError + ", trying " + hosts[hostIndex % hosts.Count]);
+                            if (tries + 1 < hosts.Count) Note("Vetro " + lastError + ", trying " + hosts[(index + 1) % hosts.Count]);
                             continue;
                         }
+                        if (index != Volatile.Read(ref hostIndex)) { Volatile.Write(ref hostIndex, index); Note("Vetro reached on " + host); }
                     }
                     using (var answer = new CancellationTokenSource(timeout))
                     {
@@ -350,6 +354,8 @@ namespace APL.Bridge
             {
                 if (st == null || string.IsNullOrEmpty(st.App)) return false;
                 if (OnTvInput(st)) { OpenLauncher("woke up on " + st.App); return true; }
+                // The Frame often wakes up in Art Mode: leaving it later is watched like any other Art Mode
+                if (ArtApp.IsMatch(st.App)) { inArt = true; Note("woke up in Art Mode"); WatchArt(); return true; }
                 if (st.App != LauncherId) return true;
                 if (launcherSince == DateTime.MinValue) launcherSince = DateTime.UtcNow;
                 return DateTime.UtcNow - launcherSince > Settle;              // the screen came back on it
