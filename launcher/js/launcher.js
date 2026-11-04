@@ -193,11 +193,26 @@
         next.dataset.app = app.id;
         if (next === bgActive) return;
         if (shelfImage(app)) motion(next); else next.classList.remove("is-motion");
-        next.classList.add("is-active");
+        fadeTo(next);
+    }
+    /* The new picture fades in over the old one, which stays whole until then: no dip to black
+       halfway (two half-faded pictures over black). It moves above the other layers to do so. */
+    var FADE_MS = 450;
+    function fadeTo(next) {
         var old = bgActive;
-        old.classList.remove("is-active");
-        if (old._stale) setTimeout(function () { old.parentNode.removeChild(old); }, 400);
+        clearTimeout(next._out);
+        if (next.nextSibling !== dom.bgBlur) {
+            dom.bgBlur.parentNode.insertBefore(next, dom.bgBlur);
+            void next.offsetWidth;                        // moved: its style starts over, so the fade starts from 0
+        }
+        next.classList.add("is-active");
         bgActive = next;
+        clearTimeout(old._out);
+        old._out = setTimeout(function () {
+            if (old === bgActive) return;                 // shown again in the meantime
+            old.classList.remove("is-active");
+            if (old._stale && old.parentNode) old.parentNode.removeChild(old);
+        }, FADE_MS + 50);
     }
 
     var backdropToken = 0;
@@ -347,9 +362,7 @@
         next.dataset.app = tag;
         motion(next);
         wantBlur(item.bgSmall || null, app);
-        next.classList.add("is-active");
-        bgActive.classList.remove("is-active");
-        bgActive = next;
+        fadeTo(next);
         shelfInfo(item);
     }
 
