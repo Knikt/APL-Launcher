@@ -38,7 +38,7 @@ Each entry can also take these flags:
 | `hide` | never show the app |
 | `live` | live Top Shelf source: `trending`, `anime`, `youtube`, `youtube-music`, `games`, `gamepass`, `sports` or `dailymotion` |
 
-Apps without live content get an abstract wallpaper in their brand colours (no logo, no text), like tvOS. The `wallpapers` list in `apps.json` makes the same wallpapers for the apps described in `launcher/js/apps.js` (TizenTube, TizenBrew, Hot IPTV, Internet).
+Apps without live content get an abstract wallpaper in their brand colours (no logo, no text), like tvOS. With the *sheets of light* style (below), the screen draws these instead of the catalog's painted backgrounds. The `wallpapers` list in `apps.json` makes the same wallpapers for the apps described in `launcher/js/apps.js` (TizenTube, TizenBrew, Hot IPTV, Internet).
 
 Device tiles for the Sources screen come from `tools/art/devices.json` (`--spec devices.json`).
 
@@ -57,10 +57,16 @@ Results are kept 30 days (3 days when nothing is found). Turn this off or start 
 
 ### Art made on the screen
 
-Whatever is still missing, `genart.js` draws once, in a canvas, and keeps in `localStorage` (about 100 KB per app, 875 KB for eight apps on the M8):
+Whatever is still missing, `genart.js` draws once, in a canvas, and keeps in `localStorage`:
 
 - a 500×300 tile: the logo cut out of its plain background, on that colour;
-- a 1920×1080 background: the same logo on large shapes in the app's colours.
+- a background, in the style chosen in *Settings › Apps › Top Shelf Background*.
+
+**Sheets of light** (*Artwork, Else Sheets of Light*) are four or five sheets, each the area on one side of a smooth line across the screen, like Apple's wallpapers. A sheet is mostly its edge light: crisp at the line and fading inward, so the sheets below show through. The lines, which side each sheet fills, where its light falls and its hollows all follow from the app's ID, so an app always gets the same picture. The colours come from the app's main colour (the catalog's, or the icon's), with neighbouring hues only; a colourless brand gets graphite and silver. The light theme has tinted sheets with a soft shadow under each edge.
+
+The picture is blurred by 10% of the width, so it is drawn at 480×270 and the screen enlarges it: about 7 KB per theme and per app. Both themes are made once; switching the theme shows the other one without drawing again. With this style, catalog apps get sheets in their catalog colour instead of their painted background, with no logo search. Real artwork (an Apple TV screenshot, live content) still comes first.
+
+The default style is still the logo enlarged on large shapes in the app's colours (1920×1080, about 100 KB), and the catalog keeps its painted backgrounds. The other styles: the colours alone, or the APL wallpaper.
 
 The logo comes from, in order: the app's own icon if it is at least 200 px, the App Store (exact name), TMDB, dashboard-icons and selfh.st by name, the app's icon at any size. With nothing, the app's name is the logo. A small logo is enlarged at most about 3 times: small rather than blurred.
 

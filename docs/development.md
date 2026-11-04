@@ -29,7 +29,7 @@ docs/                Documentation and screenshots
 | `apps.js` | Installed apps, filtering, catalog lookup, launching, web shortcuts |
 | `catalog.js` / `devices.js` | Generated artwork catalogs |
 | `autoart.js` | Automatic artwork (App Store, TMDB providers) |
-| `genart.js` | Tile and background drawn on the screen for apps with no artwork |
+| `genart.js` | Tile and background drawn on the screen for apps with no artwork (or sheets of light, as an option) |
 | `liveshelf.js` | Live Top Shelf (TMDB, YouTube, Apple Music, Fanart.tv) |
 | `navigation.js` | Focus engine (geometric neighbours), screen stack, long press |
 | `launcher.js` | Home screen: dock, grid, Top Shelf, edit mode, app menu actions |

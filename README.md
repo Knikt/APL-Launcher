@@ -18,7 +18,7 @@ Top Shelf, glass dock, Control Center, Settings, Sources — and no more Samsung
 ## Features
 
 - **tvOS home screen** — full-screen Top Shelf for the focused app, a glass dock, a 6-column grid, the three tvOS states (Top Shelf, grid with a frozen blurred background, full screen), springy focus motion and interface sounds.
-- **Live Top Shelf** — what's trending right now on Netflix, Prime Video, Disney+, CANAL+, Crunchyroll and other services, YouTube trends, Xbox Game Pass games, Steam top sellers, the next Ligue 1 and Champions League matches, Top albums for music apps, with film and series ratings. Other apps get an abstract tvOS-style wallpaper in their colours, never a plain logo.
+- **Live Top Shelf** — what's trending right now on Netflix, Prime Video, Disney+, CANAL+, Crunchyroll and other services, YouTube trends, Xbox Game Pass games, Steam top sellers, the next Ligue 1 and Champions League matches, Top albums for music apps, with film and series ratings. Other apps get an abstract tvOS-style wallpaper in their colours, never a plain logo, or soft sheets of light in their colours as an option.
 - **Continue Watching** — for IPTV apps (AquaPlay, Hot Player) and Stremio: the last channel with its logo, or the film or series you were watching, with its title artwork, episode, time left and progress bar.
 - **Official logos for 50+ apps**, and for any other app the launcher finds its official icon and an Apple TV background by itself.
 - **Control Center** (tvOS 26/27 layout), even over a video — Sleep, Wi-Fi, Do Not Disturb, sleep timer, brightness, **audio output with Bluetooth headphones** (AirPods…, with battery), AirPlay and iPhone help, Sources, Settings.

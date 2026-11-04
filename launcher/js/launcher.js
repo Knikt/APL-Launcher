@@ -986,6 +986,8 @@
         var light = a === "light" || (a === "auto" && !isNight(new Date()));
         document.body.classList.toggle("theme-light", light);
         if (APL.overlay) APL.overlay.setTheme(light);
+        // Generated backgrounds exist for both themes: the other one, already made
+        if (APL.genArt && allApps && APL.genArt.retheme(allApps)) render();
     }
 
     /* Performance mode: no real-time blur or glass (which made the screen lag). */

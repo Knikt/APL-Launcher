@@ -5,7 +5,9 @@
    the launcher makes by itself, only once, what the catalog gives the
    others:
      tile        500×300    the sharp logo, cut out from its background, on the app's color
-     background  1920×1080  the logo on large shapes in the app's colors
+     background  1920×1080, the logo on large shapes in the app's colors, or when chosen,
+                 light sheets in the app's colors for dark and light themes (then also
+                 instead of the catalog's painted backgrounds)
 
    The logo comes, in this order: from the app's icon if it is big enough,
    from the App Store if the name matches exactly, from TMDB, from public icon
@@ -19,7 +21,7 @@
     "use strict";
 
     var APL = global.APL, sys = APL.sys;
-    var VERSION = 1, PREFIX = "apl.gen.";
+    var VERSION = 2, PREFIX = "apl.gen.";
     var TILE_W = 500, TILE_H = 300, BG_W = 1920, BG_H = 1080;
     var GOOD_ICON = 200;                 // below this, look for better before taking the app's icon
     var ICON_SETS = ["https://raw.githubusercontent.com/homarr-labs/dashboard-icons/main/png/",
@@ -290,10 +292,215 @@
         return c.toDataURL("image/jpeg", 0.84);
     }
 
-    /* Settings › Apps › Top Shelf Background: the logo enlarged on the app's colors
-       (a small icon gets blurry), the colors alone, or one wallpaper for all of them. */
-    var WALLPAPER = "wallpaper", wallpaperUrl = null;
-    function bgMode() { var m = sys.pref("shelfArt"); return m === "colors" || m === WALLPAPER ? m : m === "all" ? WALLPAPER : "logo"; }
+    /* ---------- background: light sheets (Settings › Apps › Top Shelf Background) ----------
+       Four or five sheets, each the area on one side of a smooth line across the screen, like
+       Apple's wallpapers. A sheet is mostly its edge light: crisp at the line, fading inward, so the
+       sheets below show through. Lines, sides, light and hollows all follow from the app's id, the
+       colors from its main color (neighbouring hues only). Blurred by 10% of the width, so it is drawn
+       small and the screen enlarges it. One for the dark theme, one for the light one. */
+    var SW = 480, SH = 270, EDGE = 0.12;
+
+    // The previews' random sequence: the same app always gets the same sheets
+    function sheetRandom(str) {
+        var h = 2166136261, i;
+        for (i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return function () {
+            h = Math.imul(h ^ (h >>> 15), 2246822507) >>> 0; h = Math.imul(h ^ (h >>> 13), 3266489909) >>> 0;
+            return (h ^= h >>> 16) / 4294967296 + 0.5;
+        };
+    }
+    function edgePoint(t) {                              // t in [0, 4): top, right, bottom, left, clockwise
+        t = ((t % 4) + 4) % 4;
+        var k = Math.floor(t), f = t - k;
+        return [[f, -0.02], [1.02, f], [1 - f, 1.02], [-0.02, 1 - f]][k];
+    }
+    var CORNERS = [[1 + EDGE, -EDGE], [1 + EDGE, 1 + EDGE], [-EDGE, 1 + EDGE], [-EDGE, -EDGE]];   // after top, right, bottom, left
+    function sheetPath(x, s, append) {
+        var p = s.pts.map(function (v) { return [v[0] * SW, v[1] * SH]; }), n = p.length, i;
+        if (!append) x.beginPath();
+        x.moveTo(p[0][0], p[0][1]);
+        for (i = 0; i < n - 1; i++) {
+            var p0 = p[Math.max(i - 1, 0)], p1 = p[i], p2 = p[i + 1], p3 = p[Math.min(i + 2, n - 1)];
+            x.bezierCurveTo(p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6, p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6, p2[0], p2[1]);
+        }
+        s.close.forEach(function (v) { x.lineTo(v[0] * SW, v[1] * SH); });
+        x.closePath();
+    }
+    /* One line from one side of the screen to another, closed along the border: that picks its side. */
+    function sheetLine(r) {
+        var t0 = r() * 4, t1 = t0 + 1.2 + r() * 1.6, a = edgePoint(t0), b = edgePoint(t1);
+        var n = 2 + Math.floor(r() * 2), pts = [a], i;
+        var dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy), nx = -dy / len, ny = dx / len;
+        for (i = 1; i <= n; i++) {
+            var f = i / (n + 1) + (r() - 0.5) * 0.12, amp = (r() - 0.5) * 0.3 * len;
+            pts.push([a[0] + dx * f + nx * amp, a[1] + dy * f + ny * amp]);
+        }
+        pts.push(b);
+        var close = [], k;
+        if (r() < 0.5) { for (k = Math.floor(t1); k < Math.floor(t0) + 4; k++) close.push(CORNERS[((k % 4) + 4) % 4]); }
+        else { for (k = Math.floor(t1 - 1e-9); k >= Math.floor(t0); k--) close.push(CORNERS[((k - 1) % 4 + 4) % 4]); }
+        return { pts: pts, close: close };
+    }
+    function covered(list) {
+        var c = canvas(SW / 8, SH / 8), x = c.getContext("2d"), on = 0, i;
+        x.scale(1 / 8, 1 / 8);
+        list.forEach(function (s) { sheetPath(x, s); x.fill(); });
+        var d = x.getImageData(0, 0, c.width, c.height).data;
+        for (i = 3; i < d.length; i += 4) if (d[i] > 127) on++;
+        return on / (d.length / 4);
+    }
+    function pointIn(s, r) {
+        var x = canvas(1, 1).getContext("2d"), i;
+        sheetPath(x, s);
+        for (i = 0; i < 30; i++) { var p = [0.1 + r() * 0.8, 0.1 + r() * 0.8]; if (x.isPointInPath(p[0] * SW, p[1] * SH)) return p; }
+        return null;
+    }
+    /* 4 or 5 sheets, each a fair share of the screen; together 60 to 86 % of it (never empty, never full). */
+    function sheetPlan(id, hue) {
+        var r, list, v;
+        for (v = 0; v < 12; v++) {
+            r = sheetRandom(id + "#" + v);
+            var n = 4 + Math.floor(r() * 2), tries = 0;
+            list = [];
+            while (list.length < n && tries++ < 40) {
+                var s = sheetLine(r), a = covered([s]);
+                if (a >= 0.12 && a <= 0.55) list.push(s);
+            }
+            var u = covered(list);
+            if (list.length === n && u > 0.6 && u < 0.86) break;
+        }
+        var side = [r() < 0.5 ? -1 : 1, r() < 0.5 ? -1 : 1], odd = [Math.floor(r() * list.length), Math.floor(r() * list.length)];
+        list.forEach(function (s, i) {
+            var nb = odd.indexOf(i);
+            s.h = hue + (nb >= 0 ? side[nb] * (10 + r() * 8) : (r() - 0.5) * 6);      // the main hue, one or two neighbours
+            s.h2 = s.h + (r() - 0.5) * 20;                                            // the rim, within ±10°
+            s.rimEnd = s.h + (r() - 0.5) * 20;
+            var m = s.pts[Math.floor(r() * s.pts.length)], far = s.pts[Math.floor(r() * s.pts.length)];
+            s.l = [m[0], m[1], far[0] + (r() - 0.5) * 0.6, far[1] + (r() - 0.5) * 0.6];   // where the light falls along the edge
+            s.rimDir = [s.pts[0][0], s.pts[0][1], s.pts[s.pts.length - 1][0], s.pts[s.pts.length - 1][1]];
+            s.drift = [r(), r(), r(), r(), (r() < 0.5 ? -1 : 1) * (6 + r() * 8)];
+            s.pockets = [];
+            for (var k = 0, np = Math.floor(r() * 3); k < np; k++) { var p = pointIn(s, r); if (p) s.pockets.push([p[0], p[1], 0.1 + r() * 0.12, 0.35 + r() * 0.35]); }
+        });
+        return list;
+    }
+    /* Strength by distance to the sheet's edge: everything outside it, blurred, seen only inside it.
+       Wide ones at a quarter size: canvas caps the blur radius (and it is cheaper). */
+    function falloff(s, blur, times, k) {
+        k = k || 1;
+        var o = canvas(SW * k, SH * k), x = o.getContext("2d"), i;
+        x.scale(k, k);
+        x.save();
+        x.translate(-SW * 4, 0);
+        x.beginPath(); x.rect(-SW, -SH, SW * 3, SH * 3); sheetPath(x, s, true);
+        x.translate(SW * 4, 0);
+        x.shadowOffsetX = SW * 4 * k; x.shadowBlur = blur * k; x.shadowColor = "#fff"; x.fillStyle = "#000";
+        for (i = 0; i < times; i++) x.fill("evenodd");
+        x.restore();
+        x.globalCompositeOperation = "destination-in"; sheetPath(x, s); x.fill();
+        if (k === 1) return o;
+        var big = canvas(SW, SH), g = big.getContext("2d");
+        if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
+        g.drawImage(o, 0, 0, SW, SH);
+        g.globalCompositeOperation = "destination-in"; sheetPath(g, s); g.fill();   // the edge stays crisp
+        return big;
+    }
+    function lightMask(x, l, stops) {
+        x.globalCompositeOperation = "destination-in";
+        var m = x.createLinearGradient(l[0] * SW, l[1] * SH, l[2] * SW, l[3] * SH);
+        stops.forEach(function (st) { m.addColorStop(st[0], "rgba(0,0,0," + st[1] + ")"); });
+        x.fillStyle = m; x.fillRect(0, 0, SW, SH);
+    }
+    /* Dark yellows read as olive: they lean towards orange. */
+    function warm(h, light) { h = ((h % 360) + 360) % 360; return (!light && h > 38 && h < 75) ? h - 10 * (1 - Math.abs(h - 56) / 19) : h; }
+    function paintSheets(list, sat, light) {
+        var c = canvas(SW, SH), x = c.getContext("2d");
+        x.fillStyle = light ? hsl(warm(list[0].h, true), Math.min(sat, 45) * 0.6, 84) : "#000";
+        x.fillRect(0, 0, SW, SH);
+        list.forEach(function (s) {
+            if (light) {
+                // Light theme: a soft shadow just outside the sheet, on what lies below
+                var sh = canvas(SW, SH), y = sh.getContext("2d");
+                y.save(); y.translate(-SW * 4, 0); sheetPath(y, s); y.translate(SW * 4, 0);
+                y.shadowOffsetX = SW * 4 + SW * 0.004; y.shadowOffsetY = SW * 0.006; y.shadowBlur = SW * 0.035;
+                y.shadowColor = hsl(warm(s.h, true), sat * 0.6, 28, 0.38); y.fill(); y.restore();
+                y.globalCompositeOperation = "destination-out"; sheetPath(y, s); y.fill();
+                x.drawImage(sh, 0, 0);
+            }
+            var body = canvas(SW, SH), b = body.getContext("2d");
+            b.drawImage(falloff(s, SW * 0.012, 1), 0, 0);
+            b.drawImage(falloff(s, SW * 0.32, 2, 0.25), 0, 0);
+            lightMask(b, s.l, light ? [[0, 1], [1, 0.6]] : [[0, 1], [1, 0.35]]);
+            b.globalCompositeOperation = "source-in";
+            var d = s.drift, dg = b.createLinearGradient(d[0] * SW, d[1] * SH, d[2] * SW, d[3] * SH);
+            dg.addColorStop(0, hsl(warm(s.h + d[4], light), sat, light ? 56 : 38));
+            dg.addColorStop(1, hsl(warm(s.h, light), sat, light ? 50 : 38));
+            b.fillStyle = dg; b.fillRect(0, 0, SW, SH);
+            b.globalCompositeOperation = "source-atop";
+            s.pockets.forEach(function (k) {                                         // hollows inside the sheet
+                var pg = b.createRadialGradient(k[0] * SW, k[1] * SH, 0, k[0] * SW, k[1] * SH, k[2] * SW);
+                pg.addColorStop(0, light ? "rgba(255,255,255," + (k[3] * 0.25) + ")" : "rgba(0,0,0," + k[3] + ")");
+                pg.addColorStop(1, "rgba(0,0,0,0)");
+                b.fillStyle = pg; b.fillRect(0, 0, SW, SH);
+            });
+            var rim = canvas(SW, SH), q = rim.getContext("2d");                      // the pale rim where the light falls
+            q.drawImage(falloff(s, SW * 0.008, 1), 0, 0);
+            q.drawImage(falloff(s, SW * 0.05, 2), 0, 0);
+            lightMask(q, s.l, [[0, 1], [0.45, 0.25], [0.8, 0]]);
+            q.globalCompositeOperation = "source-in";
+            var rd = s.rimDir, rg = q.createLinearGradient(rd[0] * SW, rd[1] * SH, rd[2] * SW, rd[3] * SH), rs = sat * (light ? 0.4 : 0.65);
+            rg.addColorStop(0, hsl(warm(s.h2, light), rs, light ? 92 : 82));
+            rg.addColorStop(1, hsl(warm(s.rimEnd, light), rs, light ? 92 : 82));
+            q.fillStyle = rg; q.fillRect(0, 0, SW, SH);
+            x.drawImage(body, 0, 0);
+            x.globalAlpha = light ? 0.8 : 0.95; x.drawImage(rim, 0, 0); x.globalAlpha = 1;
+        });
+        return blurred(c, 0.10).toDataURL("image/jpeg", 0.9);
+    }
+    /* Blur by a share of the width: canvas filter at half size, else smooth down- and up-scaling. */
+    function blurred(src, share) {
+        var w = SW / 2, h = SH / 2, half = canvas(w, h), x = half.getContext("2d"), out = canvas(SW, SH), o = out.getContext("2d");
+        if ("imageSmoothingQuality" in o) o.imageSmoothingQuality = "high";
+        if ("filter" in x) {
+            var m = w * share * 2;
+            x.filter = "blur(" + (w * share) + "px)";
+            x.drawImage(src, -m, -m, w + 2 * m, h + 2 * m);                          // a little larger: no soft border
+            o.drawImage(half, 0, 0, SW, SH);
+            return out;
+        }
+        var cur = src, size = [SW, SH];
+        while (size[0] > SW * share * 2) {
+            size = [Math.max(2, Math.round(size[0] / 2)), Math.max(2, Math.round(size[1] / 2))];
+            var next = canvas(size[0], size[1]), n = next.getContext("2d");
+            if ("imageSmoothingQuality" in n) n.imageSmoothingQuality = "high";
+            n.drawImage(cur, 0, 0, size[0], size[1]);
+            cur = next;
+        }
+        o.drawImage(cur, 0, 0, SW, SH);
+        return out;
+    }
+    function hexHsl(hex) {
+        var m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ""));
+        if (!m) return null;
+        var v = parseInt(m[1], 16);
+        return toHsl({ r: v >> 16, g: (v >> 8) & 255, b: v & 255 });
+    }
+    /* Both themes; a color without saturation (black, white) gives graphite / silver. */
+    function sheets(id, hue, sat) {
+        var list = sheetPlan(id, hue), s = sat < 15 ? 6 : clamp(sat, 55, 92);
+        return { dark: paintSheets(list, s, false), light: paintSheets(list, s, true) };
+    }
+
+    /* Settings › Apps › Top Shelf Background: light sheets in the app's colors (also instead of the
+       catalog's painted backgrounds), the logo enlarged on the app's colors (a small icon gets blurry),
+       the colors alone, or one wallpaper for all of them. "all": the wallpaper behind every app. */
+    var WALLPAPER = "wallpaper", SHEETS = "sheets", wallpaperUrl = null;
+    function bgMode() { var m = sys.pref("shelfArt"); return m === SHEETS || m === "colors" || m === WALLPAPER ? m : m === "all" ? WALLPAPER : "logo"; }
+    function lightTheme() { return !!(document.body && document.body.classList.contains("theme-light")); }
+    /* The catalog's painted backgrounds (not a real picture of the app): replaced by the sheets. */
+    function paintedBg(app) {
+        return !!app.bg && !app.madeBg && !app.shelfHtml && /(^|\/)images\/(apps\/[a-z0-9-]+-bg|bg-[a-z0-9-]+)\.jpg$/.test(app.bg);
+    }
     /* A plain dark gradient, as on Apple TV: no shapes, so the dock and the cards stand out on it. */
     function wallpaper() {
         if (wallpaperUrl) return wallpaperUrl;
@@ -324,7 +531,14 @@
     function hashHue(text) { return Math.floor(seeded(text)() * 360); }
 
     function paint(app, img) {
-        var hue = hashHue(app.name || app.id), sat = 66, base, logo;
+        var hue = hashHue(app.name || app.id), sat = 66, base, logo, mode = bgMode(), known = hexHsl(app.accent);
+        var out = { mode: mode };
+        // An app with its tile and its color already (catalog): only the sheets, nothing to look at
+        if (!img && known && (app.tile || app.tileHtml)) {
+            var both = sheets(app.id, known.h, known.s);
+            out.bgDark = both.dark; out.bgLight = both.light;
+            return out;
+        }
         if (img) {
             var s = study(img);
             if (s.accent) { hue = s.accent.h; sat = s.accent.s; }
@@ -335,9 +549,12 @@
             base = hslToRgb(hue, 58, 26);
             logo = { text: app.name || "", font: fontName(), colour: "#fff" };
         }
-        var mode = bgMode();
-        return { tile: paintTile(base, logo), accent: rgb(hslToRgb(hue, sat, 50)), mode: mode,
-                 bg: mode === WALLPAPER ? WALLPAPER : paintBg(base, mode === "colors" ? null : logo, hue, sat, app.id) };
+        if (known) { hue = known.h; sat = known.s; }
+        out.tile = paintTile(base, logo);
+        out.accent = rgb(hslToRgb(hue, sat, 50));
+        if (mode === SHEETS) { var two = sheets(app.id, hue, sat); out.bgDark = two.dark; out.bgLight = two.light; }
+        else out.bg = mode === WALLPAPER ? WALLPAPER : paintBg(base, mode === "colors" ? null : logo, hue, sat, app.id);
+        return out;
     }
 
     function stored(app) {
@@ -349,14 +566,39 @@
     function put(app, r) {
         try { global.localStorage.setItem(PREFIX + app.id, JSON.stringify(r)); } catch (e) {}   // full: made again at the next start-up
     }
+    function bgOf(r) { return r.bgDark ? (lightTheme() ? r.bgLight : r.bgDark) : r.bg === WALLPAPER ? wallpaper() : r.bg; }
     function use(app, r) {
         var changed = false;
-        if (!app.tile && !app.tileHtml) { app.tile = r.tile; app.madeTile = true; changed = true; }
-        if (!app.bg && !app.shelfHtml) { app.bg = r.bg === WALLPAPER ? wallpaper() : r.bg; app.madeBg = true; changed = true; }
-        if (!app.accent) app.accent = r.accent;
+        if (!app.tile && !app.tileHtml && r.tile) { app.tile = r.tile; app.madeTile = true; changed = true; }
+        if (r.bgDark && paintedBg(app)) { app.paintedBg = app.bg; app.paintedBgBlur = app.bgBlur; app.bg = null; }   // kept to put back (undo)
+        if (!app.bg && !app.shelfHtml && (r.bg || r.bgDark)) {
+            app.bg = bgOf(r); app.madeBg = true; changed = true;
+            if (r.bgDark) { app.bgBlur = app.bg; app.sheets = r; }                     // already blurred: the grid uses it as is
+        }
+        if (!app.accent && r.accent) app.accent = r.accent;
         return changed;
     }
-    function missing(app) { return !app.folder && ((!app.tile && !app.tileHtml) || (!app.bg && !app.shelfHtml)); }
+    function missing(app) {
+        return !app.folder && ((!app.tile && !app.tileHtml) || (!app.bg && !app.shelfHtml) || (bgMode() === SHEETS && paintedBg(app)));
+    }
+    /* Before painting again: what this file gave the app goes, the catalog's background comes back. */
+    function undo(app) {
+        if (!app.madeBg) return;
+        app.bg = app.paintedBg || null;
+        if (app.paintedBg || app.sheets) app.bgBlur = app.paintedBgBlur || null;
+        app.paintedBg = app.paintedBgBlur = app.sheets = null;
+        app.madeBg = false;
+    }
+    /* The theme changed: the sheets of the other theme, already made. */
+    function retheme(apps) {
+        var changed = false;
+        apps.forEach(function (a) {
+            if (!a.sheets) return;
+            var bg = bgOf(a.sheets);
+            if (bg !== a.bg) { a.bg = a.bgBlur = bg; changed = true; }
+        });
+        return changed;
+    }
 
     /* At start-up: what has already been made. */
     function applyCached(app) {
@@ -370,7 +612,9 @@
         if (!missing(app) || sys.PREVIEW) return Promise.resolve(false);
         var r = stored(app);
         if (r) return Promise.resolve(use(app, r));
-        return findLogo(app, art).then(function (img) {
+        // Tile and color known (catalog): the sheets need no logo, nothing to search
+        var logoP = (app.tile || app.tileHtml) && hexHsl(app.accent) && bgMode() === SHEETS ? Promise.resolve(null) : findLogo(app, art);
+        return logoP.then(function (img) {
             var out = paint(app, img);
             out.v = VERSION;
             out.of = String(app.icon || "");
@@ -390,5 +634,5 @@
         } catch (e) {}
     }
 
-    APL.genArt = { make: make, applyCached: applyCached, missing: missing, clear: clear, wallpaper: wallpaper };
+    APL.genArt = { make: make, applyCached: applyCached, missing: missing, clear: clear, wallpaper: wallpaper, undo: undo, retheme: retheme };
 })(window);

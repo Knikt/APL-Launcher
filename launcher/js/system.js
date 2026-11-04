@@ -41,7 +41,7 @@
         pinnedSources: [],          // inputs shown on the Home Screen as tiles (sources.js)
         autoUpdate: true,           // launcher updates from GitHub, on their own
         autoArt: true,              // logos, backgrounds and content found automatically (App Store, TMDB)
-        shelfArt: "logo",           // Top Shelf of apps without artwork: "logo" | "colors" | "wallpaper" (genart.js)
+        shelfArt: "logo",           // Top Shelf of apps without artwork: "logo" | "sheets" | "colors" | "wallpaper" | "all" (genart.js)
         smartHubTileSet: false,     // the Smart Hub tile was hidden once in this profile (it starts hidden)
         liveShelf: true,            // dynamic Top Shelf (TMDB / YouTube)
         visualEffects: PREVIEW,     // blur / glass: costly on the screen, off by default
