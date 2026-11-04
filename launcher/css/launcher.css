@@ -49,10 +49,11 @@ html, body {
     background-position: center;
     opacity: 0;
     transform: scale(1);
-    transition: opacity 450ms ease;                  /* FADE_MS in launcher.js */
+    transition: opacity 300ms ease;                  /* FADE_MS in launcher.js */
     will-change: opacity, transform;                 /* layer ready in advance: the fade redraws nothing */
 }
 .bg.is-active { opacity: 1; }
+.bg.is-instant { transition: none; }                 /* shown at once under the one fading out (launcher.js) */
 
 /* Generated brand card for apps with no artwork (Tizen icon + name) */
 .brandcard {

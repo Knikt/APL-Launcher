@@ -195,24 +195,30 @@
         if (shelfImage(app)) motion(next); else next.classList.remove("is-motion");
         fadeTo(next);
     }
-    /* The new picture fades in over the old one, which stays whole until then: no dip to black
-       halfway (two half-faded pictures over black). It moves above the other layers to do so. */
-    var FADE_MS = 450;
+    /* Crossfade without a dip to black (two half-faded pictures over black): of the two layers, the
+       upper one in the page does the fading and the lower one stays whole underneath. The new one fades
+       in over the old one, or appears at once under it while the old one fades out. Nothing moves and
+       the stacking never changes: only the opacity, so no full-screen repaint (100 ms on the M8). */
+    var FADE_MS = 300;
     function fadeTo(next) {
         var old = bgActive;
         clearTimeout(next._out);
-        if (next.nextSibling !== dom.bgBlur) {
-            dom.bgBlur.parentNode.insertBefore(next, dom.bgBlur);
-            void next.offsetWidth;                        // moved: its style starts over, so the fade starts from 0
-        }
-        next.classList.add("is-active");
-        bgActive = next;
         clearTimeout(old._out);
-        old._out = setTimeout(function () {
-            if (old === bgActive) return;                 // shown again in the meantime
-            old.classList.remove("is-active");
-            if (old._stale && old.parentNode) old.parentNode.removeChild(old);
-        }, FADE_MS + 50);
+        bgActive = next;
+        if (old.compareDocumentPosition(next) & global.Node.DOCUMENT_POSITION_FOLLOWING) {
+            next.classList.add("is-active");                     // above: fades in over the old one
+            old._out = setTimeout(function () { hideLayer(old); }, FADE_MS + 50);
+        } else {
+            next.classList.add("is-instant", "is-active");       // below: whole at once, under the old one
+            void next.offsetWidth;
+            next.classList.remove("is-instant");
+            hideLayer(old);                                       // the old one fades out over it
+        }
+    }
+    function hideLayer(l) {
+        if (l === bgActive) return;                               // shown again in the meantime
+        l.classList.remove("is-active");
+        if (l._stale) setTimeout(function () { if (l !== bgActive && l.parentNode) l.parentNode.removeChild(l); }, FADE_MS + 50);
     }
 
     var backdropToken = 0;
