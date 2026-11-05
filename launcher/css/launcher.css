@@ -1074,12 +1074,12 @@ html, body {
 .cc__t.is-focused, .perf .cc__t.is-focused { box-shadow: 0 20px 44px rgba(0,0,0,0.38); }
 .cc__t.is-focused::before { opacity: 0; }
 
-/* One right edge for the dock, the status pill and the Control Center; the dock steps back under the
-   Control Center, like the status pill and the hint */
+/* One right edge for the dock, the status pill and the Control Center; the Home Screen steps back under
+   the Control Center (dock, rows and the Top Shelf title), like the status pill and the hint */
 .status { right: 42px; }
 .cc__panel { right: 42px; }
-.dock { transition: opacity 220ms ease; }
-.has-cc .dock { opacity: 0; }
+.home { transition: transform 200ms var(--ease), opacity 220ms ease; }   /* its slide kept */
+.has-cc .home, .has-cc .shelfinfo { opacity: 0; }
 
 .theme-light .dock, .theme-light.perf .dock,
 .theme-light .status, .theme-light.perf .status,
