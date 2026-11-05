@@ -156,9 +156,16 @@
     /* Liquid Glass with no live blur: the dock shows the same soft copy of the picture behind it (the
        pre-blurred or small one, as for the grid), lined up with it (layout), so the picture looks frosted
        through the glass. A static image, drawn once when the picture changes. */
+    var frostSrc, frostToken = 0;
     function frost(src) {
-        if (!dom.dock) return;
-        dom.dock.style.setProperty("--glass-img", src ? 'url("' + String(src).replace(/"/g, "%22") + '")' : "none");
+        if (!dom.dock || src === frostSrc) return;           // the same picture (the APL wallpaper on every app): nothing to repaint
+        frostSrc = src;
+        var token = ++frostToken;
+        // Swapped once decoded: the dock never flashes to the bare tint while the picture loads
+        whenDecoded(src, function () {
+            if (token !== frostToken) return;                 // another picture was asked for in the meantime
+            dom.dock.style.setProperty("--glass-img", src ? 'url("' + String(src).replace(/"/g, "%22") + '")' : "none");
+        });
     }
     function flushBlur() {
         if (!blurWanted) return;

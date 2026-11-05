@@ -1055,8 +1055,11 @@ html, body {
     mask-composite: exclude;
     pointer-events: none;
 }
-/* The dock: the picture behind it, frosted (launcher.js sets the soft copy and lines it up), under the tint */
+/* The dock: the picture behind it, frosted (launcher.js sets the soft copy and lines it up), under the tint.
+   No live blur under it, even with visual effects on: it would be computed and never seen */
 .dock, .perf .dock {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     background:
         radial-gradient(120% 90% at 12% 0%, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0) 70%),
         linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.01) 50%, rgba(255,255,255,0.03) 100%),
@@ -1103,4 +1106,23 @@ html, body {
         linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.18) 50%, rgba(255,255,255,0.25) 100%),
         linear-gradient(rgba(236, 238, 244, 0.45), rgba(236, 238, 244, 0.45)),
         var(--glass-img, none) -42px var(--glass-y, -783px) / 1920px 1080px no-repeat;
+}
+
+/* The status pill: more tint than the dock, the time stays readable over a bright picture (snow, white posters) */
+.status, .perf .status {
+    background:
+        radial-gradient(120% 90% at 12% 0%, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.03) 45%, rgba(255,255,255,0) 70%),
+        linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.01) 50%, rgba(255,255,255,0.03) 100%),
+        rgba(26, 28, 36, 0.68);
+}
+.theme-light .status, .theme-light.perf .status { background-color: rgba(236, 238, 244, 0.7); }
+
+/* A round button that is on keeps its color (Game Mode green…), with visual effects off too: the glass
+   rules above have the same weight and came later */
+.cc__t--round.is-on, .perf .cc__t--round.is-on, .theme-light .cc__t--round.is-on, .theme-light.perf .cc__t--round.is-on {
+    background: var(--tint, #0a84ff); color: #fff;
+}
+.cc__t--round.is-focused.is-on, .perf .cc__t--round.is-focused.is-on,
+.theme-light .cc__t--round.is-focused.is-on, .theme-light.perf .cc__t--round.is-focused.is-on {
+    background: #f5f5f7; color: var(--tint, #0a84ff);
 }
