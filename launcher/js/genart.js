@@ -300,7 +300,7 @@
         return c.toDataURL("image/jpeg", 0.84);
     }
 
-    /* ---------- background: light sheets (Settings › Apps › Top Shelf Background) ----------
+    /* ---------- background: light sheets (Settings › Apps › Top Shelf › Otherwise) ----------
        Four or five sheets, each the area on one side of a smooth line across the screen, like
        Apple's wallpapers. A sheet is mostly its edge light: crisp at the line, fading inward, so the
        sheets below show through. Lines, sides, light and hollows all follow from the app's id, the
@@ -515,11 +515,12 @@
         return c && c.s >= 35 ? c : null;
     }
 
-    /* Settings › Apps › Top Shelf Background: light sheets in the app's colors (also instead of the
+    /* Settings › Apps › Top Shelf › Otherwise: light sheets in the app's colors (also instead of the
        catalog's painted backgrounds), the logo enlarged on the app's colors (a small icon gets blurry),
        the colors alone, or one wallpaper for all of them. "all": the wallpaper behind every app. */
     var WALLPAPER = "wallpaper", SHEETS = "sheets", wallpaperUrl = null;
-    function bgMode() { var m = sys.pref("shelfArt"); return m === SHEETS || m === "colors" || m === WALLPAPER ? m : m === "all" ? WALLPAPER : "logo"; }
+    // Black (plain dark Top Shelf, launcher.js) still needs the tiles: made as for the sheets, the default
+    function bgMode() { var m = sys.pref("shelfArt"); return m === SHEETS || m === "colors" || m === WALLPAPER || m === "logo" ? m : m === "all" ? WALLPAPER : SHEETS; }
     function lightTheme() { return !!(document.body && document.body.classList.contains("theme-light")); }
     /* The catalog's painted backgrounds (not a real picture of the app): replaced by the sheets. */
     function paintedBg(app) {

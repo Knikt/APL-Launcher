@@ -389,8 +389,8 @@
     }
 
     /* Which source for this app? (null = no dynamic Top Shelf) */
-    /* Settings › Apps › Top Shelf Background, in this order: the app's own rows (hubShelf), the content
-       of the moment (liveShelf), then the app's artwork and a plain dark background (launcher.js). */
+    /* Settings › Apps › Top Shelf, in this order: the app's own rows (What You're Watching, hubShelf), what
+       is popular (liveShelf), then the app's artwork or the style chosen in Otherwise (launcher.js, genart.js). */
     function sourceFor(app) {
         var pub = APL.sys.pref("liveShelf") ? publicSource(app) : null, pkg = hubPackage(app);
         if (!APL.sys.pref("hubShelf")) return pub;

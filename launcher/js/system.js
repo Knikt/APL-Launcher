@@ -41,11 +41,10 @@
         pinnedSources: [],          // inputs shown on the Home Screen as tiles (sources.js)
         autoUpdate: true,           // launcher updates from GitHub, on their own
         autoArt: true,              // logos, backgrounds and content found automatically (App Store, TMDB)
-        shelfArt: "logo",           // Top Shelf of apps without artwork: "logo" | "sheets" | "colors" | "wallpaper" | "all" (genart.js)
+        shelfArt: "sheets",         // Top Shelf of apps without artwork: "sheets" | "logo" | "colors" | "wallpaper" | "all" | "black" (genart.js)
         smartHubTileSet: false,     // the Smart Hub tile was hidden once in this profile (it starts hidden)
         hubShelf: true,             // Top Shelf: the apps' own Smart Hub rows first (liveshelf.js)
-        liveShelf: true,            //   then the content of the moment (TMDB / YouTube…)
-        appBackgrounds: true,       //   then the app's artwork; off: a plain dark background (launcher.js)
+        liveShelf: true,            //   then the content of the moment (TMDB / YouTube…), then shelfArt
         visualEffects: PREVIEW,     // blur / glass: costly on the screen, off by default
         gameWanted: false,          // Game Mode requested (applied when switching to an input)
         ccHintCount: 0,             // number of times the Control Center tip has been shown
@@ -65,7 +64,7 @@
     /* Screen settings (shared) and the settings of each profile in the household:
        Home Screen layout, hidden apps, preferences, recent apps. */
     var PROFILE_KEYS = { hiddenApps: 1, appOrder: 1, clock24: 1, showHint: 1, reduceMotion: 1, dnd: 1,
-                         uiSounds: 1, screensaverStyle: 1, screensaverDelay: 1, liveShelf: 1, hubShelf: 1, appBackgrounds: 1, recentApps: 1,
+                         uiSounds: 1, screensaverStyle: 1, screensaverDelay: 1, liveShelf: 1, hubShelf: 1, recentApps: 1,
                          appearance: 1, folders: 1, aerialHidden: 1, smartHubTileSet: 1 };
     DEFAULTS.recentApps = [];
     var COLORS = ["#ff9f0a", "#30d158", "#0a84ff", "#bf5af2", "#ff375f", "#64d2ff", "#ffd60a", "#ac8e68"];
@@ -85,6 +84,14 @@
         save("apl.profiles", household);
     }
     var pprefs = load("apl.prefs." + household.current, {});
+    // Up to 1.0.14, "App Backgrounds" off (per profile) gave a plain dark Top Shelf: now shelfArt "black"
+    household.list.forEach(function (p) {
+        var pp = p.id === household.current ? pprefs : load("apl.prefs." + p.id, {});
+        if (!("appBackgrounds" in pp)) return;
+        if (pp.appBackgrounds === false && p.id === household.current) { prefs.shelfArt = "black"; save("apl.prefs", prefs); }
+        delete pp.appBackgrounds;
+        save("apl.prefs." + p.id, pp);
+    });
 
     function currentProfile() {
         for (var i = 0; i < household.list.length; i++) if (household.list[i].id === household.current) return household.list[i];

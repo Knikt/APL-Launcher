@@ -206,28 +206,31 @@
                     if (APL.resetHomeOrder) APL.resetHomeOrder();
                     APL.toast(APL.t("Original layout restored"), true);
                 }, APL.t("Puts the apps back in their original order (your apps, Settings, Sources, then the others)."), "reset"),
-                toggle(APL.t("Automatic Artwork"), "autoArt",
-                    APL.t("The launcher finds each app's logo, background and current content on its own (Apple's App Store, TMDB), even for apps installed later. Otherwise, it makes them from the app's icon.")),
+                toggle(APL.t("Find Logos and Artwork Online"), "autoArt",
+                    APL.t("The launcher finds each app's logo and artwork on its own (Apple's App Store, TMDB), even for apps installed later. Otherwise, it makes them from the app's icon.")),
                 action(APL.t("Search for Artwork Again"), function () {
                     if (APL.refreshArt) APL.refreshArt();
                     APL.toast(APL.t("Searching for artwork in the background…"), true);
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
-                menu(APL.t("Top Shelf Content"), "photo", [
-                    toggle(APL.t("Your Own Content"), "hubShelf", APL.t("Apps that share rows with Samsung's home show yours: Plex's Continue Watching, Spotify's mixes. Needs Vetro.")),
-                    toggle(APL.t("Content of the Moment"), "liveShelf", APL.t("What is popular on each service: films and series (TMDB key), trending videos (YouTube key), top albums, games, sports.")),
-                    info(APL.t("TMDB Key"), function () { return APL.live && APL.live.keys().tmdb ? APL.t("Configured") : APL.t("Missing"); },
-                        APL.t("Put it in launcher/js/keys.local.js on the PC, then rebuild.")),
-                    info(APL.t("YouTube Key"), function () { return APL.live && APL.live.keys().youtube ? APL.t("Configured") : APL.t("Missing"); },
-                        APL.t("Optional: trending videos in TizenTube's Top Shelf.")),
-                    info(APL.t("Fanart.tv Key"), function () { return APL.live && APL.live.keys().fanart ? APL.t("Configured") : APL.t("Missing"); },
-                        APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup.")),
-                    toggle(APL.t("App Backgrounds"), "appBackgrounds", APL.t("The app's own artwork, or one made from its icon. Off: a plain dark background.")),
-                    choice(APL.t("Top Shelf Background"), "shelfArt",
-                        [["logo", APL.t("Artwork, Else Logo on Its Colors")], ["sheets", APL.t("Artwork, Else Sheets of Light")], ["colors", APL.t("Artwork, Else Its Colors")],
-                         ["wallpaper", APL.t("Artwork, Else APL Wallpaper")], ["all", APL.t("APL Wallpaper for Every App")]],
-                        APL.t("Most apps have their own artwork (YouTube, Netflix, Steam…). For the others: soft sheets of light in their colors (also instead of the catalog's painted backgrounds), their logo enlarged on their colors, their colors alone, or the APL wallpaper. Or the APL wallpaper behind every app, artwork or not, Continue Watching and the Dynamic Top Shelf included."),
-                        function () { if (APL.restyleArt) APL.restyleArt(); })
-                ], APL.t("In this order: your own content, the content of the moment, the app's background, then plain dark. Turn one off to skip it.")),
+                menu(APL.t("Top Shelf"), "photo", [
+                    toggle(APL.t("What You're Watching"), "hubShelf",
+                        APL.t("Continue Watching from Plex, your Spotify mixes… for the apps that share them with Samsung's home screen.")),
+                    toggle(APL.t("What's Popular"), "liveShelf",
+                        APL.t("Trending films, series and videos on each service, top albums, games, sports. Films and series need a TMDB key, videos a YouTube key (see Online Services).")),
+                    choice(APL.t("Otherwise"), "shelfArt",
+                        [["sheets", APL.t("Sheets of Light")], ["logo", APL.t("Large Logo")], ["colors", APL.t("App Colors")],
+                         ["wallpaper", APL.t("APL Wallpaper")], ["all", APL.t("APL Wallpaper, Always")], ["black", APL.t("Black")]],
+                        APL.t("Apps with their own artwork keep it (YouTube, Netflix, Steam…). For the others: soft sheets of light in their colors, their logo enlarged on their colors, their colors alone, the APL wallpaper, or plain black. APL Wallpaper, Always: behind every app, artwork and content included."),
+                        function () { if (APL.restyleArt) APL.restyleArt(); }),
+                    menu(APL.t("Online Services"), "globe", [
+                        info(APL.t("TMDB Key"), function () { return APL.live && APL.live.keys().tmdb ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Films and series in What's Popular. Set it in APL Launcher Setup.")),
+                        info(APL.t("YouTube Key"), function () { return APL.live && APL.live.keys().youtube ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Optional: trending videos in TizenTube's Top Shelf.")),
+                        info(APL.t("Fanart.tv Key"), function () { return APL.live && APL.live.keys().fanart ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
+                    ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
+                ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
                 toggle(APL.t("Close unused apps"), "idleClose",
                     APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay.")),

@@ -66,15 +66,16 @@
     function brandColour(app) { return app.edge || app.accent || "#3a4a8a"; }
 
     /* The Top Shelf image: the app's artwork, or the APL wallpaper behind every app
-       (Settings › Apps › Top Shelf Content › Top Shelf Background › APL Wallpaper for Every App). */
+       (Settings › Apps › Top Shelf › Otherwise › APL Wallpaper, Always). */
     function shelfImage(app) {
         if (APL.sys.pref("shelfArt") === "all" && APL.genArt && APL.genArt.wallpaper) return APL.genArt.wallpaper();
         return app.bg;
     }
-    /* Settings › Apps › Top Shelf Content › App Backgrounds off: a plain dark background instead of the
+    /* Settings › Apps › Top Shelf › Otherwise › Black: a plain dark background instead of the
        app's artwork (the launcher's own Settings and Sources keep their large icon). */
-    function artOf(app) { return APL.sys.pref("appBackgrounds") ? shelfImage(app) : null; }
-    function plain(app) { return !APL.sys.pref("appBackgrounds") && !app.shelfHtml; }
+    function black() { return APL.sys.pref("shelfArt") === "black"; }
+    function artOf(app) { return black() ? null : shelfImage(app); }
+    function plain(app) { return black() && !app.shelfHtml; }
 
     function backdropFor(app) {
         var bg = artOf(app);
@@ -1030,7 +1031,6 @@
     };
 
     APL.refreshArt = function () { if (APL.autoArt) APL.autoArt.refresh(allApps, render); };
-    APL.sys.onPref("appBackgrounds", function () { render(); });
     // render() too: with the wallpaper for every app, no made background changes, yet every layer must be redrawn
     APL.restyleArt = function () { if (APL.autoArt) APL.autoArt.restyle(allApps, render); render(); };
 
