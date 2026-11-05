@@ -609,7 +609,9 @@ html, body {
 }
 .saver__label.is-shown { opacity: 1; }
 .saver.is-dark .saver__img { opacity: 0 !important; }
-.saver.is-dark .saver__time { top: 46%; right: auto; left: 0; width: 100%; text-align: center; font-size: 150px; font-weight: 300; }
+/* Centred on the screen: the box itself, one line high (top: 46% put its top there, the digits ~58 px low) */
+.saver.is-dark .saver__time { top: 50%; right: auto; left: 0; width: 100%; text-align: center; font-size: 150px; font-weight: 300;
+    line-height: 1; transform: translateY(-50%); }
 
 /* ===================== REDUCE MOTION ===================== */
 .reduce-motion *, .reduce-motion *::after { transition-duration: 0ms !important; animation: none !important; }
