@@ -797,17 +797,20 @@ html, body {
 }
 .perf .sources__dim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(6, 8, 14, 0.9); }
 .sources__title { position: absolute; top: 120px; left: 0; right: 0; text-align: center; font-size: 56px; font-weight: 700; }
-.sources__row { position: absolute; left: 0; right: 0; top: 360px; display: flex; justify-content: center; gap: 44px; }
+.sources__row { position: absolute; left: 0; right: 0; top: 360px; display: flex; justify-content: center; gap: 44px; padding: 0 96px; }
 .sources__row.is-picking { top: 250px; flex-wrap: wrap; gap: 26px 30px; padding: 0 140px; }
+/* As wide as 400 px, narrower when the screen has more inputs than fit (4 HDMI ports and AirPlay):
+   the row keeps its margins and the focused card (×1.1) stays on screen */
 .scard {
-    width: 400px;
+    flex: 0 1 400px;
+    min-width: 0;
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     color: #fff;
     transition: transform 260ms var(--spring, ease);
 }
 .scard__art {
     position: relative;
-    width: 400px; height: 240px; border-radius: 36px;
+    width: 100%; aspect-ratio: 5 / 3; border-radius: 36px;
     background: #222 center / cover no-repeat;
     box-shadow: 0 14px 30px rgba(0,0,0,0.3);
     transition: transform 260ms var(--spring, ease), box-shadow 260ms ease;
@@ -820,12 +823,14 @@ html, body {
 }
 .scard__ico { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12); }
 .scard__name { position: relative; z-index: 2; font-size: 32px; font-weight: 700; text-align: center; }
-.scard__sub { position: relative; z-index: 2; font-size: 22px; color: rgba(255,255,255,0.6); text-align: center; min-height: 26px; }
+.scard__sub { position: relative; z-index: 2; font-size: 22px; color: rgba(255,255,255,0.6); text-align: center; min-height: 26px; max-width: 100%; }
 .sources.is-picking .sources__hint { display: none; }
+/* Under Sources, nothing of the Home Screen shows through: no Top Shelf title, dock or rows, clock or hint */
+.has-sources .shelfinfo, .has-sources .home, .has-sources .status, .has-sources .hint { opacity: 0; }
 .scard.is-focused .scard__art { transform: scale(1.1); box-shadow: 0 34px 60px rgba(0,0,0,0.55); }
 .scard.is-focused .scard__art--glass { background: #f5f5f7; color: #1c1c1e; }
 .scard.is-focused .scard__art--glass .scard__ico { background: rgba(0,0,0,0.07); }
-.scard--small { width: 240px; gap: 6px; }                     /* six a row: the 16 cards fit in three rows */
+.scard--small { flex: 0 0 240px; width: 240px; gap: 6px; }                     /* six a row: the 16 cards fit in three rows */
 .scard--small .scard__art { width: 240px; height: 144px; border-radius: 24px; }
 .scard--small .scard__name { font-size: 24px; }
 .scard--small .scard__sub { font-size: 18px; min-height: 0; }

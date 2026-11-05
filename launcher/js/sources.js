@@ -221,6 +221,7 @@
         picking = null;
         render(0);
         root.classList.add("is-open");
+        document.body.classList.add("has-sources");      // the Home Screen steps back (launcher.css)
         APL.pushNav(nav);
         isOpen = true;
         refreshPorts().then(function (changed) {
@@ -250,6 +251,7 @@
         if (!isOpen) return;
         picking = null;
         root.classList.remove("is-open");
+        document.body.classList.remove("has-sources");
         APL.popNav(nav);
         isOpen = false;
     }
