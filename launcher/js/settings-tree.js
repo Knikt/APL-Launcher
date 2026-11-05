@@ -75,8 +75,32 @@
             choice(APL.t("⏯ in Apps"), "pauseKey", [["controlcenter", APL.t("Control Center")], ["playpause", APL.t("Play and Pause")]],
                 APL.t("What ⏯ does while an app is in front: the Control Center over it, or the app's own play and pause. On the Home Screen, ⏯ always opens the Control Center, and holding Home opens it everywhere.")),
 
-            choice(APL.t("Appearance"), "appearance", [["light", APL.t("Light")], ["dark", APL.t("Dark")], ["auto", APL.t("Automatic")]],
-                APL.t("Light or dark for backgrounds and menus. Automatic switches to dark at sunset and to light at sunrise.")),
+            /* -------- Appearance -------- */
+            menu(APL.t("Appearance"), "sun", [
+                choice(APL.t("Theme"), "appearance", [["light", APL.t("Light")], ["dark", APL.t("Dark")], ["auto", APL.t("Automatic")]],
+                    APL.t("Light or dark for backgrounds and menus. Automatic switches to dark at sunset and to light at sunrise.")),
+                menu(APL.t("Top Shelf"), "photo", [
+                    toggle(APL.t("What You're Watching"), "hubShelf",
+                        APL.t("Continue Watching from Plex, your Spotify mixes… for the apps that share them with Samsung's home screen.")),
+                    toggle(APL.t("What's Popular"), "liveShelf",
+                        APL.t("Trending films, series and videos on each service, top albums, games, sports. Films and series need a TMDB key, videos a YouTube key (see Online Services).")),
+                    choice(APL.t("Otherwise"), "shelfArt",
+                        [["sheets", APL.t("Sheets of Light")], ["logo", APL.t("Large Logo")], ["colors", APL.t("App Colors")],
+                         ["wallpaper", APL.t("APL Wallpaper")], ["all", APL.t("APL Wallpaper, Always")], ["black", APL.t("Black")]],
+                        APL.t("Apps with their own artwork keep it (YouTube, Netflix, Steam…). For the others: soft sheets of light in their colors, their logo enlarged on their colors, their colors alone, the APL wallpaper, or plain black. APL Wallpaper, Always: behind every app, artwork and content included."),
+                        function () { if (APL.restyleArt) APL.restyleArt(); }),
+                    menu(APL.t("Online Services"), "globe", [
+                        info(APL.t("TMDB Key"), function () { return APL.live && APL.live.keys().tmdb ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Films and series in What's Popular. Set it in APL Launcher Setup.")),
+                        info(APL.t("YouTube Key"), function () { return APL.live && APL.live.keys().youtube ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Optional: trending videos in TizenTube's Top Shelf.")),
+                        info(APL.t("Fanart.tv Key"), function () { return APL.live && APL.live.keys().fanart ? APL.t("Configured") : APL.t("Missing"); },
+                            APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
+                    ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
+                ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
+                toggle(APL.t("Visual Effects (blur, glass)"), "visualEffects", APL.t("Prettier but slower. Off by default so the screen stays smooth.")),
+                toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down."))
+            ], APL.t("Theme, Top Shelf, visual effects.")),
 
             /* -------- Account -------- */
             menu(APL.t("Users and Accounts"), "person", [
@@ -184,12 +208,11 @@
                 action(APL.t("Alexa on the microphone button"), function () { APL.settings.close(); APL.services.alexaMic(); },
                     APL.t("Do this once: in the Voice menu, choose Amazon Alexa and sign in to your Amazon account. Then hold the microphone button on the remote and talk to Alexa."), "mic"),
                 toggle("Alexa (Echo Dot)", "alexaBridge", APL.t("Say “Alexa, discover my devices” once. Then: “Alexa, turn on TizenTube”, “Alexa, turn off the screen”, “Alexa, turn on the AirPods”, “Alexa, turn on game mode”.")),
-                toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down.")),
                 menu(APL.t("Start Screen Option"), "power", [
                     n("homeApp", APL.t("Start on APL Launcher"), APL.t("The screen makes APL Launcher its home app and opens it at power-on, about a second after the picture comes on, instead of the TV input. Off: Samsung's home again."), ON_OFF),
                     n("smartHub", APL.t("Autorun Smart Hub"), APL.t("Opens the screen's home app at power-on: APL Launcher when “Start on APL Launcher” is on, otherwise Samsung's home screen."), ON_OFF)
                 ], APL.t("Make the screen start on APL Launcher."))
-            ], APL.t("Return to the launcher, Alexa, backgrounds, start-up.")),
+            ], APL.t("Return to the launcher, Alexa, start-up.")),
 
             /* -------- Apps -------- */
             menu(APL.t("Apps"), "apps", [
@@ -212,25 +235,6 @@
                     if (APL.refreshArt) APL.refreshArt();
                     APL.toast(APL.t("Searching for artwork in the background…"), true);
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
-                menu(APL.t("Top Shelf"), "photo", [
-                    toggle(APL.t("What You're Watching"), "hubShelf",
-                        APL.t("Continue Watching from Plex, your Spotify mixes… for the apps that share them with Samsung's home screen.")),
-                    toggle(APL.t("What's Popular"), "liveShelf",
-                        APL.t("Trending films, series and videos on each service, top albums, games, sports. Films and series need a TMDB key, videos a YouTube key (see Online Services).")),
-                    choice(APL.t("Otherwise"), "shelfArt",
-                        [["sheets", APL.t("Sheets of Light")], ["logo", APL.t("Large Logo")], ["colors", APL.t("App Colors")],
-                         ["wallpaper", APL.t("APL Wallpaper")], ["all", APL.t("APL Wallpaper, Always")], ["black", APL.t("Black")]],
-                        APL.t("Apps with their own artwork keep it (YouTube, Netflix, Steam…). For the others: soft sheets of light in their colors, their logo enlarged on their colors, their colors alone, the APL wallpaper, or plain black. APL Wallpaper, Always: behind every app, artwork and content included."),
-                        function () { if (APL.restyleArt) APL.restyleArt(); }),
-                    menu(APL.t("Online Services"), "globe", [
-                        info(APL.t("TMDB Key"), function () { return APL.live && APL.live.keys().tmdb ? APL.t("Configured") : APL.t("Missing"); },
-                            APL.t("Films and series in What's Popular. Set it in APL Launcher Setup.")),
-                        info(APL.t("YouTube Key"), function () { return APL.live && APL.live.keys().youtube ? APL.t("Configured") : APL.t("Missing"); },
-                            APL.t("Optional: trending videos in TizenTube's Top Shelf.")),
-                        info(APL.t("Fanart.tv Key"), function () { return APL.live && APL.live.keys().fanart ? APL.t("Configured") : APL.t("Missing"); },
-                            APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
-                    ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
-                ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
                 toggle(APL.t("Close unused apps"), "idleClose",
                     APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay.")),
@@ -244,7 +248,6 @@
                     APL.t("Automatic follows the screen's language. The launcher restarts to apply it."),
                     function (v) { if (v !== language) setTimeout(function () { global.location.reload(); }, 400); }),
                 toggle(APL.t("24-Hour Time"), "clock24", APL.t("Time format on the Home Screen and in Control Center.")),
-                toggle(APL.t("Visual Effects (blur, glass)"), "visualEffects", APL.t("Prettier but slower. Off by default so the screen stays smooth.")),
                 menu(APL.t("Power and Energy Saving"), "leaf", [
                     n("ecoSensor", APL.t("Brightness Optimization"), APL.t("Lowers the brightness in a dark room."), ON_OFF),
                     n("energy", APL.t("Power Saving Mode"), APL.t("Reduces power consumption."), ON_OFF)

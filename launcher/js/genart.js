@@ -300,7 +300,7 @@
         return c.toDataURL("image/jpeg", 0.84);
     }
 
-    /* ---------- background: light sheets (Settings › Apps › Top Shelf › Otherwise) ----------
+    /* ---------- background: light sheets (Settings › Appearance › Top Shelf › Otherwise) ----------
        Four or five sheets, each the area on one side of a smooth line across the screen, like
        Apple's wallpapers. A sheet is mostly its edge light: crisp at the line, fading inward, so the
        sheets below show through. Lines, sides, light and hollows all follow from the app's id, the
@@ -515,7 +515,7 @@
         return c && c.s >= 35 ? c : null;
     }
 
-    /* Settings › Apps › Top Shelf › Otherwise: light sheets in the app's colors (also instead of the
+    /* Settings › Appearance › Top Shelf › Otherwise: light sheets in the app's colors (also instead of the
        catalog's painted backgrounds), the logo enlarged on the app's colors (a small icon gets blurry),
        the colors alone, or one wallpaper for all of them. "all": the wallpaper behind every app. */
     var WALLPAPER = "wallpaper", SHEETS = "sheets", wallpaperUrl = null;

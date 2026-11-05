@@ -441,7 +441,7 @@
     function paintBlur(src, soft) {
         var token = ++blurToken;
         blur.style.opacity = "0";
-        // One wallpaper for every app (Settings › Apps › Top Shelf › Otherwise): the cards sit on it, unblurred
+        // One wallpaper for every app (Settings › Appearance › Top Shelf › Otherwise): the cards sit on it, unblurred
         if (!src || sys.pref("shelfArt") === "all") return;
         var img = new global.Image();
         img.onload = function () {

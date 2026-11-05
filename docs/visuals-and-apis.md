@@ -60,7 +60,7 @@ Results are kept 30 days (3 days when nothing is found). Turn this off or start 
 Whatever is still missing, `genart.js` draws once, in a canvas, and keeps in `localStorage`:
 
 - a 500×300 tile: the logo cut out of its plain background, on that colour;
-- a background, in the style chosen in *Settings › Apps › Top Shelf › Otherwise*.
+- a background, in the style chosen in *Settings › Appearance › Top Shelf › Otherwise*.
 
 **Sheets of light** (*Sheets of Light*, the default) are four or five sheets, each the area on one side of a smooth line across the screen, like Apple's wallpapers. A sheet is mostly its edge light: crisp at the line and fading inward, so the sheets below show through. The lines, which side each sheet fills, where its light falls and its hollows all follow from the app's ID, so an app always gets the same picture. The colours come from the app's main colour (the catalog's, or the icon's), with neighbouring hues only; a colourless brand gets graphite and silver. The light theme has tinted sheets with a soft shadow under each edge.
 
@@ -76,7 +76,7 @@ Local `file://` icons are readable in a canvas on the screen, Internet images ne
 
 **Your own content first.** Apps can publish rows for Samsung's home with the Smart Hub Preview API (`webapis.preview.setPreviewData`): Plex its *Continue Watching* and recently added films and series, Spotify your mixes and playlists. Samsung's content service keeps them in `/opt/usr/home/owner/apps_rw/com.samsung.tv.contentservicemanager/data/.preview.db`, in its own folder, so the launcher reads them through Vetro (`sqlite3 -readonly`). When the selected app has rows there, the Top Shelf shows their first 8 pictures, re-read every 10 minutes; otherwise the sources below. The app sends its rows itself, while it runs or after it was used, also when the launcher is the home app. Plex's 240×360 posters become the 1920×1080 artwork from the same server (`/art` instead of `/thumb/…` in the transcode address), and Spotify's album covers 2000 px instead of 640. These addresses can carry the app's token: they stay on the screen and are never logged.
 
-*Settings › Apps › Top Shelf* sets what the Top Shelf shows, in this order: **What You're Watching** (above), **What's Popular** (the sources below), then the app's artwork, or for apps without one the style chosen in **Otherwise** (*Black* for a plain dark background). The two toggles are per profile; each one turned off is skipped. The keys' status is in *Online Services*.
+*Settings › Appearance › Top Shelf* sets what the Top Shelf shows, in this order: **What You're Watching** (above), **What's Popular** (the sources below), then the app's artwork, or for apps without one the style chosen in **Otherwise** (*Black* for a plain dark background). The two toggles are per profile; each one turned off is skipped. The keys' status is in *Online Services*.
 
 | App | Content | Source | Key |
 |---|---|---|---|

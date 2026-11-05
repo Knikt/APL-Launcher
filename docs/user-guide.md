@@ -70,10 +70,11 @@ Open it with **⏯**, by holding **Home**, or with the red key. Glass tiles appe
 ## Settings
 
 Apple TV–style split view: a big icon and a description on the left, the list on the right. It covers every Samsung settings section:
+- Appearance: light or dark theme, the Top Shelf (what it shows, and the background for apps without artwork), visual effects, background motion;
 - Picture, with real backlight, contrast, sharpness, colour and local dimming;
 - Gaming, Sound, Screen Saver, Connection, Advanced Features;
-- Apps: visible apps, automatic artwork, live Top Shelf, home layout reset;
-- General & Privacy: language, clock, visual effects, closing Samsung's home;
+- Apps: visible apps, artwork found online, home layout reset;
+- General & Privacy: language, clock, closing Samsung's home;
 - Support: about, and launcher updates.
 
 Rows marked with an arrow-out icon open the matching Samsung page.
