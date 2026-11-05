@@ -1023,3 +1023,56 @@ html, body {
 .sw__widgets .wdg__sub { font-size: 15px; }
 .sw__widgets .wdg__bar { left: 14px; right: 14px; bottom: 8px; height: 5px; }
 .sw__widgets .wdg__logo { left: 14px; bottom: 44px; max-height: 50px; }
+
+/* ===================== LIQUID GLASS =====================
+   The dock, the Control Center's tiles and the status pill, like tvOS 26: a clear sheet, lightly
+   tinted and lighter at the top, with a rim of light that is brighter where it is lit (top left), and a
+   soft shadow under it. Static gradients and a masked rim, no live blur: the same cost with visual
+   effects off (.perf, the default on the screen). Declared last, it overrides the glass above. */
+.dock, .perf .dock,
+.status, .perf .status,
+.cc__t, .perf .cc__t {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 42%, rgba(255,255,255,0.02) 100%),
+        rgba(28, 30, 38, 0.52);
+    box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.28),
+        inset 0 -10px 24px rgba(255,255,255,0.04),
+        0 18px 44px rgba(0,0,0,0.32);
+}
+.dock::before, .status::before, .cc__t::before {
+    content: "";
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    border-radius: inherit;
+    padding: 1.5px;                                   /* the rim's width: the mask keeps only this ring */
+    background: linear-gradient(135deg, rgba(255,255,255,0.65) 0%, rgba(255,255,255,0.12) 30%,
+                rgba(255,255,255,0.04) 55%, rgba(255,255,255,0.10) 80%, rgba(255,255,255,0.35) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+}
+/* Without blur behind them, the Control Center's tiles need more tint than the dock to stay readable over it */
+.cc__t, .perf .cc__t {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.05) 42%, rgba(255,255,255,0.02) 100%),
+        rgba(28, 30, 38, 0.74);
+}
+/* The focused tile stays the bright Apple one, with its shadow */
+.cc__t.is-focused, .perf .cc__t.is-focused { box-shadow: 0 20px 44px rgba(0,0,0,0.38); }
+.cc__t.is-focused::before { opacity: 0; }
+
+.theme-light .dock, .theme-light.perf .dock,
+.theme-light .status, .theme-light.perf .status,
+.theme-light .cc__t, .theme-light.perf .cc__t {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.58) 45%, rgba(255,255,255,0.48) 100%),
+        rgba(236, 238, 244, 0.35);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.9), 0 16px 40px rgba(0,0,0,0.14);
+}
+.theme-light .dock::before, .theme-light .status::before, .theme-light .cc__t::before {
+    background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.45) 35%,
+                rgba(0,0,0,0.04) 60%, rgba(255,255,255,0.6) 100%);
+}
+.theme-light .cc__t.is-focused, .theme-light.perf .cc__t.is-focused { box-shadow: 0 20px 44px rgba(0,0,0,0.26); }
