@@ -11,7 +11,7 @@ The interface is in French, so labels are given here in French with their Englis
 | **OK held** | app menu (see below) | — |
 | **Back** | back to the first app; from the first app, back to Samsung | back to the dock |
 | **Home** (Vetro) | opens the launcher; pressed twice: open apps; held: Control Center | |
-| **⏯** or red key | Control Center, over any app (⏯ no longer pauses videos, unless *Settings › ⏯ in Apps* is set to *Play and Pause*) | |
+| **⏯** or red key | Control Center, over any app (⏯ no longer pauses videos, unless *Settings › Remote and Devices › Play/Pause Button* is set to *Play and Pause*) | |
 | **Samsung TV Plus** | AquaPlay | |
 | **Prime Video** | TizenTube | |
 
@@ -34,7 +34,7 @@ Hold **OK** on an app for half a second:
 | Choice | Effect |
 |---|---|
 | **Edit Home Screen** | The app jiggles. Move it with the arrows, then press OK or Back to drop it. The layout is saved. |
-| **Hide App** | Removes it from the Home Screen. Bring it back in *Settings › Apps*. |
+| **Hide App** | Removes it from the Home Screen. Bring it back in *Settings › Home Screen › Show on Home Screen*. |
 | **Delete App** | Asks for confirmation (*Cancel* is selected by default), then uninstalls through Vetro. System apps cannot be deleted from here. |
 
 ## Profiles
@@ -71,9 +71,11 @@ Open it with **⏯**, by holding **Home**, or with the red key. Glass tiles appe
 
 Apple TV–style split view: a big icon and a description on the left, the list on the right. It covers every Samsung settings section:
 - Appearance: light or dark theme, the Top Shelf (what it shows, and the background for apps without artwork), visual effects, background motion;
+- Home Screen: apps shown, their order, the full screen hint, coming back here when an app closes;
+- Remote and Devices: what the play/pause button does in apps, Alexa, Bluetooth;
 - Picture, with real backlight, contrast, sharpness, colour and local dimming;
-- Gaming, Sound, Screen Saver, Connection, Advanced Features;
-- Apps: visible apps, artwork found online, home layout reset;
+- Gaming, Sound, Screen Saver, Connection, Advanced Features (start-up);
+- Apps: artwork found online, apps left open, memory;
 - General & Privacy: language, clock, closing Samsung's home;
 - Support: about, and launcher updates.
 

@@ -66,7 +66,7 @@ TizenBrew and TizenTube are **not** needed. If you use them, the launcher opens 
    - on the screen: *Settings › All Settings › Advanced Features* → **Autorun Smart Hub** off, **Autorun Last App** on;
    - in Vetro › **Remapper**: choose your remote in the device list (*Smart Control 2016* when it is paired over Bluetooth, *wt61p807 rc device* when it works by infrared only), map **Home** to **APL Launcher** and turn on **Remote interception**. Then click **Done — set up the buttons** in the app: it hands Home and ⏯ to APL Overlay, and Samsung TV Plus or Prime Video too when AquaPlay or TizenTube is installed.
 5. *Optional:* the **Optimize** page removes unused apps and services. It reads the screen, shows the full list and waits for your confirmation.
-6. *Optional:* for Alexa, open *Settings › Advanced Features › Alexa on the microphone button* in the launcher, choose Amazon Alexa and sign in with your Amazon account. The remote must be paired over Bluetooth: point it at the screen and hold **Back** and **⏯** together for 3 seconds. Then pick *Smart Control 2016* in Vetro's device list.
+6. *Optional:* for Alexa, open *Settings › Remote and Devices › Alexa on the microphone button* in the launcher, choose Amazon Alexa and sign in with your Amazon account. The remote must be paired over Bluetooth: point it at the screen and hold **Back** and **⏯** together for 3 seconds. Then pick *Smart Control 2016* in Vetro's device list.
 
 **Something wrong?** The **Restore** page gives the Home button back to Samsung and undoes the optimizer.
 
