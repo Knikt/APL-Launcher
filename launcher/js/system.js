@@ -643,7 +643,6 @@
         soundMode:  { get: "GetSoundMode u 0", set: "SetSoundMode uu -- V 1" },
         autoVolume: { get: "GetAutoVolume u 0", set: "SetAutoVolume uu -- V 1" },
         feedback:   { get: "GetSoundFeedback i 0", set: "SetSoundFeedback ii -- 1 V" },
-        smartHub:   { vconf: "db/menu/smart_hub/ontvsetting/auto_start" },
         /* The screen's home app (db/appfw/home_appid). At power-on the screen puts either the TV input or the
            home app in front, and Autorun Smart Hub chooses the home app: with the launcher as home app, it is
            on screen about a second after power-on instead of after the start-up service (~1 min). Autorun

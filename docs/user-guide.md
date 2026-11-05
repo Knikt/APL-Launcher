@@ -74,9 +74,9 @@ Apple TV–style split view: a big icon and a description on the left, the list 
 - Home Screen: apps shown, their order, the full screen hint, coming back here when an app closes;
 - Remote and Devices: what the play/pause button does in apps, Alexa, Bluetooth;
 - Picture, with real backlight, contrast, sharpness, colour and local dimming;
-- Gaming, Sound, Screen Saver, Connection, Advanced Features (start-up);
+- Gaming, Sound, Screen Saver, Connection;
 - Apps: artwork found online, apps left open, memory;
-- General & Privacy: language, clock, closing Samsung's home;
+- General & Privacy: language, clock, starting on the launcher, closing what Samsung opens at start-up;
 - Support: about, and launcher updates.
 
 Rows marked with an arrow-out icon open the matching Samsung page.

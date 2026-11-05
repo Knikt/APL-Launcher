@@ -227,14 +227,6 @@
                 ], APL.t("HDMI input settings."))
             ], APL.t("Network, AirPlay, HDMI.")),
 
-            /* -------- Advanced Features -------- */
-            menu(APL.t("Advanced Features"), "sparkle", [
-                menu(APL.t("Start Screen Option"), "power", [
-                    n("homeApp", APL.t("Start on APL Launcher"), APL.t("The screen makes APL Launcher its home app and opens it at power-on, about a second after the picture comes on, instead of the TV input. Off: Samsung's home again."), ON_OFF),
-                    n("smartHub", APL.t("Autorun Smart Hub"), APL.t("Opens the screen's home app at power-on: APL Launcher when “Start on APL Launcher” is on, otherwise Samsung's home screen."), ON_OFF)
-                ], APL.t("Make the screen start on APL Launcher."))
-            ], APL.t("Make the screen start on APL Launcher.")),
-
             /* -------- Apps -------- */
             menu(APL.t("Apps"), "apps", [
                 toggle(APL.t("Find Logos and Artwork Online"), "autoArt",
@@ -256,6 +248,8 @@
                     APL.t("Automatic follows the screen's language. The launcher restarts to apply it."),
                     function (v) { if (v !== language) setTimeout(function () { global.location.reload(); }, 400); }),
                 toggle(APL.t("24-Hour Time"), "clock24", APL.t("Time format on the Home Screen and in Control Center.")),
+                n("homeApp", APL.t("Start on APL Launcher"), APL.t("The screen opens APL Launcher at power-on, about a second after the picture, instead of the TV input. Off: the screen starts as before."), ON_OFF),
+                toggle(APL.t("Close Apps at Start-Up"), "bootCleanup", APL.t("Once per full power-on, closes what the system opens on its own: Netflix, TV Plus, Disney+, Samsung Internet, Art Mode, the pieces of the Samsung home screen and the blocked services. Frees about 350 MB.")),
                 menu(APL.t("Power and Energy Saving"), "leaf", [
                     n("ecoSensor", APL.t("Brightness Optimization"), APL.t("Lowers the brightness in a dark room."), ON_OFF),
                     n("energy", APL.t("Power Saving Mode"), APL.t("Reduces power consumption."), ON_OFF)
@@ -271,9 +265,8 @@
                 ].concat(APL.services.groups.map(function (g) {
                     return { type: "service", label: g.label, group: g, desc: g.desc };
                 })), APL.t("Stops what the launcher no longer needs from starting.")),
-                toggle(APL.t("Close Apps at Start-Up"), "bootCleanup", APL.t("Once per full power-on, closes what the system opens on its own: Netflix, TV Plus, Disney+, Samsung Internet, Art Mode, the pieces of the Samsung home screen and the blocked services. Frees about 350 MB.")),
                 { type: "samsung", label: APL.t("Samsung Settings"), desc: APL.t("For what the screen keeps for its own menus: changing Wi-Fi, time, language, Samsung account, parental controls, privacy, reset.") }
-            ], APL.t("Clock, energy, accessibility, Samsung Settings.")),
+            ], APL.t("Clock, start-up, energy, accessibility, Samsung Settings.")),
 
             /* -------- Support -------- */
             menu(APL.t("Support"), "info", [
