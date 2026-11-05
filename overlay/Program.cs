@@ -298,12 +298,18 @@ namespace APL
         /// The launcher in front gets Home's actions as keys: a launch request to the app already in
         /// front never reaches the page on some screens (The Frame 2025), an injected key does, and
         /// Vetro lets it through (it filters the remote's device only). launcher/js/launcher.js: blue
-        /// for Home, green for the App Switcher, red for the Control Center.
+        /// for Home, green for the App Switcher, red for the Control Center. Vetro not up yet (right
+        /// after a wake): the same action as a launch request, which most screens deliver.
         /// </summary>
         private const string Red = "XF86Red", Green = "XF86Green", Blue = "XF86Blue";
-        private static Task LauncherKey(string name)
+        private static async Task LauncherKey(string name)
         {
-            return Vetro.Exec("/usr/bin/input_keyevent " + name + " >/dev/null 2>&1");
+            try { await Vetro.ExecWhenReady("/usr/bin/input_keyevent " + name + " >/dev/null 2>&1"); }
+            catch (Exception ex)
+            {
+                Note("launcher key: " + ex.Message + ", opening it instead");
+                OpenLauncher(name == Green ? "switcher" : name == Red ? "controlcenter" : "");
+            }
         }
 
         /// <summary>SkipReload: an app already open comes back as it was, video included, as in launcher/js/apps.js.</summary>
