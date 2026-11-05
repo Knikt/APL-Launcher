@@ -96,7 +96,7 @@
                             APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
                     ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
                 ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
-                toggle(APL.t("Visual Effects (blur, glass)"), "visualEffects", APL.t("Prettier but slower. Off by default so the screen stays smooth.")),
+                toggle(APL.t("Visual Effects"), "visualEffects", APL.t("Blur and glass. Prettier but slower: off by default so the screen stays smooth.")),
                 toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down."))
             ], APL.t("Theme, Top Shelf, visual effects.")),
 
@@ -115,7 +115,7 @@
                     if (APL.resetHomeOrder) APL.resetHomeOrder();
                     APL.toast(APL.t("Original layout restored"), true);
                 }, APL.t("Puts the apps back in their original order (your apps, Settings, Sources, then the others)."), "reset"),
-                toggle(APL.t("“Full screen” hint"), "showHint", APL.t("Shows “Press ▲ for full screen” on the Home Screen.")),
+                toggle(APL.t("Full Screen Hint"), "showHint", APL.t("Shows “Press ▲ for full screen” on the Home Screen.")),
                 toggle(APL.t("Return to the Launcher"), "homeReturn", APL.t("When an app closes, the screen comes back here instead of the Samsung home screen."))
             ], APL.t("The apps shown, their order, and coming back here.")),
 
@@ -123,7 +123,7 @@
             menu(APL.t("Remote and Devices"), "remote", [
                 choice(APL.t("Play/Pause Button"), "pauseKey", [["controlcenter", APL.t("Control Center")], ["playpause", APL.t("Play and Pause")]],
                     APL.t("What the play/pause button does while an app is in front: open the Control Center over it, or play and pause in the app. On the Home Screen it always opens the Control Center, and holding Home opens it everywhere.")),
-                action(APL.t("Alexa on the microphone button"), function () { APL.settings.close(); APL.services.alexaMic(); },
+                action(APL.t("Alexa on the Microphone Button"), function () { APL.settings.close(); APL.services.alexaMic(); },
                     APL.t("Do this once: in the Voice menu, choose Amazon Alexa and sign in to your Amazon account. Then hold the microphone button on the remote and talk to Alexa."), "mic"),
                 toggle("Alexa (Echo Dot)", "alexaBridge", APL.t("Say “Alexa, discover my devices” once. Then: “Alexa, turn on TizenTube”, “Alexa, turn off the screen”, “Alexa, turn on the AirPods”, “Alexa, turn on game mode”.")),
                 action("Bluetooth", openAudio, APL.t("Connect or pair AirPods, headphones or a speaker."), "bluetooth")
@@ -244,7 +244,7 @@
                     APL.toast(APL.t("Searching for artwork in the background…"), true);
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
-                toggle(APL.t("Close unused apps"), "idleClose",
+                toggle(APL.t("Close Unused Apps"), "idleClose",
                     APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay.")),
                 action(APL.t("Free Up Memory"), function () { APL.freeMemory(); },
                     APL.t("Closes the apps left open behind the launcher (Netflix, Disney+, Samsung's YouTube…). They reopen normally, but start over from the beginning. TizenTube stays ready."), "reset")
