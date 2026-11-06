@@ -13,8 +13,8 @@
     "use strict";
 
     var APL = global.APL;
-    var DOCK_SIZE = 6;
-    var DOCK_TOP = 783;          // dock position in the shelf state
+    var DOCK_SIZE = 6;           // apps per row, dock included: Settings › Home Screen › Apps per Row (5 to 7)
+    var DOCK_TOP = 783;          // dock position in the shelf state (sizes(): higher with bigger tiles)
     var GRID_DOCK_TOP = 64;      // dock position once the grid has moved up
     var ROWS_TOP = 1052;         // top of the 2nd row inside .home
     var FULL_SHIFT = 430;        // shift that moves the dock off the screen
@@ -358,6 +358,24 @@
         if (dom.shelfInfo && nav) openHint();
     }
 
+    /* Apps per row: the tiles share the dock's width (1750 px inside its padding, 50 px gaps) and keep
+       their 5:3 shape; the dock grows upward from the same bottom edge (1008), and the rows start below
+       it as before. CSS reads the result from variables on <html>. */
+    var TILE_H = 150, DOCK_BOTTOM = 1008;
+    function sizes() {
+        var n = APL.sys.pref("appsPerRow");
+        n = n === 5 || n === 7 ? n : 6;
+        var w = Math.round((1750 - (n - 1) * 50) / n), h = Math.round(w * 0.6), dockH = h + 75;
+        DOCK_SIZE = n; TILE_H = h; DOCK_TOP = DOCK_BOTTOM - dockH;
+        var s = document.documentElement.style;
+        s.setProperty("--cols", n);
+        s.setProperty("--tile-w", w + "px");
+        s.setProperty("--tile-h", h + "px");
+        s.setProperty("--dock-top", DOCK_TOP + "px");
+        s.setProperty("--dock-h", dockH + "px");
+    }
+    sizes();
+
     function layout() {
         var y = 0;
         if (mode === "full") {
@@ -368,7 +386,7 @@
             var el = nav && nav.current();
             if (el && el.dataset.row !== "0") {
                 var visibleTop = ROWS_TOP + el.offsetTop + y;
-                var limit = 1080 - 230;              // icon + name + bottom margin
+                var limit = 1080 - (TILE_H + 80);    // icon + name + bottom margin
                 if (visibleTop > limit) y -= (visibleTop - limit);
             }
         }
@@ -649,7 +667,7 @@
         dom.row0.innerHTML = "";
         dom.rows.innerHTML = "";
         tiles = apps.map(function (app, i) {
-            var row = i < DOCK_SIZE ? 0 : 1 + Math.floor((i - DOCK_SIZE) / 6);
+            var row = i < DOCK_SIZE ? 0 : 1 + Math.floor((i - DOCK_SIZE) / DOCK_SIZE);
             var t = makeTile(app, row);
             (row === 0 ? dom.row0 : dom.rows).appendChild(t);
             return t;
@@ -746,6 +764,7 @@
         APL.sys.onPref("visualEffects", applyPerf);
         applyTheme();
         APL.sys.onPref("appearance", applyTheme);
+        APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
         setInterval(applyTheme, 60000);
         APL.loadApps().then(function (list) {

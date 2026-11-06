@@ -381,6 +381,8 @@ window.APL_LANG_FR = {
     "Home Screen": "Écran d'accueil",
     "The screen opens APL Launcher at power-on, about a second after the picture, instead of the TV input. Off: the screen starts as before.": "L'écran ouvre APL Launcher à l'allumage, environ une seconde après l'image, au lieu de l'entrée TV. Désactivé : l'écran démarre comme avant.",
     "Clock, start-up, energy, accessibility, Samsung Settings.": "Horloge, démarrage, énergie, accessibilité, paramètres Samsung.",
+    "Apps per Row": "Apps par rangée",
+    "In the dock and in every row below. 5: bigger tiles, 7: more apps with a Top Shelf.": "Dans le dock et dans chaque rangée en dessous. 5 : des tuiles plus grandes, 7 : plus d'apps avec un Top Shelf.",
     "Search for Artwork Again": "Rechercher à nouveau les visuels",
     "Searching for artwork in the background…": "Recherche des visuels en arrière-plan…",
     "Clears the artwork found and searches again for all apps.": "Efface les visuels trouvés et relance la recherche pour toutes les apps.",

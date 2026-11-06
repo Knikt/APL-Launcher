@@ -41,6 +41,7 @@
         pinnedSources: [],          // inputs shown on the Home Screen as tiles (sources.js)
         autoUpdate: true,           // launcher updates from GitHub, on their own
         autoArt: true,              // logos, backgrounds and content found automatically (App Store, TMDB)
+        appsPerRow: 6,              // dock and grid: 5, 6 or 7 (launcher.js sizes())
         shelfArt: "sheets",         // Top Shelf of apps without artwork: "sheets" | "logo" | "colors" | "wallpaper" | "all" | "black" (genart.js)
         smartHubTileSet: false,     // the Smart Hub tile was hidden once in this profile (it starts hidden)
         hubShelf: true,             // Top Shelf: the apps' own Smart Hub rows first (liveshelf.js)

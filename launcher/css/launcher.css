@@ -3,6 +3,7 @@
    1920x1080 surface. Measurements taken from Apple TV screenshots:
      dock      : x 42→1878, y 783→1008, radius 46, light glass
      icons     : 250x150, gap 50, radius 20, focus x1.2 with no outline
+                 (6 per row; 5 or 7 in Settings: launcher.js sizes() sets the variables below)
      2nd row   : runs off the bottom of the screen (y ≈ 1052)
      status    : time + avatar, top right
    Three states (class on <body>):
@@ -22,8 +23,11 @@
 
 :root {
     --ease: cubic-bezier(0.25, 1, 0.5, 1);   /* tvOS inertia */
+    --cols: 6;
     --tile-w: 250px;
     --tile-h: 150px;
+    --dock-top: 783px;
+    --dock-h: 225px;
     --gap-x: 50px;
     --radius: 20px;
 }
@@ -142,7 +146,7 @@ html, body {
 .hint {
     position: fixed;
     left: 0; right: 0;
-    top: 704px;
+    top: calc(var(--dock-top) - 79px);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -169,7 +173,7 @@ html, body {
 }
 
 /* Top Shelf movie title and rating: on the left, without touching the hint in the center */
-.shelfinfo { position: fixed; left: 90px; top: 650px; width: 640px; z-index: 9; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); transition: opacity 220ms ease; }
+.shelfinfo { position: fixed; left: 90px; top: calc(var(--dock-top) - 133px); width: 640px; z-index: 9; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); transition: opacity 220ms ease; }
 .shelfinfo.is-visible { opacity: 1; }
 .mode-grid .shelfinfo, .has-wdg .shelfinfo { opacity: 0; }
 .mode-full .shelfinfo { top: 910px; width: 1200px; }
@@ -192,9 +196,9 @@ html, body {
 .dock {
     position: absolute;
     left: 42px;
-    top: 783px;
+    top: var(--dock-top);
     width: 1836px;
-    height: 225px;
+    height: var(--dock-h);
     border-radius: 46px;
     background: rgba(118, 118, 128, 0.24);           /* tvOS light glass */
     -webkit-backdrop-filter: blur(50px) saturate(1.8);
@@ -203,10 +207,10 @@ html, body {
 }
 .row0, .rows {
     display: grid;
-    grid-template-columns: repeat(6, var(--tile-w));
+    grid-template-columns: repeat(var(--cols), var(--tile-w));
     column-gap: var(--gap-x);
 }
-.row0 { padding: 37px 43px; }
+.row0 { padding: calc((var(--dock-h) - var(--tile-h)) / 2) 43px; }
 .rows {
     position: absolute;
     left: 85px;
@@ -929,7 +933,7 @@ html, body {
 .folder__input { width: 800px; background: none; border: 0; border-bottom: 3px solid currentColor; color: inherit; font: inherit; text-align: center; outline: none; }
 .folder__grid {
     position: absolute; top: 260px; left: 85px;
-    display: grid; grid-template-columns: repeat(6, var(--tile-w)); column-gap: var(--gap-x); row-gap: 90px;
+    display: grid; grid-template-columns: repeat(var(--cols), var(--tile-w)); column-gap: var(--gap-x); row-gap: 90px;
 }
 .folder .tile.is-focused .tile__label { opacity: 1; }
 
