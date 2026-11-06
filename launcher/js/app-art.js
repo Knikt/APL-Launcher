@@ -324,27 +324,47 @@
             if (key === "general") return cache.general || null;
             var own = cache.by && cache.by[key];
             if (own && own.length) return own;
-            /* Only the titles the service itself carries. When the storefront
-               lists none of them the app keeps its own artwork instead of
-               showing a show from a rival: a wall that names one service must
-               never slide on to another's programme. */
+            /* The titles the service itself carries first. When the storefront
+               lists none of them here (a service that is not sold in this
+               country, or a channel with no catalogue of its own), the wall
+               still needs a picture: the storefront's trending list stands in,
+               and pick() hands out distinct titles so two tiles never share a
+               poster. */
             var mine = (cache.general || []).filter(function (it) {
                 return it.svc && it.svc.indexOf(key) >= 0;
             });
-            return mine.length ? mine : null;
+            if (mine.length) return mine;
+            return cache.general && cache.general.length ? cache.general : null;
         }
         return null;
     }
 
     /* One title per app, and the same one until the list is rebuilt: a poster
        that changed on every move would read as a flicker. */
+    /* Titles already handed out, by app: two tiles on the wall must never show the
+       same poster, which reads as a backdrop that failed to change (Disney+ was
+       showing Prime Video's film). */
+    var handed = {};
+    function usedByOther(url, id) {
+        for (var k in handed) {
+            if (k !== id && handed[k] === url) return true;
+        }
+        return false;
+    }
+
     function pick(app) {
         var list = listFor(app);
         if (!list || !list.length) return null;
         var id = String((app && app.id) || (app && app.name) || "");
-        var h = 0;
-        for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003;
-        return list[h % list.length];
+        var h = 0, i, start, cand;
+        for (i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003;
+        start = h % list.length;
+        for (i = 0; i < list.length; i++) {
+            cand = list[(start + i) % list.length];
+            if (!cand || !cand.url) continue;
+            if (!usedByOther(cand.url, id)) { handed[id] = cand.url; return cand; }
+        }
+        return list[start];
     }
 
     /* The title after this one, for the slide that runs while an app stays in

@@ -31,7 +31,7 @@
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
     var ZOOM = 1.25;                     /* the backdrop is enlarged behind the glass */
-    var LIGHT = 1.25;                    /* and a quarter brighter: the pane reads as lit */
+    var LIGHT = 1.05;                    /* 5 % brighter: the pane reads as lit, not washed out */
 
     /* Every surface that should read as a lens. Add a selector here and it
        gets the material, with no other change. The profile row in Control
@@ -48,7 +48,7 @@
     var bakedFrom = "";      /* the artwork it was made from */
     var queued = "";         /* artwork being prepared right now */
     var forced = "";         /* setSource() override */
-    var timer = 0;
+    var timer = 0, empty = 0;
     var settle = 0;          /* second look, once the new backdrop has faded in */
     var body = null;
 
@@ -217,11 +217,16 @@
         global.clearTimeout(timer);
         timer = global.setTimeout(function () {
             var src = forced || scene();
-            /* A tile with no artwork of its own (a generated brand card, a
-               gradient, an app with no backdrop) used to empty the lens on the
-               spot: the glass appeared and was gone a moment later, on every
-               move. The last real artwork stays until another one arrives. */
-            if (!src) { if (baked) paint(); return; }
+            /* Nothing behind (a generated brand card, a channel with no poster):
+               the pane goes, so the dock and the Control Center never keep the
+               last app's backdrop. Not on the spot, though: a poster that lands a
+               frame later would blank the dock for a moment. One look after 240 ms
+               decides, and a bake starting in between cancels it. */
+            global.clearTimeout(empty);
+            if (!src) {
+                empty = global.setTimeout(function () { if (!scene()) drop(); }, 240);
+                return;
+            }
             bake(src);
         }, 120);
         /* The backdrop of the app being focused fades in after the key, so the

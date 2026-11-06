@@ -518,8 +518,9 @@ html, body {
 }
 .cc__t--big {
     grid-row: span 2;
-    height: 252px;
-    border-radius: 58px;
+    width: 200px;
+    height: 200px;
+    border-radius: 50px;
     flex-direction: column;
     justify-content: center;
     gap: 16px;
