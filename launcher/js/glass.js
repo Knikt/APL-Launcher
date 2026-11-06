@@ -74,11 +74,22 @@
     /* One frozen copy per artwork. The second canvas is the only "blur":
        drawing 48x27 into 480x270 is a 10x upscale, which the compositor
        smooths for free. */
+    /* Callers waiting on the bake in flight. A second request for the same
+       picture used to be dropped silently, which left the launcher waiting for
+       a swap that never came and no backdrop on screen at all. */
+    var waiting = [];
+    function flush() {
+        var w = waiting, i;
+        waiting = [];
+        for (i = 0; i < w.length; i++) { try { w[i](); } catch (e) {} }
+    }
+
     function bake(src, done) {
         if (!src) { drop(); return; }
         if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
-        if (src === queued) return;
+        if (src === queued) { if (done) waiting.push(done); return; }
         queued = src;
+        waiting = done ? [done] : [];
         var img = new global.Image();
         img.onload = function () {
             queued = "";
@@ -111,10 +122,10 @@
                 forget();
                 paint();
                 notify();
-                if (done) done();
-            } catch (e) { queued = ""; }
+                flush();
+            } catch (e) { queued = ""; flush(); }
         };
-        img.onerror = function () { queued = ""; };
+        img.onerror = function () { queued = ""; flush(); };
         /* A poster from the catalogue lives on images.justwatch.com: without
            this the canvas is tainted, toDataURL throws, and every lens would
            quietly disappear behind remote artwork. */
@@ -216,9 +227,15 @@
     /* Bake the picture now and call back once the pane is ready, so the caller can
        swap the picture and the glass in the same frame (launcher.js setPoster). */
     function prepare(src, done) {
-        if (!src) { if (done) done(); return; }
-        if (src === bakedFrom && baked) { if (done) done(); return; }
-        bake(src, function () { if (done) done(); });
+        if (!done) { if (src) bake(src); return; }
+        var called = false;
+        function call() { if (called) return; called = true; done(); }
+        if (!src) { call(); return; }
+        if (src === bakedFrom && baked) { call(); return; }
+        bake(src, call);
+        /* A bake can fail (artwork without CORS, no canvas): the picture must
+           still change, so the caller is never left waiting for it. */
+        global.setTimeout(call, 450);
     }
 
     function refresh() {

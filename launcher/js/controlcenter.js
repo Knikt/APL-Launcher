@@ -296,9 +296,6 @@
             { cls: "pill", icon: "moon", title: APL.t("Do Not Disturb"), tint: "#5e5ce6",
               sub: function () { return sys.pref("dnd") ? APL.t("On") : APL.t("Off"); },
               on: function () { return sys.pref("dnd"); }, select: function () { sys.setPref("dnd", !sys.pref("dnd")); } },
-            { cls: "pill", icon: "search", title: APL.t("Search"),
-              sub: function () { return APL.t("Apps by name"); },
-              select: function () { close(); if (APL.search) APL.search.open(); } },
             { cls: "pill", icon: "airplayAudio", title: "Audio", sub: outputName, select: function () { show("audio"); } },
             { cls: "pill", icon: "timer", title: APL.t("Sleep Timer"), tint: "#ff9f0a", sub: remaining,
               on: function () { return !!sys.pref("sleepAt"); },
@@ -315,10 +312,12 @@
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
             { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
             { cls: "slider", type: "backlight", icon: "sun", title: APL.t("Brightness") },
-            { cls: "wide", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
+            { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
-            { cls: "wide", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
-              select: openSettings() }
+            { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
+              select: openSettings() },
+            { cls: "round", icon: "search", title: APL.t("Search"),
+              select: function () { close(); if (APL.search) APL.search.open(); } }
         ];
     }
 
