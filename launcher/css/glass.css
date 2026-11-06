@@ -38,7 +38,7 @@ body.glass .scard__art--glass {
     background-repeat: no-repeat;
     background-size: 1920px 1080px;      /* the stage: a slice of the picture, never a stretch */
     background-position: 0 0;
-    transition: opacity 320ms ease;
+    transition: opacity 300ms ease;             /* FADE_MS in launcher.js: the picture and the glass cross together */
 }
 .cg__glass.is-on { opacity: 1; }
 
@@ -54,7 +54,7 @@ body.glass .scard__art--glass {
 
 /* The surface's own content stays above the pane. */
 body.glass .dock > .row0,
-body.glass .status > *,
+body.glass .status > :not(.cg__glass),
 body.glass .cc__t > :not(.cg__glass),
 body.glass .scard__art--glass > :not(.cg__glass) { position: relative; z-index: 1; }
 

@@ -203,7 +203,7 @@
                 n.style.opacity = "";
                 el.__cgLayer = n;
                 (function (old) {
-                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 420);
+                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 300);
                 })(l);
                 l = n;
             } else {
@@ -211,6 +211,14 @@
                 l.classList.add("is-on");
             }
         }
+    }
+
+    /* Bake the picture now and call back once the pane is ready, so the caller can
+       swap the picture and the glass in the same frame (launcher.js setPoster). */
+    function prepare(src, done) {
+        if (!src) { if (done) done(); return; }
+        if (src === bakedFrom && baked) { if (done) done(); return; }
+        bake(src, function () { if (done) done(); });
     }
 
     function refresh() {
@@ -257,6 +265,7 @@
         lens: lens,
         offset: offset,
         paint: paint,
+        prepare: prepare,
         refresh: refresh,
         setSource: setSource,
         release: release

@@ -268,6 +268,7 @@
         var pick = backdropPick(app);
         if (pick && pick.url) { setPoster(app, pick); return; }
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
+        stopRotate();
         var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
@@ -284,28 +285,56 @@
         });
     }
 
+    /* 10 s on the same app: the next title it carries takes over, like the Top
+       Shelf's own rotation. Only apps with a catalogue of their own advance
+       (app-art.js says no otherwise), so a channel never slides on to a rival. */
+    var ROTATE_MS = 10000, rotTimer = null, rotN = 0;
+    function stopRotate() { clearTimeout(rotTimer); rotTimer = null; }
+    function startRotate(app) {
+        stopRotate();
+        if (!APL.appArt || !APL.appArt.next) return;
+        rotTimer = setTimeout(function () {
+            rotTimer = null;
+            if (apps[nav.index] !== app || mode === "grid") return;
+            var pick = null;
+            try { pick = APL.appArt.next(app, ++rotN); } catch (e) {}
+            if (pick && pick.url) { setPoster(app, pick); return; }
+            startRotate(app);                    // nothing else to show: keep the timer alive
+        }, ROTATE_MS);
+    }
+
     /* A poster, in the dock and in the grid alike. A fresh layer each time: the picture
        changes with the title, so there is nothing to keep per app. The one before it is
        marked stale and goes once the crossfade is over. */
     function setPoster(app, pick) {
-        ++backdropToken;
-        if (bgActive.dataset.poster && bgActive.dataset.poster !== pick.url) bgActive._stale = true;
-        wantBlur(pick.url, app, pick.url);
-        var next;
-        if (apps.indexOf(app) < DOCK_SIZE) {
-            next = document.createElement("div");
-            next.className = "bg";
-            dom.bgA.parentNode.insertBefore(next, dom.bgA);
-        } else {
-            next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
-            next.innerHTML = "";
-        }
-        next.dataset.app = app.id;
-        next.dataset.poster = pick.url;
-        next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
-        showLayer(next, app);
-        posterInfo(pick);
-        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
+        var token = ++backdropToken;
+        /* The picture AND the glass over it change together: the image is decoded
+           and the pane baked before either is shown, so the dock, the pill and the
+           Control Center cross at the same moment as the backdrop. */
+        var apply = function () {
+            if (token !== backdropToken) return;
+            if (bgActive.dataset.poster && bgActive.dataset.poster !== pick.url) bgActive._stale = true;
+            wantBlur(pick.url, app, pick.url);
+            var next;
+            if (apps.indexOf(app) < DOCK_SIZE) {
+                next = document.createElement("div");
+                next.className = "bg";
+                dom.bgA.parentNode.insertBefore(next, dom.bgA);
+            } else {
+                next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
+                next.innerHTML = "";
+            }
+            next.dataset.app = app.id;
+            next.dataset.poster = pick.url;
+            next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
+            showLayer(next, app);
+            if (APL.glass && APL.glass.paint) APL.glass.paint();
+            posterInfo(pick);
+            startRotate(app);
+        };
+        whenDecoded(pick.url, function () {
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply); else apply();
+        });
     }
 
     /* An app's real icon, served by Vetro (fallback when the Tizen path can't be read). */
@@ -518,7 +547,9 @@
     var bgTimer = null, lastFocus = 0;
     function onFocus(i, el) {
         lastFocus = i;
+        rotN = 0;
         var app = apps[i], inDock = el.dataset.row === "0", fromGrid = mode === "grid";
+        if (!inDock) stopRotate();
         if (mode !== "full") setMode(inDock ? "shelf" : "grid");
         else layout();
         if (APL.widgets) APL.widgets.show(inDock ? app : null, fromGrid);
@@ -798,11 +829,20 @@
        the artwork back without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
+        /* One poster per app, or the storefront's Top Shelf row: they would be
+           fighting over the same backdrop, so turning the backdrops on turns
+           What's Popular off (Settings › Appearance › Top Shelf). */
+        function onlyOne() {
+            if (APL.sys.pref("cleanFrameBackdrops") === false) return;
+            if (APL.sys.pref("liveShelf")) APL.sys.setPref("liveShelf", false);
+        }
+        onlyOne();
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
         });
-        APL.sys.onPref("cleanFrameBackdrops", function () {
+        APL.sys.onPref("cleanFrameBackdrops", function (v) {
+            if (v) onlyOne();
             dropLayers();
             var app = apps[lastFocus];
             if (app && mode !== "grid") setBackdrop(app);
