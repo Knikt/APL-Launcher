@@ -715,6 +715,12 @@
             { id: "apl.tizentube", name: "TizenTube", virtual: true, needs: "xvvl3S1bvH.TizenBrewStandalone", accent: "#1fb6e6", eyebrow: "VIDÉO",
               tile: APL.TIZENTUBE_ART.tile, live: "youtube",
               run: function () { showVeil(); launchTube(null); } },
+            // Home Assistant's dashboard, on the TV (homeassistant.js). Its address is a
+            // private one, kept in js/keys.local.js: without it, the tile is not there at all.
+            { id: "apl.homeassistant", name: APL.ha ? APL.ha.name() : "Home", virtual: true, accent: "#f5a623", eyebrow: "HOME",
+              tile: asset("images/apps/homekit-tile.png"),
+              when: function () { return !!(APL.ha && APL.ha.available()); },
+              run: function () { APL.ha.open(); } },
             // Apple's Settings icon (images/apps/settings-*, made by tools/art)
             { id: "apl.settings", name: APL.t("Settings"), virtual: true, accent: "#8e8e93", eyebrow: "SYSTÈME",
               tile: asset("images/apps/settings-tile.png"),
@@ -787,7 +793,10 @@
             return rank(a) - rank(b) || a.name.localeCompare(b.name, APL.locale, { sensitivity: "base" });
         });
         virtuals = virtuals || virtualApps();
-        var usable = virtuals.filter(function (v) { return !v.needs || list.some(function (a) { return a.id === v.needs; }); })
+        // needs: the app it goes through. when: set up on this installation only.
+        var usable = virtuals.filter(function (v) {
+            return (!v.needs || list.some(function (a) { return a.id === v.needs; })) && (!v.when || v.when());
+        })
             .concat(APL.sources ? APL.sources.homeTiles() : []);              // inputs pinned to the Home Screen
         var tube = usable.filter(function (v) { return v.id === "apl.tizentube"; });
         defaultOrder = tube.concat(favs, usable.filter(function (v) { return tube.indexOf(v) === -1; }), rest, APL.folders.all().map(APL.folders.asApp));
