@@ -31,7 +31,7 @@
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
     var ZOOM = 1.25;                     /* the backdrop is enlarged behind the glass */
-    var LIGHT = 1.05;                    /* 5 % brighter: the pane reads as lit, not washed out */
+    var LIGHT = 1.10;                    /* 10 % brighter: the pane reads as lit, not washed out */
 
     /* Every surface that should read as a lens. Add a selector here and it
        gets the material, with no other change. The profile row in Control

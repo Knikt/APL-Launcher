@@ -244,6 +244,15 @@
     var FADE_MS = 300;
     function fadeTo(next) {
         var old = bgActive;
+        /* The new picture slides in as it fades, whichever way round the two
+           layers stack, so a change never pops - not for a new app, not for the
+           next title after ten seconds, not while stepping through the row. */
+        if (!next.classList.contains("is-motion")) {
+            next.classList.remove("is-slide");
+            void next.offsetWidth;                                  // restart the animation
+            next.classList.add("is-slide");
+            global.setTimeout(function () { next.classList.remove("is-slide"); }, 500);
+        }
         clearTimeout(next._out);
         clearTimeout(old._out);
         bgActive = next;
@@ -290,12 +299,17 @@
        (app-art.js says no otherwise), so a channel never slides on to a rival. */
     var ROTATE_MS = 10000, rotTimer = null, rotN = 0;
     function stopRotate() { clearTimeout(rotTimer); rotTimer = null; }
+    /* The backdrop is left alone while something is over it: the Control Center,
+       a drawer, search, Settings, profiles. */
+    function overlayOpen() {
+        return /(^| )has-(cc|sources|search|settings|profiles|wdg)( |$)/.test(document.body.className);
+    }
     function startRotate(app) {
         stopRotate();
         if (!APL.appArt || !APL.appArt.next) return;
         rotTimer = setTimeout(function () {
             rotTimer = null;
-            if (apps[nav.index] !== app || mode === "grid") return;
+            if (apps[nav.index] !== app || mode === "grid" || overlayOpen()) { startRotate(app); return; }
             var pick = null;
             try { pick = APL.appArt.next(app, ++rotN); } catch (e) {}
             if (pick && pick.url) { setPoster(app, pick); return; }
