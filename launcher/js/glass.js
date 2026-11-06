@@ -46,7 +46,6 @@
 
     var baked = "";          /* data URL of the frozen backdrop */
     var bakedFrom = "";      /* the artwork it was made from */
-    var queued = "";         /* artwork being prepared right now */
     var forced = "";         /* setSource() override */
     var timer = 0, empty = 0;
     var settle = 0;          /* second look, once the new backdrop has faded in */
@@ -71,66 +70,93 @@
                urlOf($("bgA")) || urlOf($("bgB")) || urlOf($("bgBlur"));
     }
 
-    /* One frozen copy per artwork. The second canvas is the only "blur":
-       drawing 48x27 into 480x270 is a 10x upscale, which the compositor
-       smooths for free. */
-    /* Callers waiting on the bake in flight. A second request for the same
-       picture used to be dropped silently, which left the launcher waiting for
-       a swap that never came and no backdrop on screen at all. */
-    var waiting = [];
-    function flush() {
-        var w = waiting, i;
-        waiting = [];
-        for (i = 0; i < w.length; i++) { try { w[i](); } catch (e) {} }
+    /* The pane for each artwork is rendered once and kept, so a picture that
+       comes back (the ten-second rotation, a step back along the row) is shown
+       on a slice that is already made: nothing is drawn on the frame that
+       changes the backdrop. */
+    var cache = {}, order = [], CACHE_MAX = 12;
+    function remember(src, data) {
+        if (!src || !data) return;
+        if (!cache[src]) order.push(src);
+        cache[src] = data;
+        while (order.length > CACHE_MAX) delete cache[order.shift()];
     }
 
-    function bake(src, done) {
-        if (!src) { drop(); return; }
-        if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
-        if (src === queued) { if (done) waiting.push(done); return; }
-        queued = src;
-        waiting = done ? [done] : [];
+    /* Two canvases, both off the animation path. The second is the only
+       "blur": drawing 48x27 into 480x270 is a 10x upscale, which the
+       compositor smooths for free. */
+    function draw(img) {
+        /* The glass enlarges what sits behind it by a quarter: sample the
+           middle 80% of the artwork, so every slice is a 1.25x crop of the
+           backdrop and the edges of the pane never show the pixels the
+           surface used to sit on. */
+        var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        var sw = iw / ZOOM, sh = ih / ZOOM;
+
+        var tiny = document.createElement("canvas");
+        tiny.width = TINY_W;
+        tiny.height = TINY_H;
+        tiny.getContext("2d").drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, TINY_W, TINY_H);
+
+        var out = document.createElement("canvas");
+        out.width = BAKE_W;
+        out.height = BAKE_H;
+        var c = out.getContext("2d");
+        c.imageSmoothingEnabled = true;
+        if ("imageSmoothingQuality" in c) c.imageSmoothingQuality = "high";
+        /* Brightness is baked once here: no filter, no redraw, on the TV's
+           animation path. */
+        if ("filter" in c) c.filter = "brightness(" + LIGHT + ")";
+        c.drawImage(tiny, 0, 0, BAKE_W, BAKE_H);
+        return out.toDataURL("image/jpeg", 0.72);
+    }
+
+    var rendering = {};
+    /* One render per artwork, however many ask for it: a bake finishing after
+       the focus moved on still answers everybody, and nothing is dropped. */
+    function render(src, cb) {
+        if (cache[src]) { cb(cache[src]); return; }
+        if (rendering[src]) { rendering[src].push(cb); return; }
+        rendering[src] = [cb];
+        function finish(data) {
+            var list = rendering[src] || [], i;
+            delete rendering[src];
+            if (data) remember(src, data);
+            for (i = 0; i < list.length; i++) { try { list[i](data); } catch (e) {} }
+        }
         var img = new global.Image();
         img.onload = function () {
-            queued = "";
-            try {
-                /* The glass enlarges what sits behind it by a quarter: sample
-                   the middle 80% of the artwork, so every slice is a 1.25x
-                   crop of the backdrop and the edges of the pane never show
-                   the pixels the surface used to sit on. */
-                var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
-                var sw = iw / ZOOM, sh = ih / ZOOM;
-
-                var tiny = document.createElement("canvas");
-                tiny.width = TINY_W;
-                tiny.height = TINY_H;
-                tiny.getContext("2d").drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, TINY_W, TINY_H);
-
-                var out = document.createElement("canvas");
-                out.width = BAKE_W;
-                out.height = BAKE_H;
-                var c = out.getContext("2d");
-                c.imageSmoothingEnabled = true;
-                if ("imageSmoothingQuality" in c) c.imageSmoothingQuality = "high";
-                /* Brightness is baked once here: no filter, no redraw, on the
-                   TV's animation path. */
-                if ("filter" in c) c.filter = "brightness(" + LIGHT + ")";
-                c.drawImage(tiny, 0, 0, BAKE_W, BAKE_H);
-
-                baked = out.toDataURL("image/jpeg", 0.72);
-                bakedFrom = src;
-                forget();
-                paint();
-                notify();
-                flush();
-            } catch (e) { queued = ""; flush(); }
+            var data = "";
+            try { data = draw(img); } catch (e) { data = ""; }
+            finish(data);
         };
-        img.onerror = function () { queued = ""; flush(); };
+        img.onerror = function () { finish(""); };
         /* A poster from the catalogue lives on images.justwatch.com: without
            this the canvas is tainted, toDataURL throws, and every lens would
            quietly disappear behind remote artwork. */
         if (!/^(data:|blob:)/i.test(src)) img.crossOrigin = "anonymous";
         img.src = src;
+    }
+
+    function bake(src, done) {
+        if (!src) { drop(); return; }
+        if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
+        render(src, function (data) {
+            if (data && data !== baked) {
+                baked = data;
+                bakedFrom = src;
+                forget();
+                paint();
+                notify();
+            }
+            if (done) done();
+        });
+    }
+
+    /* The pane for a picture that is about to be shown (the next title of the
+       app in focus): made now, so the change lands on a ready slice. */
+    function prefetch(src) {
+        if (src && !cache[src] && src !== bakedFrom) render(src, function () {});
     }
 
     /* No artwork: hide every lens and leave the CSS fills in charge. */
@@ -206,19 +232,22 @@
                 n.setAttribute("aria-hidden", "true");
                 n.__src = baked;
                 n.style.backgroundImage = 'url("' + baked + '")';
-                n.style.backgroundPosition = lens(r.x, r.y);
+                n.style.setProperty("--gx", (-r.x) + "px");
+                n.style.setProperty("--gy", (-r.y) + "px");
                 n.style.opacity = "0";
                 el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
                 void n.offsetWidth;
-                n.classList.add("is-on");
+                n.classList.add("is-on", "is-slide");        /* the slice slides in with the picture */
+                global.setTimeout(function () { n.classList.remove("is-slide"); }, 520);
                 n.style.opacity = "";
                 el.__cgLayer = n;
                 (function (old) {
-                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 300);
+                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 500);
                 })(l);
                 l = n;
             } else {
-                l.style.backgroundPosition = lens(r.x, r.y);
+                l.style.setProperty("--gx", (-r.x) + "px");
+                l.style.setProperty("--gy", (-r.y) + "px");
                 l.classList.add("is-on");
             }
         }
@@ -283,6 +312,7 @@
         offset: offset,
         paint: paint,
         prepare: prepare,
+        prefetch: prefetch,
         refresh: refresh,
         setSource: setSource,
         release: release

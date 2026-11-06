@@ -60,10 +60,12 @@ html, body {
 .bg.is-instant { transition: none; }                 /* shown at once under the one fading out (launcher.js) */
 /* A backdrop change slides in as it fades, so a new app, the next title or a
    step along the row all read as one movement. */
-.bg.is-slide { animation: bgSlide 460ms cubic-bezier(.22, .61, .36, 1) both; }
+.bg.is-slide { animation: bgSlide var(--glass-ms, 460ms) var(--glass-ease, ease) both; }
 @keyframes bgSlide {
-    from { opacity: 0; transform: translateX(3.5%) scale(1.04); }
-    to   { opacity: 1; transform: translateX(0) scale(1); }
+    /* A move of the picture itself, not of its box: the glass slices the same
+       geometry, so it can make the same move and stay lined up. */
+    from { opacity: 0; background-position: calc(50% + 40px) 50%; }
+    to   { opacity: 1; background-position: 50% 50%; }
 }
 .mode-grid .bg.is-slide, .perf .bg.is-slide, .reduce-motion .bg.is-slide { animation: none; }
 

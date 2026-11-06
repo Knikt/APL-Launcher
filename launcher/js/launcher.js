@@ -350,6 +350,13 @@
             next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
             showLayer(next, app);
             if (APL.glass && APL.glass.paint) APL.glass.paint();
+            /* The next title's pane is made while this one is on screen, so the
+               ten-second change lands on a slice that is already rendered. */
+            if (APL.glass && APL.glass.prefetch) {
+                var coming = null;
+                try { coming = APL.appArt.next(app, rotN + 1); } catch (e) {}
+                if (coming && coming.url) APL.glass.prefetch(coming.url);
+            }
             posterInfo(pick);
             startRotate(app);
         };

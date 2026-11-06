@@ -17,6 +17,13 @@
    fills straight back.
    ============================================================ */
 
+/* One timing for the picture and for the glass over it: the same length and
+   the same curve, so a change reads as one movement and never throbs. */
+:root {
+    --glass-ms: 460ms;
+    --glass-ease: cubic-bezier(.22, .61, .36, 1);
+}
+
 /* The surface itself stops filtering: the pane below it is already soft. */
 body.glass .dock,
 body.glass .status,
@@ -37,10 +44,20 @@ body.glass .scard__art--glass {
     background-color: transparent;       /* nothing grey while a picture is on its way */
     background-repeat: no-repeat;
     background-size: 1920px 1080px;      /* the stage: a slice of the picture, never a stretch */
-    background-position: 0 0;
-    transition: opacity 300ms ease;             /* FADE_MS in launcher.js: the picture and the glass cross together */
+    background-position: var(--gx, 0px) var(--gy, 0px);
+    transition: opacity var(--glass-ms) var(--glass-ease);   /* the picture's own fade: one movement */
 }
 .cg__glass.is-on { opacity: 1; }
+/* The backdrop slides 40 px as it comes in; the slice under the glass slides
+   with it, so the reflection is of the picture and not of where it was. */
+.cg__glass.is-slide { animation: glassSlide var(--glass-ms) var(--glass-ease) both; }
+@keyframes glassSlide {
+    from { background-position: calc(var(--gx, 0px) + 40px) var(--gy, 0px); }
+    to   { background-position: var(--gx, 0px) var(--gy, 0px); }
+}
+/* The slow pan of the artwork would drag the picture under a pane that cannot
+   follow it, which is what makes the glass look like it is breathing. */
+body.glass .bg.is-motion { animation: none; }
 
 /* 5 % of white, lit from the top edge: the glass, not the picture. */
 .cg__glass::after {
