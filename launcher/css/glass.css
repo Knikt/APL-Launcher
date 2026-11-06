@@ -45,35 +45,16 @@ body.glass .scard__art--glass {
     background-repeat: no-repeat;
     background-size: 1920px 1080px;      /* the stage: a slice of the picture, never a stretch */
     background-position: var(--gx, 0px) var(--gy, 0px);
-    transition: opacity var(--glass-ms) var(--glass-ease);   /* the picture's own fade: one movement */
+    transition: none;                    /* a window onto the picture: it never animates itself */
 }
 .cg__glass.is-on { opacity: 1; }
-/* The backdrop slides 40 px as it comes in; the slice under the glass slides
-   with it, so the reflection is of the picture and not of where it was. */
-.cg__glass.is-slide { animation: glassSlide var(--glass-ms) var(--glass-ease) both; }
-@keyframes glassSlide {
-    from { background-position: calc(var(--gx, 0px) + 40px) var(--gy, 0px); }
-    to   { background-position: var(--gx, 0px) var(--gy, 0px); }
-}
-/* The slow pan of the artwork would drag the picture under a pane that cannot
-   follow it, which is what makes the glass look like it is breathing. */
-body.glass .bg.is-motion { animation: none; }
 
-/* 5 % of white, lit from the top edge: the glass, not the picture. */
-.cg__glass::after {
-    content: "";
-    position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
-    border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 46%, rgba(255, 255, 255, 0.01) 100%);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-/* The surface's own content stays above the pane. */
-body.glass .dock > .row0,
-body.glass .status > :not(.cg__glass),
-body.glass .cc__t > :not(.cg__glass),
-body.glass .scard__art--glass > :not(.cg__glass) { position: relative; z-index: 1; }
+/* Nothing moves the picture while the glass is on. The slow pan of the artwork
+   and the slide of a new one both drag it under panes that are fixed to the
+   stage, and that drift is the shimmer the dock and the pill were showing: with
+   the glass on, a backdrop change is a plain crossfade (launcher.css). */
+body.glass .bg.is-motion,
+body.glass .bg.is-slide { animation: none; }
 
 /* The focused tile is a solid plate, as on Apple TV: the pane steps aside so
    the white card stays white. */

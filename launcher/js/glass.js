@@ -31,7 +31,7 @@
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
     var ZOOM = 1.25;                     /* the backdrop is enlarged behind the glass */
-    var LIGHT = 1.10;                    /* 10 % brighter: the pane reads as lit, not washed out */
+    var LIGHT = 1.05;                    /* 5 % brighter: the pane reads as lit, not washed out */
 
     /* Every surface that should read as a lens. Add a selector here and it
        gets the material, with no other change. The profile row in Control
@@ -218,38 +218,24 @@
             el = list[i];
             if (!el.offsetWidth || el.offsetHeight < 4) continue;
             r = offset(el);
-            key = r.x + "," + r.y + "," + r.w + "," + r.h;
+            /* The artwork is part of the key, so a new picture re-slices even when
+               the surface has not moved. */
+            key = r.x + "," + r.y + "," + r.w + "," + r.h + ":" + baked.length + ":" + baked.slice(-24);
             l = el.__cgLayer;
             if (el.__cgKey === key && l && l.parentNode === el && l.classList.contains("is-on")) continue;
             el.__cgKey = key;
             l = layerFor(el);
             if (l.__src !== baked) {
-                /* New artwork under the glass. A fresh pane is laid on top and
-                   fades in over the old one, so the pill and the dock cross into
-                   the new show instead of blinking at the swap. */
-                var n = document.createElement("i");
-                n.className = "cg__glass";
-                n.setAttribute("aria-hidden", "true");
-                n.__src = baked;
-                n.style.backgroundImage = 'url("' + baked + '")';
-                n.style.setProperty("--gx", (-r.x) + "px");
-                n.style.setProperty("--gy", (-r.y) + "px");
-                n.style.opacity = "0";
-                el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
-                void n.offsetWidth;
-                n.classList.add("is-on", "is-slide");        /* the slice slides in with the picture */
-                global.setTimeout(function () { n.classList.remove("is-slide"); }, 520);
-                n.style.opacity = "";
-                el.__cgLayer = n;
-                (function (old) {
-                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 500);
-                })(l);
-                l = n;
-            } else {
-                l.style.setProperty("--gx", (-r.x) + "px");
-                l.style.setProperty("--gy", (-r.y) + "px");
-                l.classList.add("is-on");
+                /* The pane is already rendered (see the cache above), so it goes
+                   up in one frame: one layer, one style write. A second pane
+                   fading in over the old one was what read as a shimmer over the
+                   dock and the pill. */
+                l.__src = baked;
+                l.style.backgroundImage = 'url("' + baked + '")';
             }
+            l.style.setProperty("--gx", (-r.x) + "px");
+            l.style.setProperty("--gy", (-r.y) + "px");
+            l.classList.add("is-on");
         }
     }
 
