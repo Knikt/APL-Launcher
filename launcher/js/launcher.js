@@ -273,9 +273,12 @@
     }
 
     var backdropToken = 0;
-    function setBackdrop(app) {
+    function setBackdrop(app, force) {
+        /* Nothing changes the backdrop under the Control Center, a drawer,
+           search or Settings: the picture stays still while they are up. */
+        if (!force && overlayOpen()) return;
         var pick = backdropPick(app);
-        if (pick && pick.url) { setPoster(app, pick); return; }
+        if (pick && pick.url) { setPoster(app, pick, force); return; }
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
         stopRotate();
         var image = artOf(app);
@@ -320,7 +323,11 @@
     /* A poster, in the dock and in the grid alike. A fresh layer each time: the picture
        changes with the title, so there is nothing to keep per app. The one before it is
        marked stale and goes once the crossfade is over. */
-    function setPoster(app, pick) {
+    function setPoster(app, pick, force) {
+        /* A late swap (a bake finishing after the focus moved on, the focus
+           coming back from an overlay) must not repaint the picture while the
+           Control Center or a drawer is over it. */
+        if (!force && overlayOpen()) return;
         var token = ++backdropToken;
         /* The picture AND the glass over it change together: the image is decoded
            and the pane baked before either is shown, so the dock, the pill and the
@@ -859,7 +866,7 @@
             if (v) onlyOne();
             dropLayers();
             var app = apps[lastFocus];
-            if (app && mode !== "grid") setBackdrop(app);
+            if (app && mode !== "grid") setBackdrop(app, true);   // the user asked for it
         });
     }
 
