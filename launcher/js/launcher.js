@@ -83,6 +83,25 @@
                "#07080c";
     }
 
+    /* ---------- dynamic backdrops (app-art.js) ---------- */
+    /* The title a service is showing right now: the storefront's trending list for the
+       screen's country (JustWatch, no key needed), one poster per app. Settings ›
+       Appearance › Dynamic Backdrops turns it off, and every app gets its artwork back. */
+    function backdropPick(app) {
+        if (!APL.appArt || !APL.appArt.pick) return null;
+        if (APL.sys.pref("cleanFrameBackdrops") === false) return null;
+        try { return APL.appArt.pick(app); } catch (e) { return null; }
+    }
+
+    /* Title and year under the poster, where the Top Shelf puts its own. */
+    function posterInfo(pick) {
+        if (!pick || !pick.title) { shelfInfo(null); return; }
+        var meta = [];
+        if (pick.year) meta.push(String(pick.year));
+        if (pick.kind) meta.push(pick.kind);
+        shelfInfo({ poster: true, title: pick.title, meta: meta.join(" · ") });
+    }
+
     /* Logo + name in the centre, like the provided artwork (sharp Tizen icon, never blurred). */
     function brandCard(app) {
         var card = document.createElement("div");
@@ -246,9 +265,13 @@
 
     var backdropToken = 0;
     function setBackdrop(app) {
+        var pick = backdropPick(app);
+        if (pick && pick.url) { setPoster(app, pick); return; }
+        if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
         var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
+        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
         if (apps.indexOf(app) < DOCK_SIZE) { showLayer(layerFor(app), app); return; }
         if (bgActive.dataset.app === app.id) return;
         whenDecoded(image, function () {
@@ -259,6 +282,30 @@
             if (!image && !plain(app)) next.appendChild(brandCard(app));
             showLayer(next, app);
         });
+    }
+
+    /* A poster, in the dock and in the grid alike. A fresh layer each time: the picture
+       changes with the title, so there is nothing to keep per app. The one before it is
+       marked stale and goes once the crossfade is over. */
+    function setPoster(app, pick) {
+        ++backdropToken;
+        if (bgActive.dataset.poster && bgActive.dataset.poster !== pick.url) bgActive._stale = true;
+        wantBlur(pick.url, app, pick.url);
+        var next;
+        if (apps.indexOf(app) < DOCK_SIZE) {
+            next = document.createElement("div");
+            next.className = "bg";
+            dom.bgA.parentNode.insertBefore(next, dom.bgA);
+        } else {
+            next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
+            next.innerHTML = "";
+        }
+        next.dataset.app = app.id;
+        next.dataset.poster = pick.url;
+        next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
+        showLayer(next, app);
+        posterInfo(pick);
+        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
     }
 
     /* An app's real icon, served by Vetro (fallback when the Tizen path can't be read). */
@@ -427,11 +474,11 @@
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
     function shelfInfo(item) {
-        var has = !!(item && item.type);
+        var has = !!(item && (item.type || item.poster));
         dom.shelfInfo.classList.toggle("is-visible", has);
         if (!has) return;
         dom.shelfTitle.textContent = item.title;
-        dom.shelfMeta.textContent = APL.live.metaOf(item);
+        dom.shelfMeta.textContent = item.meta !== undefined ? item.meta : APL.live.metaOf(item);
         openHint();
     }
 
@@ -468,8 +515,9 @@
         }, 650);
     }
 
-    var bgTimer = null;
+    var bgTimer = null, lastFocus = 0;
     function onFocus(i, el) {
+        lastFocus = i;
         var app = apps[i], inDock = el.dataset.row === "0", fromGrid = mode === "grid";
         if (mode !== "full") setMode(inDock ? "shelf" : "grid");
         else layout();
@@ -745,6 +793,22 @@
             .catch(function () { toast(APL.t("Vetro is not responding")); });
     }
 
+    /* The catalogue is in flight while the dock is already up: the poster of the app in
+       focus replaces its artwork as soon as it lands, and turning the setting off puts
+       the artwork back without a restart. */
+    function startBackdrops() {
+        if (!APL.appArt || !APL.appArt.start) return;
+        APL.appArt.start(function () {
+            var app = apps[nav.index];
+            if (app && mode !== "grid") setBackdrop(app);
+        });
+        APL.sys.onPref("cleanFrameBackdrops", function () {
+            dropLayers();
+            var app = apps[lastFocus];
+            if (app && mode !== "grid") setBackdrop(app);
+        });
+    }
+
     function boot() {
         cacheDom();
         dom.hint.querySelector(".hint__text").textContent = APL.t("Press ▲ for full screen");   // index.html only has the English text
@@ -767,6 +831,7 @@
             setTimeout(function () { if (APL.autoArt) APL.autoArt.run(allApps, render); }, 3500);
             showCcHint();
             render();
+            startBackdrops();
             if (APL.overlay) APL.overlay.start();
             slowKeyRepeat(8);
             setTimeout(function () { bootCleanup(8); }, 25000);

@@ -312,9 +312,9 @@
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
             { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
             { cls: "slider", type: "backlight", icon: "sun", title: APL.t("Brightness") },
-            { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
+            { cls: "wide", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
-            { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
+            { cls: "wide", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
               select: openSettings() }
         ];
     }
