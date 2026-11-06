@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#ffffff">
+  <title>Samsung TV Plus</title>
+  <path d="M2 3.5C2 2.7 2.7 2 3.5 2h9C13.3 2 14 2.7 14 3.5V6H3.5C2.7 6 2 6.7 2 7.5v6H2V3.5z" opacity="0.5"/>
+  <path d="M10 18v2.5c0 .8.7 1.5 1.5 1.5h9c.8 0 1.5-.7 1.5-1.5v-10c0-.8-.7-1.5-1.5-1.5H18v6c0 .8-.7 1.5-1.5 1.5H10z" opacity="0.5"/>
+  <path fill-rule="evenodd" clip-rule="evenodd" d="M3 5c0-.6.4-1 1-1h14c.6 0 1 .4 1 1v11c0 .6-.4 1-1 1h-4.5c-.3 0-.5.2-.5.5v.5c0 .3-.2.5-.5.5h-3c-.3 0-.5-.2-.5-.5v-.5c0-.3-.2-.5-.5-.5H4c-.6 0-1-.4-1-1V5zm7 3v2.5H7.5v1.5H10V14.5h1.5V11.5H14v-1.5h-2.5V8H10z"/>
+</svg>

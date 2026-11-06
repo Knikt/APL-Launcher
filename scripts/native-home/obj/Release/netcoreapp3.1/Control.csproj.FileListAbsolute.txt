@@ -1,0 +1,13 @@
+C:\Users\neetu\Downloads\clean frame\.local\native-home\out\CleanFrameHomeControl.deps.json
+C:\Users\neetu\Downloads\clean frame\.local\native-home\out\CleanFrameHomeControl.runtimeconfig.json
+C:\Users\neetu\Downloads\clean frame\.local\native-home\out\CleanFrameHomeControl.runtimeconfig.dev.json
+C:\Users\neetu\Downloads\clean frame\.local\native-home\out\CleanFrameHomeControl.dll
+C:\Users\neetu\Downloads\clean frame\.local\native-home\out\CleanFrameHomeControl.pdb
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.AssemblyInfoInputs.cache
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.AssemblyInfo.cs
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.csproj.CoreCompileInputs.cache
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.sourcelink.json
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\CleanFrameHomeControl.dll
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\CleanFrameHomeControl.pdb
+C:\Users\neetu\Downloads\clean frame\scripts\native-home\obj\Release\netcoreapp3.1\Control.genruntimeconfig.cache

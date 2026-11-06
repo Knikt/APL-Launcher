@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="https://local.frame-home/app" version="0.6.1" viewmodes="maximized">
-  <tizen:application id="nClrkHome1.FrameHome" package="nClrkHome1" required_version="6.5"/>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="https://cleanframe.local/ls03b" version="0.6.1" viewmodes="maximized">
+  <tizen:application id="CfrmLs03B1.CleanFrame" package="CfrmLs03B1" required_version="6.5"/>
   <content src="index.html"/>
   <name>CleanFrame</name>
   <icon src="icon.png"/>
@@ -9,5 +9,39 @@
   <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
   <tizen:privilege name="http://tizen.org/privilege/application.info"/>
   <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+  <tizen:privilege name="http://tizen.org/privilege/systeminfo"/>
+  <tizen:privilege name="http://tizen.org/privilege/internet"/>
+  <!-- The assistant offers the remote's microphone to the set; without these
+       declarations a web app is not even allowed to ask for an audio stream.
+       The Samsung privilege is the one its own Microphone API asks for, and
+       mediacapture is the standard getUserMedia one. -->
+  <tizen:privilege name="http://tizen.org/privilege/microphone"/>
+  <tizen:privilege name="http://developer.samsung.com/privilege/microphone"/>
+  <tizen:privilege name="http://tizen.org/privilege/mediacapture"/>
+  <tizen:privilege name="http://tizen.org/privilege/recorder"/>
+  <tizen:privilege name="http://tizen.org/privilege/voicecontrol"/>
+  <tizen:privilege name="http://tizen.org/privilege/voiceinteraction"/>
+  <!-- The set's own voice service. A widget cannot open the remote's
+       microphone on this engine, so the assistant registers the phrases it can
+       act on and lets the platform listen; voicecontrol is the Samsung
+       privilege the Voice Interaction API asks for. -->
+  <tizen:privilege name="http://developer.samsung.com/privilege/voicecontrol"/>
+  <feature name="http://tizen.org/feature/speech.control" required="false"/>
+  <feature name="http://tizen.org/feature/microphone" required="false"/>
+  <!-- Vetro answers on the screen's loopback, but it does not let a web app
+       read those answers (no CORS). The bundled service makes the request on
+       the app's behalf and hands the answer back over a trusted Tizen message
+       port, which only apps signed with this package's own certificate can use.
+       No network port is opened. -->
+  <feature name="http://tizen.org/feature/web.service"/>
+  <access origin="*" subdomains="true"/>
   <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable" encryption="disable" install-location="auto" hwkey-event="enable"/>
+  <!-- The relay to Vetro. It starts when the app first needs it, never at boot,
+       and stops itself after five minutes without a request. -->
+  <tizen:service id="CfrmLs03B1.Bridge" on-boot="false" auto-restart="false">
+    <tizen:content src="bridge/service.js"/>
+    <tizen:name>CleanFrame Bridge</tizen:name>
+    <tizen:description>Private relay between CleanFrame and Vetro</tizen:description>
+    <tizen:category name="http://tizen.org/category/service"/>
+  </tizen:service>
 </widget>

@@ -1,0 +1,1163 @@
+/* ============================================================
+   APL Launcher — a reproduction of the tvOS 17/18 Home Screen
+   1920x1080 surface. Measurements taken from Apple TV screenshots:
+     dock      : x 42→1878, y 783→1008, radius 46, light glass
+     icons     : 250x150, gap 50, radius 20, focus x1.2 with no outline
+     2nd row   : runs off the bottom of the screen (y ≈ 1052)
+     status    : time + avatar, top right
+   Three states (class on <body>):
+     mode-shelf : focus in the dock   -> full-frame Top Shelf
+     mode-grid  : focus further down  -> grid moved up, blurred background
+     mode-full  : ▲ from the dock     -> full-screen artwork, UI hidden
+   ============================================================ */
+
+@font-face { font-family: "SF Pro Display"; font-weight: 400; font-display: swap;
+    src: local("SF Pro Display"), url("../assets/fonts/sf/SFProDisplay-Regular.woff2") format("opentype"); }
+@font-face { font-family: "SF Pro Display"; font-weight: 500; font-display: swap;
+    src: local("SF Pro Display Medium"), url("../assets/fonts/sf/SFProDisplay-Medium.woff2") format("opentype"); }
+@font-face { font-family: "SF Pro Display"; font-weight: 700; font-display: swap;
+    src: local("SF Pro Display Bold"), url("../assets/fonts/sf/SFProDisplay-Bold.woff2") format("opentype"); }
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --ease: cubic-bezier(0.25, 1, 0.5, 1);   /* tvOS inertia */
+    --tile-w: 250px;
+    --tile-h: 150px;
+    --gap-x: 50px;
+    --radius: 20px;
+}
+
+html, body {
+    width: 1920px;
+    height: 1080px;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+    font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    cursor: none;
+    user-select: none;
+}
+
+/* ===================== TOP SHELF ===================== */
+.bg {
+    position: fixed;
+    inset: 0;
+    background-color: #000;
+    background-size: cover;
+    background-position: center;
+    opacity: 0;
+    transform: scale(1);
+    transition: opacity 220ms ease;
+    will-change: opacity, transform;                 /* layer ready in advance: the fade redraws nothing */
+}
+.bg.is-active { opacity: 1; }
+
+/* Generated brand card for apps with no artwork (Tizen icon + name) */
+.brandcard {
+    position: absolute;
+    left: 0; right: 0; top: 0;
+    height: 1000px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 70px;
+}
+.brandcard__icon {
+    height: 300px;
+    width: 300px;
+    object-fit: contain;
+    border-radius: 64px;
+    filter: drop-shadow(0 20px 50px rgba(0,0,0,0.45));
+}
+.brandcard__glyph {
+    width: 300px;
+    height: 300px;
+    border-radius: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+}
+.brandcard__name {
+    font-size: 160px;
+    font-weight: 700;
+    letter-spacing: -3px;
+    color: #fff;
+    white-space: nowrap;
+    max-width: 1100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Grid: the artwork becomes a blurred, darkened background (Vibrancy material) */
+.mode-grid .bg { filter: blur(48px) brightness(0.48) saturate(1.4); transform: scale(1.12); }
+
+/* The bottom of the artwork fades to black under the dock, as on tvOS */
+.scrim {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg,
+            rgba(0,0,0,0.30) 0%, rgba(0,0,0,0) 16%,
+            rgba(0,0,0,0) 50%, rgba(0,0,0,0.55) 70%,
+            rgba(0,0,0,0.92) 86%, #000 100%);
+    transition: opacity 500ms ease;
+}
+.mode-full .scrim { opacity: 0.25; }
+.mode-grid .scrim { opacity: 0.6; }
+
+/* ===================== STATUS PILL ===================== */
+.status {
+    position: fixed;
+    top: 50px;
+    right: 57px;
+    height: 60px;
+    padding: 0 7px 0 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-radius: 30px;
+    background: rgba(40, 40, 46, 0.45);
+    -webkit-backdrop-filter: blur(30px) saturate(1.6);
+    backdrop-filter: blur(30px) saturate(1.6);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
+    z-index: 10;
+    transition: opacity 400ms ease;
+}
+.status__clock { font-size: 24px; font-weight: 500; color: rgba(255,255,255,0.95); }
+.status__avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffd9a0, #e58a5c 45%, #6b3fb8 100%);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.18);
+}
+.mode-full .status, .mode-grid .status { opacity: 0; }
+
+/* ===================== FULL-SCREEN HINT ===================== */
+.hint {
+    position: fixed;
+    left: 0; right: 0;
+    top: 704px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    z-index: 9;
+    opacity: 0;
+    transition: opacity 400ms ease;
+    pointer-events: none;
+}
+.hint.is-visible { opacity: 1; }
+.mode-grid .hint, .mode-full .hint { opacity: 0; }
+.hint__chevron {
+    width: 18px; height: 18px;
+    border-left: 3px solid rgba(255,255,255,0.8);
+    border-top: 3px solid rgba(255,255,255,0.8);
+    border-radius: 2px;
+    transform: rotate(45deg);
+}
+.hint__text {
+    font-size: 22px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.78);
+    text-shadow: 0 1px 10px rgba(0,0,0,0.7);
+}
+
+/* Top Shelf movie title and rating: on the left, without touching the hint in the center */
+.shelfinfo { position: fixed; left: 90px; top: 650px; width: 640px; z-index: 9; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); transition: opacity 220ms ease; }
+.shelfinfo.is-visible { opacity: 1; }
+.mode-grid .shelfinfo, .has-wdg .shelfinfo { opacity: 0; }
+.mode-full .shelfinfo { top: 910px; width: 1200px; }
+.shelfinfo__title { font-size: 44px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shelfinfo__meta { margin-top: 6px; font-size: 26px; font-weight: 500; color: rgba(255, 255, 255, 0.88); }
+
+/* ===================== HOME (dock + rows) ===================== */
+.home {
+    position: absolute;
+    left: 0; top: 0;
+    width: 1920px;
+    height: 1080px;
+    z-index: 5;
+    transition: transform 200ms var(--ease);
+    will-change: transform;
+}
+
+.dock {
+    position: absolute;
+    left: 42px;
+    top: 783px;
+    width: 1836px;
+    height: 225px;
+    border-radius: 46px;
+    background: rgba(118, 118, 128, 0.24);           /* tvOS light glass */
+    -webkit-backdrop-filter: blur(50px) saturate(1.8);
+    backdrop-filter: blur(50px) saturate(1.8);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.05);
+}
+.row0, .rows {
+    display: grid;
+    grid-template-columns: repeat(6, var(--tile-w));
+    column-gap: var(--gap-x);
+}
+.row0 { padding: 33px 43px; grid-template-columns: repeat(6, 262px); column-gap: 38px; }
+/* Seven tiles in the dock: the strip keeps its width, so they get narrower
+   rather than pushing the last one out over the glass edge. */
+.row0.is-seven { grid-template-columns: repeat(7, 224px); column-gap: 30px; }
+.row0.is-seven .tile { width: 224px; }
+.row0 .tile { width: 262px; height: 157px; }
+.rows {
+    position: absolute;
+    left: 85px;
+    top: 1052px;
+    row-gap: 90px;                                   /* room for the name under the icon */
+}
+
+/* ===================== ICONS ===================== */
+.tile {
+    position: relative;
+    width: var(--tile-w);
+    height: var(--tile-h);
+    transform: scale(1);
+    transition: transform 300ms var(--ease);
+}
+.tile__card {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: #2a2a2e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.30);
+    transition: box-shadow 300ms var(--ease);
+}
+/* Light sheen that appears on focus */
+.tile__card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background:
+        linear-gradient(165deg, rgba(255,255,255,0.30) 0%, rgba(255,255,255,0.06) 38%, rgba(255,255,255,0) 60%);
+    opacity: 0;
+    transition: opacity 300ms var(--ease);
+    pointer-events: none;
+}
+.tile__icon {
+    height: 68%;
+    max-width: 82%;
+    object-fit: contain;
+}
+.tile__letter {
+    font-size: 70px;
+    font-weight: 700;
+    color: #fff;
+}
+.tile__label {
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 12px);
+    transform: translateX(-50%);
+    font-size: 24px;
+    font-weight: 500;
+    white-space: nowrap;
+    color: #fff;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+    pointer-events: none;
+}
+
+/* Focus: elevation (Z axis) — no outline, as on tvOS */
+.tile.is-focused { transform: scale(1.2); z-index: 3; }
+.tile.is-focused .tile__card { box-shadow: 0 30px 40px -6px rgba(0,0,0,0.65), 0 10px 18px rgba(0,0,0,0.35); }
+.tile.is-focused .tile__card::after { opacity: 1; }
+.mode-grid .tile.is-focused .tile__label { opacity: 1; }
+.tile.is-pressed { transform: scale(1.1); }
+
+/* Black veil when an app opens: immediate feedback while it starts */
+.veil { position: fixed; inset: 0; z-index: 90; background: #000; opacity: 0; pointer-events: none; transition: opacity 160ms ease; will-change: opacity; }
+.veil.is-on { opacity: 1; }
+
+/* ===================== MISC ===================== */
+.toast {
+    position: fixed;
+    left: 50%;
+    top: 640px;
+    transform: translateX(-50%);
+    padding: 16px 30px;
+    border-radius: 18px;
+    background: rgba(40,40,46,0.7);
+    -webkit-backdrop-filter: blur(30px);
+    backdrop-filter: blur(30px);
+    font-size: 23px;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    z-index: 50;
+}
+.toast.is-visible { opacity: 1; }
+
+.boot {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 40;
+    transition: opacity 500ms ease;
+}
+.boot.is-hidden { opacity: 0; pointer-events: none; }
+
+/* ===================== BUILT-IN APPS (Settings, Sources) ===================== */
+.vtile {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.vtile--settings { background: linear-gradient(180deg, #e4e4e9 0%, #a3a3ab 100%); color: #3a3a3f; }
+.vtile--sources  { background: linear-gradient(180deg, #3d7bf0 0%, #1d47b5 100%); color: #fff; }
+.vtile--samsunghome { background: linear-gradient(180deg, #2a4fd6 0%, #1428a0 100%); color: #fff; }
+
+/* ===================== SETTINGS (tvOS split view) ===================== */
+.settings {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 350ms ease;
+}
+.settings.is-open { opacity: 1; pointer-events: auto; }
+.settings__bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(160deg, rgba(36, 84, 168, 0.62), rgba(10, 26, 66, 0.82));
+    -webkit-backdrop-filter: blur(70px) saturate(1.5);
+    backdrop-filter: blur(70px) saturate(1.5);
+}
+.settings__title {
+    position: absolute;
+    top: 62px; left: 0; right: 0;
+    text-align: center;
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+.settings__hero {
+    position: absolute;
+    left: 200px;
+    top: 230px;
+    width: 600px;
+}
+.settings__card {
+    width: 560px;
+    height: 560px;
+    border-radius: 120px;
+    background: rgba(255, 255, 255, 0.55);
+    color: rgba(45, 55, 75, 0.78);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255,255,255,0.6);
+}
+/* Settings start page: the large Settings icon itself */
+.settings__card.is-app { background: none; box-shadow: none; }
+.settings__appicon { width: 560px; height: 560px; filter: drop-shadow(0 30px 50px rgba(0, 0, 0, 0.4)); }
+.perf .settings__appicon { filter: none; }
+.srow__section {
+    margin: 22px 0 12px 34px;
+    font-size: 21px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.58);
+}
+.settings__desc {
+    margin-top: 44px;
+    width: 560px;
+    font-size: 25px;
+    line-height: 1.35;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+    text-align: center;
+    min-height: 70px;
+}
+.settings__path {
+    margin-top: 14px;
+    width: 560px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 20px;
+    color: rgba(255, 255, 255, 0.55);
+    text-align: center;
+}
+.settings__listwrap {
+    position: absolute;
+    left: 1040px;
+    top: 160px;
+    width: 800px;
+    height: 880px;
+    overflow: hidden;
+    padding: 20px 20px 0;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 22px, #000 calc(100% - 40px), transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0, #000 22px, #000 calc(100% - 40px), transparent 100%);
+}
+.settings__list { transition: transform 300ms var(--ease); }
+.settings__listwrap.is-enter-fwd { animation: listIn 320ms var(--ease); }
+.settings__listwrap.is-enter-back { animation: listBack 320ms var(--ease); }
+@keyframes listIn   { from { opacity: 0; transform: translateX(60px); } to { opacity: 1; } }
+@keyframes listBack { from { opacity: 0; transform: translateX(-60px); } to { opacity: 1; } }
+
+.srow {
+    display: flex;
+    align-items: center;
+    height: 72px;
+    margin-bottom: 11px;
+    padding: 0 30px 0 34px;
+    border-radius: 36px;                     /* pill, as in tvOS 26 / 27 */
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    font-size: 30px;
+    font-weight: 500;
+    color: #fff;
+    transition: transform 250ms var(--ease), background 200ms ease, box-shadow 250ms ease;
+}
+.srow__label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srow__value {
+    margin-left: 20px;
+    color: rgba(255, 255, 255, 0.62);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: 380px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.srow__acc { margin-left: 14px; display: flex; color: rgba(255, 255, 255, 0.55); }
+.srow__acc:empty { display: none; }
+.srow__bar { width: 180px; height: 8px; border-radius: 4px; background: rgba(255,255,255,0.3); overflow: hidden; display: inline-block; }
+.srow__bar i { display: block; height: 100%; background: #fff; border-radius: 4px; }
+.srow.is-focused {
+    background: #fff;
+    color: #1d1d1f;
+    transform: scale(1.04);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.28);
+}
+.srow.is-focused .srow__value, .srow.is-focused .srow__acc { color: #6e6e73; }
+.srow.is-focused .srow__bar { background: rgba(0,0,0,0.15); }
+.srow.is-focused .srow__bar i { background: #1d1d1f; }
+
+/* ===================== CONTROL CENTER (tvOS 26 / 27) =====================
+   Glass tiles floating at the top right, over the dimmed Home Screen.
+   Selected tile: white, dark text, slightly enlarged. */
+.cc {
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    pointer-events: none;
+}
+.cc.is-open { pointer-events: auto; }
+.has-cc .status, .has-cc .hint { opacity: 0; }
+.cc__dim {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(270deg, rgba(0,0,0,0.62) 0%, rgba(0,0,0,0.38) 45%, rgba(0,0,0,0.25) 100%);
+    opacity: 0;
+    transition: opacity 220ms ease;
+}
+.cc.is-open .cc__dim { opacity: 1; }
+.cc__panel {
+    position: absolute;
+    top: 52px;
+    right: 60px;
+    width: 600px;
+    opacity: 0;
+    transform: translateY(-14px) scale(0.97);
+    transform-origin: 100% 0;
+    transition: opacity 200ms ease, transform 260ms var(--spring, ease);
+}
+.cc.is-open .cc__panel { opacity: 1; transform: none; }
+.cc__head { display: flex; justify-content: space-between; align-items: center; height: 64px; margin-bottom: 18px; padding: 0 6px; }
+.cc__time { font-size: 34px; font-weight: 600; letter-spacing: -0.5px; }
+.cc__heads { display: flex; gap: 14px; }
+.cc__headico, .cc__avatar {
+    width: 58px; height: 58px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+}
+.cc__headico { background: rgba(120, 128, 146, 0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2); }
+.cc__avatar {
+    font-size: 26px; font-weight: 700; color: #fff;
+    background: radial-gradient(circle at 35% 30%, #7cc4ff, #2f6bdc 55%, #1b2f86 100%);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
+}
+.cc__viewport { max-height: 920px; overflow: hidden; padding: 12px 24px 24px; margin: -12px -24px 0; }   /* 24 px: room for an enlarged row (1.06 × 600 px) */
+.cc__body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; transition: transform 260ms var(--ease); }
+.cc__body--audio, .cc__body--pair, .cc__body--airplay { grid-template-columns: 1fr; gap: 12px; }
+
+/* glass: translucent, light edge (perf: opaque, no blur) */
+.cc__t {
+    position: relative;
+    display: flex;
+    align-items: center;
+    color: #fff;
+    background: rgba(118, 126, 146, 0.30);
+    -webkit-backdrop-filter: blur(30px) saturate(1.6);
+    backdrop-filter: blur(30px) saturate(1.6);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.20), inset 0 0 0 1.5px rgba(255,255,255,0.07), 0 14px 30px rgba(0,0,0,0.22);
+    transition: transform 220ms var(--spring, ease), background 150ms ease, color 150ms ease;
+}
+.cc__t--big {
+    grid-row: span 2;
+    height: 252px;
+    border-radius: 58px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+}
+.cc__t--big .cc__title { font-size: 26px; }
+.cc__t--pill { height: 118px; border-radius: 59px; gap: 14px; padding: 0 22px 0 20px; min-width: 0; }
+.cc__t--pill .cc__ico { width: 56px; height: 56px; }
+.cc__t--pill .cc__title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 24px; }
+.cc__rounds { grid-column: span 2; display: flex; justify-content: space-between; padding: 0 4px; }
+.cc__t--round { width: 112px; height: 112px; border-radius: 50%; justify-content: center; }
+/* No caption strip in the new grid: it left a gap between the round row and
+   the tiles under it. */
+.cc__caption { display: none; grid-column: span 2; height: 26px; margin-top: -6px; text-align: center; font-size: 22px; font-weight: 500; color: rgba(255,255,255,0.75); }
+.cc__t--slider { grid-column: span 2; height: 104px; border-radius: 52px; gap: 20px; padding: 0 30px 0 28px; }
+.cc__t--row { min-height: 104px; border-radius: 52px; gap: 18px; padding: 14px 30px 14px 22px; }
+.cc__ico {
+    flex: none;
+    width: 62px; height: 62px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.12);
+}
+.cc__t--row .cc__ico { width: 58px; height: 58px; }
+.cc__t--slider .cc__ico { background: none; width: 40px; }
+.cc__t.is-on .cc__ico { background: var(--tint, #0a84ff); color: #fff; }
+.cc__bigico { display: flex; }
+.cc__txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.cc__title { font-size: 25px; font-weight: 600; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc__sub { margin-top: 3px; font-size: 21px; color: rgba(255,255,255,0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cc__t--row .cc__sub { white-space: normal; line-height: 1.2; }
+.cc__check { flex: none; width: 34px; display: flex; justify-content: flex-end; color: #fff; }
+.cc__bar { flex: 1; height: 16px; border-radius: 8px; background: rgba(255,255,255,0.2); overflow: hidden; }
+.cc__bar i { display: block; height: 100%; background: #fff; border-radius: 8px; transition: width 150ms ease; }
+.cc__val { width: 56px; text-align: right; font-size: 25px; font-weight: 600; }
+.cc__sheethead { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 8px; font-size: 32px; font-weight: 700; }
+.cc__sheethead svg { transform: rotate(180deg); opacity: 0.7; }
+.cc__section { padding: 14px 24px 0; font-size: 19px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: rgba(255,255,255,0.55); }
+
+.cc__t.is-focused { background: #f5f5f7; color: #1c1c1e; transform: scale(1.06); box-shadow: 0 20px 44px rgba(0,0,0,0.38); z-index: 1; }
+.cc__t--round.is-focused { transform: scale(1.1); }
+.cc__t.is-focused .cc__sub { color: #6e6e73; }
+.cc__t.is-focused .cc__ico { background: rgba(0,0,0,0.07); }
+.cc__t.is-focused.is-on .cc__ico { background: var(--tint, #0a84ff); color: #fff; }
+.cc__t--round.is-on { background: var(--tint, #0a84ff); color: #fff; }
+.cc__t--round.is-focused.is-on { background: #f5f5f7; color: var(--tint, #0a84ff); }
+.cc__t--slider.is-focused .cc__ico { background: none; }
+.cc__t.is-focused .cc__bar { background: rgba(0,0,0,0.12); }
+.cc__t.is-focused .cc__bar i { background: #1d1d1f; }
+.cc__t.is-focused .cc__check { color: #0a84ff; }
+
+/* ===================== SCREEN SAVER (Aerial) ===================== */
+.saver {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 1200ms ease;
+    overflow: hidden;
+}
+.saver.is-active { opacity: 1; pointer-events: auto; }
+.saver__img {
+    position: absolute;
+    inset: -4%;
+    background: #000 center / cover no-repeat;
+    opacity: 0;
+    transition: opacity 2400ms ease;
+}
+.saver__img.is-on { opacity: 1; }
+.saver__img.is-pan-a { animation: panA 16s linear forwards; }
+.saver__img.is-pan-b { animation: panB 16s linear forwards; }
+@keyframes panA { from { transform: scale(1.02) translate(-1.5%, 0); } to { transform: scale(1.12) translate(1.5%, -1%); } }
+@keyframes panB { from { transform: scale(1.12) translate(1%, 1%); } to { transform: scale(1.02) translate(-1%, -1%); } }
+.saver.no-motion .saver__img { animation: none; }
+.saver__shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,0.45)); }
+.saver__time {
+    position: absolute;
+    top: 60px; right: 90px;
+    font-size: 44px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 2px 16px rgba(0,0,0,0.6);
+}
+.saver__label {
+    position: absolute;
+    left: 90px; bottom: 76px;
+    font-size: 30px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 2px 14px rgba(0,0,0,0.7);
+    opacity: 0;
+    transition: opacity 1200ms ease;
+}
+.saver__label.is-shown { opacity: 1; }
+.saver.is-dark .saver__img { opacity: 0 !important; }
+.saver.is-dark .saver__time { top: 46%; right: auto; left: 0; width: 100%; text-align: center; font-size: 150px; font-weight: 300; }
+
+/* ===================== REDUCE MOTION ===================== */
+.reduce-motion *, .reduce-motion *::after { transition-duration: 0ms !important; animation: none !important; }
+.reduce-motion .tile.is-focused { transform: none; }
+
+/* ===================== PERFORMANCE MODE (the default on the screen) =====================
+   Real-time blur (backdrop-filter, filter: blur) is what made things lag:
+   it is replaced by equivalent opaque backgrounds, and shadows are lightened. */
+.perf .dock, .perf .status, .perf .settings__bg, .perf .toast {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+.perf .dock { background: rgba(46, 48, 56, 0.86); }
+.perf .status { background: rgba(28, 28, 34, 0.8); }
+.perf .cc__t { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(58, 62, 74, 0.94); }
+.perf .cc__t.is-focused { background: #f5f5f7; }
+.perf .cc__dim { background: rgba(0, 0, 0, 0.55); }
+.perf .settings__bg { background: linear-gradient(160deg, #2b3446 0%, #171b24 100%); }
+.perf .toast { background: rgba(30, 30, 36, 0.96); }
+.perf.mode-grid .bg { filter: none; transform: none; }
+.perf.mode-grid .scrim { opacity: 1; background: rgba(6, 7, 12, 0.84); }
+.perf .tile__card { box-shadow: none; }
+.perf .tile.is-focused .tile__card { box-shadow: 0 16px 26px rgba(0, 0, 0, 0.5); }
+.perf .tile__card { transition: none; }             /* an animated shadow redraws the tile on every frame */
+.perf .tile__icon, .perf .brandcard__icon { filter: none; }
+.perf .saver__img.is-pan-a, .perf .saver__img.is-pan-b { animation: none; }
+
+/* ===================== GRID BLURRED BACKGROUND (precomputed) ===================== */
+.bgblur {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #05060a;
+    opacity: 0;
+    transition: opacity 450ms ease;
+}
+/* Small image blurred only once, stretched on screen (nothing recomputed live) */
+.bgblur__canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transition: opacity 300ms ease;
+}
+.mode-grid .bgblur { opacity: 1; }
+/* The drawer shows the precomputed blur, not the sharp artwork: the picture is
+   drawn once into a 192 x 108 canvas and stretched, so nothing is filtered
+   while the grid moves. */
+.mode-grid .bg, .perf.mode-grid .bg { filter: none; transform: none; opacity: 0; }
+.mode-grid .bgcap, .mode-grid .bgcap.is-visible { opacity: 0; }
+.bg { z-index: 0; }
+.bgblur { z-index: 1; }
+.mode-grid .scrim, .perf.mode-grid .scrim { opacity: 1; background: rgba(4, 5, 10, 0.32); }
+
+/* ===================== tvOS-STYLE MOTION ===================== */
+:root { --spring: cubic-bezier(0.34, 1.32, 0.64, 1); }   /* slight bounce, like a spring */
+.tile { transition: transform 150ms var(--spring); }
+#row0 .tile { will-change: transform; }   /* a layer for the dock only: less memory, less work on every frame */
+
+/* ===================== SCREEN SAVER: AERIAL VIDEOS ===================== */
+.saver__video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #000;
+    opacity: 0;
+    transition: opacity 2400ms ease;
+}
+.saver__video.is-on { opacity: 1; }
+.saver.is-video .saver__shade { background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0) 22%, rgba(0,0,0,0) 72%, rgba(0,0,0,0.35)); }
+
+/* ===================== "OK HELD" MENU (as on tvOS) ===================== */
+.appmenu {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: none;
+    pointer-events: none;
+}
+.appmenu__panel {
+    position: absolute;
+    min-width: 560px;
+    padding: 12px;
+    box-sizing: border-box;
+    border-radius: 30px;
+    background: rgba(58, 58, 64, 0.72);
+    -webkit-backdrop-filter: blur(40px) saturate(170%);
+    backdrop-filter: blur(40px) saturate(170%);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: scale(0.9);
+    transform-origin: 30% 0;
+    transition: opacity 180ms ease, transform 320ms var(--spring, cubic-bezier(.2,.9,.25,1.15));
+}
+.appmenu.is-above .appmenu__panel { transform-origin: 30% 100%; }
+.appmenu.is-open .appmenu__panel { opacity: 1; transform: scale(1); }
+.appmenu__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 40px;
+    height: 78px;
+    padding: 0 26px 0 30px;
+    border-radius: 18px;
+    color: #fff;
+    font-size: 31px;
+    font-weight: 600;
+    transition: background 160ms ease, color 160ms ease, transform 220ms ease;
+}
+.appmenu__icon { display: flex; opacity: 0.9; }
+.appmenu__item.is-destructive { color: #ff453a; }
+.appmenu__item.is-focused { background: #fff; color: #1d1d1f; transform: scale(1.03); }
+.appmenu__item.is-focused.is-destructive { color: #ff3b30; }
+.perf .appmenu__panel { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(40, 40, 46, 0.97); }
+
+/* ===================== ALERT (confirmation) ===================== */
+.aplalert {
+    position: fixed;
+    inset: 0;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.62);
+    -webkit-backdrop-filter: blur(30px);
+    backdrop-filter: blur(30px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 220ms ease;
+}
+.perf .aplalert { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(8, 9, 12, 0.9); }
+.aplalert.is-open { opacity: 1; pointer-events: auto; }
+.aplalert__box {
+    width: 760px;
+    text-align: center;
+    transform: scale(0.94);
+    transition: transform 320ms var(--spring, cubic-bezier(.2,.9,.25,1.15));
+}
+.aplalert.is-open .aplalert__box { transform: scale(1); }
+.aplalert__title { margin: 0 0 18px; font-size: 46px; font-weight: 700; color: #fff; }
+.aplalert__msg { margin: 0 0 46px; font-size: 30px; line-height: 1.35; color: rgba(255, 255, 255, 0.62); }
+.aplalert__buttons { display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.aplalert__btn {
+    width: 600px;
+    height: 86px;
+    line-height: 86px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 32px;
+    font-weight: 600;
+    transition: background 160ms ease, color 160ms ease, transform 240ms var(--spring, ease);
+}
+.aplalert__btn.is-destructive { color: #ff453a; }
+.aplalert__btn.is-focused { background: #fff; color: #1d1d1f; transform: scale(1.06); }
+.aplalert__btn.is-focused.is-destructive { color: #ff3b30; }
+
+/* ===================== EDIT HOME SCREEN ===================== */
+@keyframes apl-jiggle {
+    0%   { transform: rotate(-1.6deg); }
+    50%  { transform: rotate(1.6deg); }
+    100% { transform: rotate(-1.6deg); }
+}
+.is-editing .tile.is-moving .tile__card { animation: apl-jiggle 300ms ease-in-out infinite; }
+
+/* Apple's Settings icon */
+.vtile--settings .settings-art { filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.18)); }
+.settings__card .settings-art { filter: drop-shadow(0 24px 40px rgba(0, 0, 0, 0.45)); }
+.perf .vtile--settings .settings-art, .perf .settings__card .settings-art { filter: none; }
+
+/* ===================== ANIMATED BACKGROUNDS AND AUTOMATIC ICONS ===================== */
+@keyframes kenA { from { transform: scale(1.0) translate(0, 0); } to { transform: scale(1.08) translate(-1.2%, -0.8%); } }
+@keyframes kenB { from { transform: scale(1.08) translate(1%, -0.6%); } to { transform: scale(1.0) translate(0, 0); } }
+.bg.is-motion.is-motion-a { animation: kenA 14s cubic-bezier(.25,.1,.25,1) forwards; }
+.bg.is-motion.is-motion-b { animation: kenB 14s cubic-bezier(.25,.1,.25,1) forwards; }
+.mode-grid .bg.is-motion { animation-play-state: paused; }
+.reduce-motion .bg.is-motion { animation: none; }
+
+.tile__card--icon { overflow: hidden; }
+.tile__card--icon .tile__icon { position: relative; z-index: 1; }
+/* App Store icon: rounded square like an app, with a soft shadow */
+.tile__icon--app { height: 74%; border-radius: 22%; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+
+/* ===================== SOURCES (Apple TV style) ===================== */
+.sources { position: fixed; inset: 0; z-index: 36; opacity: 0; pointer-events: none; transition: opacity 220ms ease; }
+.sources.is-open { opacity: 1; pointer-events: auto; }
+.sources__dim {
+    position: absolute; inset: 0;
+    background: rgba(6, 8, 14, 0.7);
+    -webkit-backdrop-filter: blur(40px) saturate(1.4);
+    backdrop-filter: blur(40px) saturate(1.4);
+}
+.perf .sources__dim { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(6, 8, 14, 0.9); }
+.sources__title { position: absolute; top: 120px; left: 0; right: 0; text-align: center; font-size: 56px; font-weight: 700; }
+.sources__row { position: absolute; left: 0; right: 0; top: 360px; display: flex; justify-content: center; gap: 44px; }
+.sources__row.is-picking { top: 250px; flex-wrap: wrap; gap: 26px 30px; padding: 0 140px; }
+.scard {
+    width: 400px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    color: #fff;
+    transition: transform 260ms var(--spring, ease);
+}
+.scard__art {
+    position: relative;
+    width: 400px; height: 240px; border-radius: 36px;
+    background: #222 center / cover no-repeat;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.3);
+    transition: transform 260ms var(--spring, ease), box-shadow 260ms ease;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+}
+.scard__art--glass {
+    background: rgba(118, 126, 146, 0.28);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 0 0 1.5px rgba(255,255,255,0.07), 0 14px 30px rgba(0,0,0,0.3);
+}
+.scard__ico { width: 120px; height: 120px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.12); }
+.scard__name { position: relative; z-index: 2; font-size: 32px; font-weight: 700; text-align: center; }
+.scard__sub { position: relative; z-index: 2; font-size: 22px; color: rgba(255,255,255,0.6); text-align: center; min-height: 26px; }
+.sources.is-picking .sources__hint { display: none; }
+.scard.is-focused .scard__art { transform: scale(1.1); box-shadow: 0 34px 60px rgba(0,0,0,0.55); }
+.scard.is-focused .scard__art--glass { background: #f5f5f7; color: #1c1c1e; }
+.scard.is-focused .scard__art--glass .scard__ico { background: rgba(0,0,0,0.07); }
+.scard--small { width: 300px; gap: 6px; }
+.scard--small .scard__art { width: 300px; height: 180px; border-radius: 28px; }
+.scard--small .scard__name { font-size: 24px; }
+.scard--small .scard__sub { font-size: 18px; min-height: 0; }
+.sources__hint { position: absolute; bottom: 130px; left: 0; right: 0; text-align: center; font-size: 24px; color: rgba(255,255,255,0.55); }
+
+/* ===================== PROFILES (Apple TV style) ===================== */
+.status__avatar.is-profile { display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; color: #fff; }
+.cc__avatar.is-focused { transform: scale(1.18); box-shadow: 0 0 0 4px #fff, 0 10px 24px rgba(0,0,0,0.4); }
+.cc__avatar { transition: transform 220ms var(--spring, ease); }
+.profiles { position: fixed; inset: 0; z-index: 37; opacity: 0; pointer-events: none; transition: opacity 200ms ease; }
+.profiles.is-open { opacity: 1; pointer-events: auto; }
+.profiles__dim { position: absolute; inset: 0; background: linear-gradient(270deg, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.35) 100%); }
+.profiles__panel { position: absolute; top: 120px; right: 70px; width: 420px; }
+.has-profiles .hint, .has-profiles .status { opacity: 0; }
+.profiles__grid { display: grid; grid-template-columns: repeat(2, 190px); gap: 26px 40px; justify-content: end; }
+.pitem { position: relative; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.pitem__avatar {
+    width: 160px; height: 160px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 72px; font-weight: 700; color: #fff;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.35);
+    transition: transform 240ms var(--spring, ease), box-shadow 240ms ease;
+}
+.pitem--add .pitem__avatar { background: rgba(118,126,146,0.35); box-shadow: inset 0 1px 0 rgba(255,255,255,0.2); }
+.pitem__name { font-size: 26px; font-weight: 600; color: rgba(255,255,255,0.85); }
+.pitem__check {
+    position: absolute; top: 2px; right: 14px; width: 40px; height: 40px; border-radius: 50%;
+    background: #30d158; color: #fff; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+}
+.pitem.is-focused .pitem__avatar { transform: scale(1.12); box-shadow: 0 0 0 5px #fff, 0 24px 44px rgba(0,0,0,0.5); }
+.pitem.is-focused .pitem__name { color: #fff; }
+.profiles__section { margin: 36px 0 14px; text-align: right; font-size: 20px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+.profiles__section:empty { display: none; }
+.profiles__recents { display: grid; grid-template-columns: repeat(3, 120px); gap: 16px; justify-content: end; }
+.precent__art {
+    display: flex; align-items: center; justify-content: center; width: 120px; height: 72px; border-radius: 14px;
+    background: #2a2a2e; overflow: hidden; font-size: 30px; font-weight: 700; color: #fff;
+    transition: transform 220ms var(--spring, ease), box-shadow 220ms ease;
+}
+.precent__art img { height: 70%; }
+.precent.is-focused .precent__art { transform: scale(1.15); box-shadow: 0 0 0 3px #fff, 0 16px 30px rgba(0,0,0,0.5); }
+.pprompt { position: fixed; inset: 0; z-index: 46; display: flex; align-items: center; justify-content: center; background: rgba(6,8,14,0.85); }
+.pprompt__box { width: 760px; text-align: center; }
+.pprompt__title { font-size: 44px; font-weight: 700; margin: 0 0 30px; }
+.pprompt__input {
+    width: 600px; height: 86px; border-radius: 18px; border: 0; outline: none; padding: 0 28px;
+    font: 600 36px/1 inherit; color: #1c1c1e; background: #f5f5f7; text-align: center;
+}
+.pprompt__hint { margin-top: 24px; font-size: 24px; color: rgba(255,255,255,0.6); }
+/* 3D avatars (Memoji style) */
+.pavatar { width: 86%; height: 86%; object-fit: contain; margin-top: 8%; pointer-events: none; }
+.status__avatar .pavatar, .cc__avatar .pavatar { margin-top: 10%; }
+.apicker { position: fixed; inset: 0; z-index: 47; background: rgba(6, 8, 14, 0.9); display: flex; flex-direction: column; align-items: center; }
+.apicker__title { margin: 70px 0 34px; font-size: 48px; font-weight: 700; }
+.apicker__scroll { flex: 1; overflow: hidden; padding: 20px 30px 0; margin-top: -20px;
+    -webkit-mask-image: linear-gradient(#000 88%, transparent); mask-image: linear-gradient(#000 88%, transparent); }
+.apicker__grid { display: grid; grid-template-columns: repeat(10, 132px); gap: 26px 30px; transition: transform 320ms var(--spring, ease); }
+.apicker__item {
+    width: 132px; height: 132px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 220ms var(--spring, ease), box-shadow 220ms ease;
+}
+.apicker__item img { width: 88%; height: 88%; object-fit: contain; margin-top: 10%; }
+.apicker__item.is-custom img, .pavatar--memoji { width: 100%; height: 100%; margin-top: 14%; }
+.status__avatar .pavatar--memoji, .cc__avatar .pavatar--memoji { margin-top: 14%; }
+.apicker__item.is-focused { transform: scale(1.18); box-shadow: 0 0 0 5px #fff, 0 18px 36px rgba(0,0,0,0.5); }
+.pitem__avatar { overflow: hidden; }
+
+
+/* ===================== FOLDERS ===================== */
+.ftile {
+    position: absolute; inset: 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr);
+    gap: 8px; padding: 20px 22px;
+    background: rgba(214, 216, 226, 0.92);
+}
+.ftile i { display: block; border-radius: 7px; background-position: center; background-size: cover; background-repeat: no-repeat; }
+.folder {
+    position: fixed; inset: 0; z-index: 30;
+    display: none;
+    background: rgba(8, 9, 14, 0.9);
+}
+.folder.is-open { display: block; }
+.folder__title { position: absolute; top: 96px; left: 0; right: 0; text-align: center; font-size: 56px; font-weight: 700; letter-spacing: -0.5px; }
+.folder__input { width: 800px; background: none; border: 0; border-bottom: 3px solid currentColor; color: inherit; font: inherit; text-align: center; outline: none; }
+.folder__grid {
+    position: absolute; top: 260px; left: 85px;
+    display: grid; grid-template-columns: repeat(6, var(--tile-w)); column-gap: var(--gap-x); row-gap: 90px;
+}
+.folder .tile.is-focused .tile__label { opacity: 1; }
+
+/* ===================== APP SWITCHER ===================== */
+.sw {
+    position: fixed; inset: 0; z-index: 32;
+    display: none; overflow: hidden;
+    background: rgba(6, 7, 12, 0.94);
+}
+.sw.is-open { display: block; }
+.sw__row {
+    position: absolute; left: 0; top: 240px;
+    display: flex; gap: 70px; align-items: flex-start;
+    transition: transform 280ms var(--ease);
+    will-change: transform;
+}
+.sw__card { flex: none; width: 1000px; opacity: 0.55; transform: scale(0.9); transition: transform 240ms var(--ease), opacity 200ms ease; }
+.sw__card.is-focused { opacity: 1; transform: none; }
+.sw__head { height: 66px; font-size: 34px; font-weight: 600; }
+.sw__pic { width: 1000px; height: 562px; border-radius: 28px; box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5); }
+.sw__hint { position: absolute; left: 0; right: 0; bottom: 70px; text-align: center; font-size: 26px; color: rgba(255, 255, 255, 0.65); }
+
+/* ===================== SCREEN SAVER: LARGE CLOCK ===================== */
+.saver.is-clock .saver__label { display: none; }
+.saver.is-clock .saver__time {
+    position: absolute; left: 0; right: 0; top: 240px; bottom: auto;
+    text-align: center; font-size: 340px; font-weight: 700; line-height: 1; letter-spacing: -6px;
+    color: rgba(255, 255, 255, 0.92); text-shadow: 0 8px 60px rgba(0, 0, 0, 0.35);
+}
+
+/* ===================== LIGHT MODE ===================== */
+.theme-light { color: #1d1d1f; }
+.theme-light.mode-grid .scrim, .theme-light.perf.mode-grid .scrim { background: rgba(240, 241, 246, 0.72); }
+.theme-light .bgblur { background: #e9eaf0; }
+.theme-light .dock, .theme-light.perf .dock { background: rgba(244, 245, 249, 0.88); }
+.theme-light .status, .theme-light.perf .status { background: rgba(246, 246, 250, 0.9); color: #1d1d1f; }
+.theme-light .tile__label { color: #1d1d1f; text-shadow: none; }
+.theme-light .toast, .theme-light.perf .toast { background: rgba(250, 250, 252, 0.97); color: #1d1d1f; }
+.theme-light .hint { color: #fff; }
+/* Control Center */
+.theme-light .cc__dim, .theme-light.perf .cc__dim { background: rgba(232, 233, 240, 0.55); }
+.theme-light .cc__t, .theme-light.perf .cc__t { background: rgba(250, 250, 253, 0.94); color: #1c1c1e; box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12); }
+.theme-light .cc__t.is-focused, .theme-light.perf .cc__t.is-focused { background: #fff; box-shadow: 0 20px 44px rgba(0, 0, 0, 0.26); }
+.theme-light .cc__sub { color: #6e6e73; }
+.theme-light .cc__ico { background: rgba(0, 0, 0, 0.07); }
+.theme-light .cc__t.is-on .cc__ico { background: var(--tint, #0a84ff); color: #fff; }
+.theme-light .cc__check { color: #0a84ff; }
+.theme-light .cc__bar { background: rgba(0, 0, 0, 0.13); }
+.theme-light .cc__bar i { background: #1c1c1e; }
+.theme-light .cc__time, .theme-light .cc__sheethead, .theme-light .cc__caption { color: #1d1d1f; }
+.theme-light .cc__section { color: #5a5a60; }
+.theme-light .cc__headico { background: rgba(255, 255, 255, 0.8); color: #1c1c1e; }
+/* Settings */
+.theme-light .settings, .theme-light .settings__title { color: #1d1d1f; }
+.theme-light .settings__bg, .theme-light.perf .settings__bg { background: linear-gradient(160deg, #eef0f5 0%, #d6d9e2 100%); }
+.theme-light .srow { background: rgba(255, 255, 255, 0.62); box-shadow: none; color: #1d1d1f; }
+.theme-light .srow.is-focused { background: #fff; }
+.theme-light .srow__value, .theme-light .srow__acc { color: #6e6e73; }
+.theme-light .srow__bar { background: rgba(0, 0, 0, 0.13); }
+.theme-light .srow__bar i { background: #1d1d1f; }
+.theme-light .settings__desc, .theme-light .settings__path, .theme-light .srow__section { color: #55555b; }
+/* Menus, folders, switcher */
+.theme-light .appmenu__panel { background: rgba(250, 250, 253, 0.97); color: #1d1d1f; }
+.theme-light .aplalert__box { background: rgba(250, 250, 253, 0.98); color: #1d1d1f; }
+.theme-light .folder { background: rgba(236, 238, 244, 0.94); color: #1d1d1f; }
+.theme-light .sw { background: rgba(236, 238, 244, 0.96); color: #1d1d1f; }
+.theme-light .sw__hint { color: #55555b; }
+/* "Continue Watching" (widgets.js): the whole top of the screen, on a blurred background taken from the image */
+/* Nothing at all while there is no card: no extra layer while navigating */
+.wdg { display: none; position: fixed; inset: 0; pointer-events: none; }
+.wdg.is-on { display: block; animation: wdgIn 240ms ease; }
+@keyframes wdgIn { from { opacity: 0; } to { opacity: 1; } }
+.mode-grid .wdg { display: none; }
+.has-wdg .hint { opacity: 0; }
+.wdg__bg { position: absolute; inset: 0; background: linear-gradient(120deg, #20409a 0%, #1476a8 55%, #0f8f96 100%); }
+.wdg__blur { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 240ms ease; }
+.wdg__row { position: absolute; left: 90px; top: 96px; display: flex; gap: 44px; }
+.wdg__heading { height: 58px; font-size: 28px; font-weight: 600; color: rgba(255, 255, 255, 0.82); }
+.wdg__card { position: relative; flex: none; width: 800px; height: 450px; border-radius: 26px; overflow: hidden; background: #14161c; color: #fff; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35); transition: transform 240ms var(--spring, ease), box-shadow 240ms ease; will-change: transform; }
+.wdg__card.is-focused { transform: scale(1.05); box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55); }
+.wdg__pic { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding-bottom: 90px; color: rgba(255, 255, 255, 0.4); background: center / cover no-repeat; }
+.wdg__card--channel { background: radial-gradient(70% 80% at 50% 36%, #3a3e4a 0%, #16181f 100%); }
+.wdg__card--channel .wdg__pic { box-sizing: border-box; padding: 54px 150px 130px; background-origin: content-box; background-size: contain; background-position: center; }
+.wdg__mark { font-size: 96px; font-weight: 700; letter-spacing: -2px; color: #fff; text-align: center; line-height: 1.05; }
+.sw__widgets .wdg__card--channel .wdg__pic { padding: 22px 60px 54px; }
+.sw__widgets .wdg__mark { font-size: 38px; letter-spacing: 0; }
+.wdg__txt { position: absolute; left: 0; right: 0; bottom: 0; padding: 90px 30px 20px; background: linear-gradient(transparent, rgba(0, 0, 0, 0.8) 62%); }
+.wdg__card--video .wdg__txt { padding-bottom: 34px; }
+.wdg__label { display: none; }
+.wdg__title { font-size: 34px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdg__sub { font-size: 24px; color: rgba(255, 255, 255, 0.76); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdg__bar { position: absolute; left: 30px; right: 30px; bottom: 16px; height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.3); overflow: hidden; }
+.wdg__bar i { display: block; height: 100%; border-radius: 4px; background: #fff; }
+.wdg__logo { position: absolute; left: 30px; bottom: 96px; max-width: 46%; max-height: 130px; object-fit: contain; object-position: left bottom; filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55)); }
+.wdg__card.is-titled .wdg__title { display: none; }
+.wdg-focus #row0 .tile.is-focused { transform: none; }
+.wdg-focus #row0 .tile.is-focused .tile__card { box-shadow: none; }
+.sw__pic { position: relative; }
+.sw__widgets { position: absolute; left: 24px; bottom: 24px; display: flex; gap: 14px; }
+.sw__widgets .wdg__card { width: 320px; height: 180px; border-radius: 18px; }
+.sw__widgets .wdg__pic { padding-bottom: 40px; }
+.sw__widgets .wdg__txt { padding: 26px 14px 10px; }
+.sw__widgets .wdg__card--video .wdg__txt { padding-bottom: 20px; }
+.sw__widgets .wdg__label { display: block; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.76); }
+.sw__widgets .wdg__title { font-size: 21px; }
+.sw__widgets .wdg__sub { font-size: 15px; }
+.sw__widgets .wdg__bar { left: 14px; right: 14px; bottom: 8px; height: 5px; }
+.sw__widgets .wdg__logo { left: 14px; bottom: 44px; max-height: 50px; }
+
+/* Dock shortcuts: Control Centre, Home and Home Assistant */
+.vtile--cc { background: linear-gradient(180deg, #55555e, #26262b 72%); }
+.vtile--home { background: linear-gradient(180deg, #37c85c, #0d7a33 72%); }
+.vtile--ha { background: linear-gradient(180deg, #3fc8f6, #0a6f96 72%); }
+
+/* Rounded like the rest of the system: the card carries the radius, so an app
+   tile is never a hard rectangle. */
+.tile .tile__card, .tile__card { border-radius: 26px; overflow: hidden; }
+.row0 .tile .tile__card { border-radius: 34px; }
+.tile__card img, .tile__icon, .tile__letter { border-radius: inherit; }
+.tile { border-radius: 34px; }
+
+/* Crossfade between backdrops, and the slide the idle rotation uses */
+.bg { transition: opacity 600ms ease, transform 900ms cubic-bezier(0.22, 0.61, 0.36, 1); }
+.bg.is-slide { opacity: 1; transform: translateX(100%); }
+.bg.is-slide.is-in { transform: translateX(0); }
+
+/* The title of the poster on screen: top-left, large, with its year and rating */
+.bgcap {
+    position: fixed; left: 62px; top: 54px; z-index: 6; max-width: 1300px;
+    text-align: left; font-size: 54px; font-weight: 700; letter-spacing: -0.6px;
+    color: #fff; line-height: 1.06;
+    opacity: 0; transition: opacity 400ms ease; pointer-events: none;
+    text-shadow: 0 3px 24px rgba(0, 0, 0, 0.8), 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.bgcap.is-visible { opacity: 1; }
+.bgcap__met { display: block; font-size: 26px; font-weight: 600; letter-spacing: 0; opacity: 0.86; margin-top: 8px; }
+
+/* ===================== CONTROL CENTRE GRID =====================
+   A fixed grid of square cells: an on/off control is a square tile, and
+   the pane keeps its shape whatever it holds. Tiles fill their cell, so
+   the big tile (2 x 2) is square too and no control is a thin bar. */
+.cc__panel { width: 560px; }
+.cc__viewport { max-height: 900px; }
+/* `.cc` prefix: glass.css re-declares the body for the 70% scale, and this
+   must win over it. */
+.cc .cc__body {
+    grid-template-columns: repeat(2, 200px);
+    grid-auto-rows: 100px;
+    gap: 18px;
+    justify-content: end;
+}
+.cc__t {
+    width: auto; height: auto; min-height: 0;
+    border-radius: 26px;
+    padding: 12px 14px;
+}
+.cc__t--big {
+    grid-column: span 2; grid-row: span 2;
+    height: auto; border-radius: 34px; gap: 12px;
+}
+.cc__t--big .cc__title { font-size: 22px; }
+.cc__t--pill {
+    flex-direction: row; align-items: center; justify-content: flex-start;
+    height: 100px; border-radius: 26px; gap: 14px; padding: 0 18px;
+}
+.cc__t--pill .cc__ico { width: 44px; height: 44px; }
+.cc__t--pill .cc__title { font-size: 17px; line-height: 1.15; }
+.cc__t--pill .cc__sub { font-size: 13px; }
+.cc__t--round { width: 112px; height: 112px; border-radius: 50%; }
+.cc__rounds { grid-column: 1 / -1; gap: 14px; justify-content: flex-start; }
+.cc__caption { grid-column: 1 / -1; }
+.cc__t--slider { grid-column: 1 / -1; height: 112px; border-radius: 26px; gap: 16px; padding: 0 22px; }
+.cc__t--row { grid-column: 1 / -1; height: 112px; min-height: 0; border-radius: 26px; gap: 16px; padding: 14px 22px; }
+.cc__t--row .cc__ico { width: 48px; height: 48px; }
+.cc__title { font-size: 19px; }
+.cc__sub { font-size: 15px; }
+
+/* The Control Centre runs at 70%: these child selectors win over the older
+   fixed heights, so a control is exactly one cell and therefore square. */
+/* Every control is as wide as the Sleep tile and half its height, so the
+   pane reads as one column of equal controls. */
+.cc .cc__body > .cc__t { width: auto; height: 100px; min-height: 100px; }
+.cc .cc__body > .cc__t--big { grid-column: span 1; grid-row: span 2; height: 208px; min-height: 208px; }
+.cc .cc__body > .cc__t--slider, .cc .cc__body > .cc__t--row { grid-column: 1 / -1; height: 100px; min-height: 100px; }
+/* The four round buttons in one row; the Search logo sits alone at the very
+   bottom, below the brightness slider. */
+.cc .cc__rounds { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; align-items: center; }
+/* One cell each: as wide as it is tall, so the circle is a circle and the row
+   sits flush against the tiles above and below it. */
+.cc .cc__rounds > .cc__t--round {
+    width: auto; height: 96px; min-height: 96px;
+    flex: none; border-radius: 50%;
+    align-items: center; justify-content: center; padding: 0;
+}
+.cc__t--pill .cc__ico { width: 38px; height: 38px; }
+.cc__t--pill .cc__title { font-size: 15px; }
+.cc__t--pill .cc__sub { font-size: 12px; }
+
+/* ===================== CONTROL CENTER AT 70% =====================
+   The panel sits in the corner of the screen instead of taking half of
+   it: every measurement of the block above, times 0.7. Later in the file
+   on purpose, so the values read as one scale, not as a rewrite. */
+.cc__panel { left: auto; right: 48px; top: 42px; width: 420px; }
+.cc__head { height: 45px; margin-bottom: 13px; padding: 0 4px; }
+.cc__time { font-size: 24px; }
+.cc__heads { gap: 10px; }
+.cc__headico, .cc__avatar { width: 41px; height: 41px; }
+.cc__avatar { font-size: 18px; }
+.cc__viewport { max-height: 644px; padding: 8px 17px 17px; margin: -8px -17px 0; }
+.cc__body { gap: 11px; }
+.cc__t--big { height: 176px; border-radius: 40px; gap: 11px; }
+.cc__t--big .cc__title { font-size: 18px; }
+.cc__t--big svg { width: 62px; height: 62px; }
+.cc__t--pill { height: 83px; border-radius: 41px; gap: 10px; padding: 0 15px 0 14px; }
+.cc__t--pill .cc__ico { width: 39px; height: 39px; }
+.cc__t--pill .cc__title { font-size: 17px; }
+.cc__rounds { padding: 0 3px; }
+.cc__t--round { width: 78px; height: 78px; }
+.cc__t--round svg { width: 30px; height: 30px; }
+.cc__caption { height: 18px; margin-top: -4px; font-size: 15px; }
+.cc__t--slider { height: 73px; border-radius: 36px; gap: 14px; padding: 0 21px 0 20px; }
+.cc__t--row { min-height: 73px; border-radius: 36px; gap: 13px; padding: 10px 21px 10px 15px; }
+.cc__ico { width: 43px; height: 43px; }
+.cc__ico svg { width: 26px; height: 26px; }
+.cc__t--row .cc__ico { width: 41px; height: 41px; }
+.cc__t--slider .cc__ico { width: 28px; }
+.cc__title { font-size: 18px; }
+.cc__sub { margin-top: 2px; font-size: 15px; }
+.cc__check { width: 24px; }
+.cc__bar { height: 11px; border-radius: 6px; }
+.cc__bar i { border-radius: 6px; }
+.cc__val { width: 39px; font-size: 18px; }
+.cc__sheethead { height: 39px; font-size: 22px; }
+.cc__section { padding: 10px 17px 0; font-size: 13px; }

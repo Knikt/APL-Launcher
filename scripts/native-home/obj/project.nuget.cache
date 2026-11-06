@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "An0y6rQtAog=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\neetu\\Downloads\\clean frame\\scripts\\native-home\\Control.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\neetu\\.nuget\\packages\\microsoft.netcore.app.ref\\3.1.0\\microsoft.netcore.app.ref.3.1.0.nupkg.sha512",
+    "C:\\Users\\neetu\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\3.1.0\\microsoft.windowsdesktop.app.ref.3.1.0.nupkg.sha512",
+    "C:\\Users\\neetu\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\3.1.10\\microsoft.aspnetcore.app.ref.3.1.10.nupkg.sha512"
+  ],
+  "logs": []
+}

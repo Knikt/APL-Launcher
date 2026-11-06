@@ -1,0 +1,535 @@
+/* ============================================================
+   glass.css — pre-blurred glass for the launcher.
+
+   Pairs with js/glass.js. The material is one blurred copy of the
+   artwork, sliced under each surface by background-position: no
+   backdrop-filter anywhere on the animation path.
+
+   Everything that changes the old look is behind body.glass, which
+   glass.js adds. Remove the class (or the stylesheet) and the
+   translucent fills, the dock blur and the sheets come back exactly
+   as they were.
+   ============================================================ */
+
+/* ---------- the layer ---------- */
+
+.cg__glass {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background-repeat: no-repeat;
+    background-size: 1920px 1080px;
+    background-color: transparent;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms ease;   /* a new pane fades in over the old one */
+}
+
+.cg__glass.is-on { opacity: 1; }
+
+/* The edge of the glass, the way Apple draws it: a hairline of light along
+   the top, two pixels and gone. The old version washed a quarter of the
+   pane with white, which read as a reflection rather than an edge. */
+.cg__glass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    /* 15%: the sheen marks the edge and no longer lifts the picture. */
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.15) 0,
+        rgba(255, 255, 255, 0.06) 1px,
+        rgba(255, 255, 255, 0) 2px);
+    box-shadow: none;
+}
+
+/* Content sits above the pane; the pane itself never takes a click. */
+body.glass .cc__t > *:not(.cg__glass),
+body.glass .status > *:not(.cg__glass),
+body.glass .cc__panel > *:not(.cg__glass),
+body.glass .scard__art > *:not(.cg__glass),
+body.glass .appmenu__panel > *:not(.cg__glass),
+body.glass .dock > *:not(.cg__glass) {
+    position: relative;
+    z-index: 1;
+}
+
+/* ---------- Control Center ---------- */
+
+/* The blur goes; a darker fill stays for the generated brand cards that
+   have no artwork to slice. */
+body.glass .cc__t {
+    background: rgba(24, 26, 34, 0.22);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+body.glass .cc__t > .cg__glass {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 100px rgba(10, 13, 20, 0.34);
+}
+
+/* The big tile carries less scrim: it is the pane you look through. */
+body.glass .cc__t--big > .cg__glass {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 100px rgba(10, 13, 20, 0.20);
+}
+
+body.glass .cc__t--round > .cg__glass { border-radius: 50%; }
+body.glass .cc__t--pill > .cg__glass { border-radius: inherit; }
+
+/* Focus is the tvOS white plate right now; the slice would only fight it. */
+body.glass .cc__t.is-focused > .cg__glass,
+body.glass .scard.is-focused .cg__glass,
+body.glass .cc__avatar > .cg__glass {
+    opacity: 0 !important;
+}
+
+
+/* The profile row (avatar and the little head icons beside it) keeps its
+   plain fill: a 41px circle showed only a smear of the backdrop. */
+
+/* ---------- Dock ---------- */
+
+body.glass .dock {
+    background: rgba(24, 26, 34, 0.20);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+body.glass .dock > .cg__glass {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+        inset 0 0 0 100px rgba(10, 13, 20, 0.16);
+}
+
+/* ---------- App menu, Sources ---------- */
+
+
+
+
+
+body.glass .scard__art--glass {
+    background: rgba(24, 26, 34, 0.22);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+}
+
+body.glass .scard__art--glass > .cg__glass {
+    border-radius: 36px;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 0 0 100px rgba(10, 13, 20, 0.30);
+}
+
+/* The grid state already ships a pre-blurred wallpaper: blur it again and
+   the TV pays for a 1920x1080 filter on every move. */
+body.glass.mode-grid .bg { filter: none; }
+
+/* ============================================================
+   Universal Search sheet (js/search.js)
+
+   Full-frame sheet over the Home Screen, frosted with the same frozen
+   backdrop: the <img> is the whole stage, so it needs no slicing.
+   ============================================================ */
+
+.srch {
+    position: fixed;
+    inset: 0;
+    z-index: 38;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.02) translate3d(0, -8px, 0);
+    transition: opacity 190ms cubic-bezier(0.16, 1, 0.3, 1),
+                transform 210ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.srch.is-open {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+}
+
+.srch__scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(6, 9, 12, 0.55);
+}
+
+.srch__glass {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1920px;
+    height: 1080px;
+    max-width: none;
+    object-fit: cover;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.srch__glass[hidden] { display: none !important; }
+
+/* No artwork behind the launcher: the sheet still needs a ground. */
+.srch:not(.has-art) .srch__scrim { background: rgba(6, 9, 12, 0.92); }
+
+.srch__sheet {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 48px 96px 40px 118px;
+}
+
+/* ---------- head ---------- */
+
+.srch__head {
+    flex: none;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 34px;
+}
+
+.srch__mark {
+    width: 48px;
+    height: 48px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.82);
+}
+
+.srch__field {
+    flex: 1;
+    min-width: 0;
+    height: 96px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.srch__text {
+    font-size: 44px;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: -1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+}
+
+.srch__text.is-empty { color: rgba(255, 255, 255, 0.52); }
+
+.srch__caret {
+    width: 4px;
+    height: 46px;
+    flex: none;
+    border-radius: 2px;
+    background: #fff;
+    opacity: 0.9;
+    animation: srch-caret 1100ms steps(1) infinite;
+}
+
+@keyframes srch-caret {
+    0%, 49% { opacity: 0.9; }
+    50%, 100% { opacity: 0; }
+}
+
+.srch__spin {
+    width: 34px;
+    height: 34px;
+    flex: none;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.22);
+    border-top-color: rgba(255, 255, 255, 0.92);
+    animation: srch-spin 900ms linear infinite;
+}
+
+.srch__spin[hidden] { display: none !important; }
+
+@keyframes srch-spin { to { transform: rotate(360deg); } }
+
+/* ---------- body ---------- */
+
+.srch__body {
+    flex: 1;
+    min-height: 0;
+    /* A grid, not a flex row: the keyboard column is fixed and the results
+       take the rest, so three cards can never push past the stage. */
+    display: grid;
+    grid-template-columns: 596px minmax(0, 1fr);
+    gap: 56px;
+}
+
+.srch__left {
+    width: auto;
+    min-width: 0;
+    flex: none;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.srch__right {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* ---------- tabs ---------- */
+
+.srch__tabs {
+    flex: none;
+    height: 62px;
+    display: flex;
+    gap: 6px;
+    padding: 4px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.srch__tab {
+    flex: 1;
+    height: 54px;
+    border: 0;
+    border-radius: 12px;
+    background: none;
+    color: rgba(255, 255, 255, 0.78);
+    font: 600 26px/54px inherit;
+    text-align: center;
+    cursor: pointer;
+    transition: background 140ms linear, color 140ms linear, transform 200ms var(--ease, ease);
+}
+
+.srch__tab.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+}
+
+.srch__tab.is-focused {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
+    transform: scale(1.04);
+}
+
+/* ---------- keyboard ---------- */
+
+.srch__keys {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-auto-rows: 78px;
+    gap: 10px;
+    align-content: start;
+}
+
+.srch__key {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 28px;
+    font-weight: 600;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 200ms var(--ease, ease), background 140ms linear, color 140ms linear;
+}
+
+.srch__key.is-focused {
+    background: #f5f5f7;
+    color: #1c1c1e;
+    transform: scale(1.06);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
+}
+
+.srch__key--wide { grid-column: span 3; font-size: 22px; text-transform: none; }
+.srch__key--space { grid-column: span 3; }
+
+/* ---------- results ---------- */
+
+.srch__grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    /* The three columns share what the keyboard leaves: at 1920 the sheet is
+       padding + 596 + gap + 3 columns, and fixed 373px cards pushed the third
+       one off the right edge of the stage. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: min-content;
+    gap: 30px 34px;
+    align-content: start;
+    overflow: hidden;
+}
+
+.srch__tile {
+    width: auto;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    transition: transform 200ms var(--ease, ease);
+}
+
+.srch__art {
+    position: relative;
+    width: auto;
+    height: 186px;
+    border-radius: 20px;
+    overflow: hidden;
+    background: rgba(24, 26, 34, 0.55);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 200ms var(--ease, ease), box-shadow 200ms linear;
+}
+
+.srch__art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.srch__art--app img {
+    width: 112px;
+    height: 112px;
+    object-fit: contain;
+    border-radius: 24px;
+}
+
+/* An app's own tile is 5:3, its icon is square, and one it has neither of
+   shows the apps glyph: a card is never an empty frame. */
+.srch__art--app img.srch__icon--tile { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.srch__art--app img.srch__icon--app { width: 112px; height: 112px; }
+.srch__vtile { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.srch__vtile .vtile { width: 100%; height: 100%; border-radius: 0; }
+.srch__glyph { display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.88); }
+
+.srch__cap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    margin-top: 11px;
+    padding: 0 2px;
+}
+
+.srch__name {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 19px;
+    line-height: 23px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.92);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.srch__badge {
+    flex: none;
+    margin-left: auto;
+    padding: 3px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.14);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.srch__tile.is-focused .srch__art {
+    transform: scale(1.04);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.55);
+}
+
+.srch__tile.is-focused .srch__art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
+}
+
+.srch__tile.is-focused .srch__name { color: #fff; }
+
+/* ---------- Search: the tabs ---------- */
+
+/* All / Movies / Shows / Apps: bigger, bolder, centred, and the plate turns
+   white under the focus so the remote's left/right is unmistakable. */
+.srch__tabs { height: 76px; }
+.srch__tab {
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 68px;
+    letter-spacing: 0.2px;
+    text-align: center;
+}
+.srch__tab.is-focused {
+    background: #f5f5f7;
+    color: #1c1c1e;
+    transform: scale(1.02);
+}
+
+/* ============================================================
+   Focus is white
+
+   body.glass .cc__t is more specific than .cc__t.is-focused, so the
+   glass tint used to win over the focus plate on a selected Control
+   Center tile and the selection came out brown. The plate now wins:
+   white, black text, no lens.
+   ============================================================ */
+
+body.glass .cc__t.is-focused,
+body.glass .cc__t--round.is-focused,
+body.glass .cc__t--round.is-focused.is-on {
+    background: #f5f5f7;
+    color: #1c1c1e;
+}
+body.glass .cc__t.is-focused .cc__title { color: #1c1c1e; }
+body.glass .cc__t.is-focused .cc__sub { color: #6e6e73; }
+body.glass .cc__t.is-focused > .cg__glass { display: none; }
+
+/* A focused row of the Settings list, and the app menu, keep the same rule. */
+body.glass .srow.is-focused { background: #f5f5f7; color: #1d1d1f; }
+
+.srch__empty {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 40%;
+    text-align: center;
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.srch__empty[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+    .srch, .srch__tile, .srch__key, .srch__tab, .cg__glass { transition: none; }
+    .srch__caret { animation: none; }
+}

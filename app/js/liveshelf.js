@@ -1,0 +1,401 @@
+/* ============================================================
+   liveshelf.js â€” dynamic Top Shelf, like on Apple TV.
+
+   When a streaming app is selected in the dock, its Top
+   Shelf shows what is popular right now on that service:
+   a large background of the movie / series, with its title and rating.
+
+   Sources:
+     TMDB             current movies and series per service, for France
+                      (Netflix, Prime Video, Disney+, CANAL+, TF1+, M6+â€¦) â€” key
+     YouTube Data API trending videos in France, for TizenTube â€” key
+     Apple (RSS feed) Top albums in France for music apps â€” no key
+     Fanart.tv        textless HD backgrounds â€” key (optional)
+     Cinemeta         IMDb ratings (Stremio's public service) â€” no key
+     Steam            top sellers (Steam Link, Moonlight, GeForce NOWâ€¦) â€” no key
+     Xbox Game Pass   Game Pass games, with their large pictures â€” no key
+     TheSportsDB      next Ligue 1 / Champions League matches â€” no key
+     Dailymotion      trending videos in France â€” no key
+   Websites (keys.local.js): trending titles of the week or popular anime, depending on the site.
+
+   Responses are kept 6 h on the screen to limit calls.
+   Without a key or a network: the app's fixed background stays.
+   ============================================================ */
+(function (global) {
+    "use strict";
+
+    var APL = global.APL;
+    var KEYS = global.APL_KEYS || {};
+    var TTL = 6 * 3600 * 1000;
+    var CACHE_VERSION = 3;              // 3: movies and series carry their title and their rating
+    var MIN_VOTES = 20;                 // below that, a rating doesn't mean anything yet
+    /* The country of the screen (system.js): TMDB, Apple, YouTube, Steam. */
+    function REGION() { return APL.sys && APL.sys.region ? APL.sys.region() : "US"; }
+
+    /* TMDB (JustWatch) "provider" ids of the services, for France. */
+    var TMDB_PROVIDERS = {
+        netflix: 8, primevideo: 119, disneyplus: 337, appletv: 350,
+        paramountplus: 531, crunchyroll: 283, rakutentv: 35, plutotv: 300, canalplus: 381
+    };
+
+    function cacheGet(k, anyAge) {
+        try {
+            var c = JSON.parse(global.localStorage.getItem("apl.live." + k) || "null");
+            if (c && c.v === CACHE_VERSION && (anyAge || Date.now() - c.t < TTL) && c.items && c.items.length) return c.items;
+        } catch (e) {}
+        return null;
+    }
+    function cachePut(k, items) {
+        try { global.localStorage.setItem("apl.live." + k, JSON.stringify({ v: CACHE_VERSION, t: Date.now(), items: items })); } catch (e) {}
+    }
+
+    function getJson(url) {
+        return global.fetch(url).then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+        });
+    }
+
+    var TMDB = "https://api.themoviedb.org/3";
+    var IMG = "https://image.tmdb.org/t/p/";
+
+    /* Fanart.tv (free key): textless HD background and title logo, when available. */
+    var FANART = "https://webservice.fanart.tv/v3/";
+    function fanart(r) {
+        if (!KEYS.fanart) return Promise.resolve(null);
+        var idP = r._kind === "movie" ? Promise.resolve({ path: "movies/" + r.id })
+            : getJson(TMDB + "/tv/" + r.id + "/external_ids?api_key=" + KEYS.tmdb)
+                .then(function (x) { return x.tvdb_id ? { path: "tv/" + x.tvdb_id } : null; });
+        return idP.then(function (id) {
+            if (!id) return null;
+            return getJson(FANART + id.path + "?api_key=" + KEYS.fanart).then(function (f) {
+                var bgs = (f.moviebackground || f.showbackground || []).filter(function (b) { return !b.lang || b.lang === "" || b.lang === "00"; });
+                var bg = (bgs.length ? bgs : (f.moviebackground || f.showbackground || []))[0];
+                return { bg: bg ? bg.url : null };
+            });
+        }).catch(function () { return null; });
+    }
+
+    function ratingOf(r) {
+        return (r.vote_count || 0) >= MIN_VOTES && r.vote_average ? Math.round(r.vote_average * 10) / 10 : null;
+    }
+    /* The real IMDb rating, from Stremio's public service. A title that is too recent doesn't have one yet. */
+    var CINEMETA = "https://v3-cinemeta.strem.io/meta/";
+    function imdbRating(kindOf, imdbId) {
+        return getJson(CINEMETA + (kindOf === "tv" ? "series" : "movie") + "/" + imdbId + ".json").then(function (j) {
+            var n = parseFloat(j.meta && j.meta.imdbRating);
+            return n > 0 ? n : null;
+        }).catch(function () { return null; });
+    }
+    /* The rating of a TMDB result: IMDb if there is one, else TMDB. */
+    function noteFor(r, imdbId) {
+        var other = { rating: ratingOf(r), ratingFrom: "TMDB" };
+        var id = imdbId ? Promise.resolve(imdbId) : getJson(TMDB + "/" + r._kind + "/" + r.id + "/external_ids?api_key=" + KEYS.tmdb).then(function (x) { return x.imdb_id; });
+        return id.then(function (i) { return i ? imdbRating(r._kind, i) : null; }).then(function (n) {
+            return n ? { rating: n, ratingFrom: "IMDb" } : other;
+        }, function () { return other; });
+    }
+    /* "â˜… 7.8 IMDb" (with a decimal comma in French) */
+    function noteOf(item) { return item.rating ? "â˜… " + item.rating.toFixed(1).replace(".", APL.lang === "fr" ? "," : ".") + " " + (item.ratingFrom || "TMDB") : ""; }
+    /* "â˜… 7.8 IMDb Â· 2025 Â· TV Show" */
+    function metaOf(item) { return [noteOf(item), item.year, item.type].filter(Boolean).join(" Â· "); }
+
+    /* Background of each result (Fanart.tv if it has one, else TMDB), its title and its rating. */
+    function decorate(list) {
+        return Promise.all(list.map(function (r) {
+            return Promise.all([fanart(r), noteFor(r)]).then(function (both) {
+                var fa = both[0] || {};
+                return {
+                    bg: fa.bg || IMG + "w1280" + r.backdrop_path,
+                    bgSmall: fa.bg ? fa.bg.replace("/fanart/", "/preview/") : IMG + "w300" + r.backdrop_path,   // enlarged = blurred, for the grid
+                    card: IMG + "w780" + r.backdrop_path,
+                    title: r.title || r.name || "",
+                    rating: both[1].rating,
+                    ratingFrom: both[1].ratingFrom,
+                    year: String(r.release_date || r.first_air_date || "").substr(0, 4),
+                    type: r._kind === "tv" ? APL.t("TV Show") : APL.t("content|Movie")
+                };
+            });
+        }));
+    }
+
+    function top(results, n) {
+        return results.filter(function (r) { return r.backdrop_path; })
+            .sort(function (a, b) { return (b.popularity || 0) - (a.popularity || 0); })
+            .slice(0, n || 8);
+    }
+    function kind(k) { return function (r) { r._kind = r._kind || k; return r; }; }
+
+    /* Popular movies and series on a service (Netflix, Prime Videoâ€¦) in France. */
+    function tmdb(providerId) {
+        var common = "api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&watch_region=" + REGION() +
+                     "&with_watch_providers=" + providerId + "&sort_by=popularity.desc";
+        return Promise.all([
+            getJson(TMDB + "/discover/tv?" + common).catch(function () { return { results: [] }; }),
+            getJson(TMDB + "/discover/movie?" + common).catch(function () { return { results: [] }; })
+        ]).then(function (res) {
+            return decorate(top((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))));
+        });
+    }
+
+    /* Trending titles of the week, all services (movie and series websites). */
+    function trending() {
+        return getJson(TMDB + "/trending/all/week?api_key=" + KEYS.tmdb + "&language=" + APL.locale).then(function (j) {
+            return decorate(top((j.results || []).filter(function (r) { return r.media_type === "movie" || r.media_type === "tv"; })
+                .map(function (r) { r._kind = r.media_type; return r; })));
+        });
+    }
+
+    /* Popular Japanese anime (anime websites and apps). */
+    function anime() {
+        var q = "api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&with_genres=16&with_original_language=ja&sort_by=popularity.desc";
+        return Promise.all([
+            getJson(TMDB + "/discover/tv?" + q).catch(function () { return { results: [] }; }),
+            getJson(TMDB + "/discover/movie?" + q).catch(function () { return { results: [] }; })
+        ]).then(function (res) {
+            return decorate(top((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))));
+        });
+    }
+
+    /* Music: Top albums in France, live (Apple's official feed, no key). */
+    var MUSIC_KEYS = { applemusic: 1, spotify: 1, deezer: 1, amazonmusic: 1, youtubemusic: 1, tidal: 1, qobuz: 1 };
+    function appleCharts() {
+        var path = "/api/v2/" + REGION().toLowerCase() + "/music/most-played/12/albums.json";
+        return getJson("https://rss.marketingtools.apple.com" + path)
+            .catch(function () { return getJson("https://rss.applemarketingtools.com" + path); })
+            .then(function (j) {
+                return ((j.feed && j.feed.results) || []).map(function (a) {
+                    var art = String(a.artworkUrl100 || "");
+                    if (!art) return null;
+                    return {
+                        bg: art.replace(/\/\d+x\d+[a-z]*\.(jpg|png)$/i, "/1600x1600bb.jpg"),
+                        bgSmall: art.replace(/\/\d+x\d+[a-z]*\.(jpg|png)$/i, "/300x300bb.jpg"),
+                        logo: null,
+                        title: a.name || "",
+                        sub: (a.artistName ? a.artistName + " Â· " : "") + APL.t("Top albums in France")
+                    };
+                }).filter(Boolean);
+            });
+    }
+
+    /* YouTube: trending videos in France (cat = category, e.g. "10" for music). */
+    function youtube(cat) {
+        var url = "https://www.googleapis.com/youtube/v3/videos?part=snippet&chart=mostPopular&maxResults=10&regionCode=" +
+                  REGION() + (cat ? "&videoCategoryId=" + cat : "") + "&key=" + KEYS.youtube;
+        return getJson(url).then(function (j) {
+            return (j.items || []).map(function (v) {
+                var t = v.snippet.thumbnails || {};
+                var best = t.maxres || t.standard || t.high;
+                return best ? { bg: best.url, bgSmall: (t.medium || t.default || best).url, logo: null, title: v.snippet.title, sub: v.snippet.channelTitle } : null;
+            }).filter(Boolean);
+        });
+    }
+
+    /* Games: Steam top sellers in France (no key). Background = a screenshot of the game at
+       1920Ã—1080, title = the game's official logo (else its name). */
+    var STEAM_CDN = "https://cdn.akamai.steamstatic.com/steam/apps/";
+    var STEAM_LANG = APL.lang === "fr" ? "french" : "english";       // language of the genres
+    function games() {
+        return getJson("https://store.steampowered.com/api/featuredcategories?cc=" + REGION() + "&l=" + STEAM_LANG).then(function (j) {
+            var seen = {}, list = [];
+            ((j.top_sellers && j.top_sellers.items) || []).concat((j.new_releases && j.new_releases.items) || []).forEach(function (g) {
+                if (!g || g.type !== 0 || seen[g.id] || /steam deck|valve index|steam controller/i.test(g.name || "")) return;
+                seen[g.id] = 1; list.push(g);
+            });
+            return Promise.all(list.slice(0, 8).map(function (g) {
+                return getJson("https://store.steampowered.com/api/appdetails?appids=" + g.id + "&cc=" + REGION() + "&l=" + STEAM_LANG).then(function (d) {
+                    var x = d && d[g.id] && d[g.id].success && d[g.id].data;
+                    var shot = x && x.screenshots && x.screenshots[0];
+                    if (!shot) return null;
+                    var genres = (x.genres || []).slice(0, 2).map(function (z) { return z.description; }).join(" Â· ");
+                    return { bg: shot.path_full, bgSmall: shot.path_thumbnail || shot.path_full, logo: STEAM_CDN + g.id + "/logo.png",
+                             title: g.name, sub: (genres ? genres + " Â· " : "") + APL.t("Steam top sellers") };
+                }).catch(function () { return null; });
+            })).then(function (r) { return r.filter(Boolean); });
+        });
+    }
+
+    /* Xbox Game Pass: popular Game Pass games (no key), with their large official
+       textless picture. The "popular" list, else the whole console catalogue. */
+    var GAMEPASS_LISTS = ["eab7757c-ff70-45af-bfa6-79d3cfb2bf81", "f6f1f99f-9b49-4ccd-b3bf-4d9767a77f5e"];
+    function gamepass() {
+        function ids(list) {
+            return getJson("https://catalog.gamepass.com/sigls/v2?id=" + list + "&language=" + APL.locale.toLowerCase() + "&market=" + REGION()).then(function (arr) {
+                var r = (arr || []).filter(function (x) { return x && x.id; }).map(function (x) { return x.id; }).slice(0, 10);
+                if (!r.length) throw new Error("empty list");
+                return r;
+            });
+        }
+        return ids(GAMEPASS_LISTS[0]).catch(function () { return ids(GAMEPASS_LISTS[1]); }).then(function (r) {
+            return getJson("https://displaycatalog.mp.microsoft.com/v7.0/products?bigIds=" + r.join(",") +
+                           "&market=" + REGION() + "&languages=" + APL.locale.toLowerCase() + "&MS-CV=APLLauncher.1");
+        }).then(function (j) {
+            return (j.Products || []).map(function (p) {
+                var lp = (p.LocalizedProperties || [])[0] || {}, imgs = lp.Images || [];
+                function pick(purpose) { for (var i = 0; i < imgs.length; i++) if (imgs[i].ImagePurpose === purpose) return imgs[i]; return null; }
+                var hero = pick("SuperHeroArt") || pick("TitledHeroArt") || pick("Screenshot");
+                if (!hero || !hero.Uri) return null;
+                var url = (hero.Uri.indexOf("//") === 0 ? "https:" : "") + hero.Uri;
+                return { bg: url + "?w=1920&q=85", bgSmall: url + "?w=320&q=70", logo: null,
+                         title: lp.ProductTitle || "", sub: "Xbox Game Pass" };
+            }).filter(Boolean);
+        });
+    }
+
+    /* Sport: next Ligue 1 and Champions League matches (TheSportsDB,
+       free public key). Background = the match's picture, else a picture of the competition. */
+    var SPORTSDB = "https://www.thesportsdb.com/api/v1/json/123/";
+    var LEAGUES = [{ id: 4334, name: "Ligue 1" }, { id: 4480, name: APL.t("Champions League") }];
+    var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    function when(e) {
+        var d = e.strTimestamp ? new Date(e.strTimestamp.replace(/\+00:00$/, "") + "Z") : null;
+        if (!d || isNaN(d.getTime())) return e.dateEvent || "";
+        var hh = ("0" + d.getHours()).slice(-2), mm = ("0" + d.getMinutes()).slice(-2);
+        return APL.t("{weekday} {month} {day} Â· {time}", { weekday: APL.t(DAYS[d.getDay()]), month: APL.t(MONTHS[d.getMonth()]), day: d.getDate(), time: hh + ":" + mm });
+    }
+    function sports() {
+        return Promise.all(LEAGUES.map(function (L) {
+            return Promise.all([
+                getJson(SPORTSDB + "eventsnextleague.php?id=" + L.id).catch(function () { return {}; }),
+                getJson(SPORTSDB + "lookupleague.php?id=" + L.id).catch(function () { return {}; })
+            ]).then(function (r) {
+                var lg = ((r[1] && r[1].leagues) || [])[0] || {};
+                var fan = [lg.strFanart1, lg.strFanart2, lg.strFanart3, lg.strFanart4].filter(Boolean);
+                var events = ((r[0] && r[0].events) || []).slice(0, 5);
+                var items = events.map(function (e, i) {
+                    var bg = e.strThumb || e.strFanart || fan[i % (fan.length || 1)];
+                    if (!bg) return null;
+                    var title = e.strHomeTeam && e.strAwayTeam ? e.strHomeTeam + " â€“ " + e.strAwayTeam : (e.strEvent || L.name);
+                    return { bg: bg, bgSmall: bg, logo: lg.strLogo || null, title: title, sub: L.name + " Â· " + when(e) };
+                }).filter(Boolean);
+                if (!items.length && fan.length) items.push({ bg: fan[0], bgSmall: fan[0], logo: lg.strLogo || null, title: L.name, sub: APL.t("Upcoming matches") });
+                return items;
+            });
+        })).then(function (r) {
+            // The two competitions take turns
+            var out = [], a = r[0] || [], b = r[1] || [];
+            for (var i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) out.push(a[i]); if (b[i]) out.push(b[i]); }
+            return out;
+        });
+    }
+
+    /* Dailymotion: trending videos in France (no key). */
+    function dailymotion() {
+        return getJson("https://api.dailymotion.com/videos?fields=title,thumbnail_1080_url,thumbnail_240_url,owner.screenname" +
+                       "&flags=no_live&sort=trending&country=fr&localization=fr_FR&limit=10").then(function (j) {
+            return (j.list || []).map(function (v) {
+                return v.thumbnail_1080_url ? { bg: v.thumbnail_1080_url, bgSmall: v.thumbnail_240_url || v.thumbnail_1080_url,
+                                                logo: null, title: v.title || "", sub: v["owner.screenname"] || "Dailymotion" } : null;
+            }).filter(Boolean);
+        });
+    }
+
+    /* Which source for this app? (null = no dynamic Top Shelf) */
+    function sourceFor(app) {
+        if (!APL.sys.pref("liveShelf")) return null;
+        if (app.live === "youtube") return KEYS.youtube ? { id: "youtube", load: function () { return youtube(); } } : null;
+        if (app.live === "youtube-music") return KEYS.youtube ? { id: "youtube-10", load: function () { return youtube("10"); } }
+                                                              : { id: "music-" + REGION(), load: appleCharts };
+        if (app.live === "games") return { id: "games-steam", load: games };
+        if (app.live === "gamepass") return { id: "gamepass", load: gamepass };
+        if (app.live === "sports") return { id: "sports", load: sports };
+        if (app.live === "dailymotion") return { id: "dailymotion", load: dailymotion };
+        if (app.live === "trending") return KEYS.tmdb ? { id: "trending-" + REGION(), load: trending } : null;
+        if (app.live === "anime") return KEYS.tmdb ? { id: "anime-" + REGION(), load: anime } : null;
+        // Streaming service: recognised automatically (autoart.js) first, so the
+        // service keeps the id of the screen's country, then the ids known in advance.
+        var p = app.tmdbProvider || TMDB_PROVIDERS[app.key];
+        if (p && KEYS.tmdb) return { id: "tmdb-" + p, load: function () { return tmdb(p); } };
+        if (MUSIC_KEYS[app.key] || app.music) return { id: "music-" + REGION(), load: appleCharts };
+        return null;
+    }
+
+    var inflight = {};
+    function itemsFor(app) {
+        var src = sourceFor(app);
+        if (!src) return Promise.resolve(null);
+        var cached = cacheGet(src.id);
+        if (cached) return Promise.resolve(cached);
+        if (!inflight[src.id]) {
+            inflight[src.id] = src.load().then(function (items) {
+                delete inflight[src.id];
+                if (items && items.length) cachePut(src.id, items);
+                return items && items.length ? items : null;
+            }, function () { delete inflight[src.id]; return null; });
+        }
+        return inflight[src.id];
+    }
+
+    /* Right away: what we already have, even if older than 6 h. The update happens on the side, and
+       serves the next time: fetching 8 movies from 3 services takes several seconds. */
+    function itemsNow(app) {
+        var src = sourceFor(app);
+        if (!src) return Promise.resolve(null);
+        var read = itemsFor(app), old = cacheGet(src.id, true);
+        return old ? Promise.resolve(old) : read;
+    }
+
+    /* The large artwork of a movie or series, from its title (widgets.js): see keyArt. */
+    function same(a, b) {
+        function flat(s) { var r = new RegExp("[^a-z0-9" + String.fromCharCode(0xc0) + "-" + String.fromCharCode(0xff) + "]+", "g"); return String(s || "").toLowerCase().replace(r, ""); }
+        return flat(a) === flat(b);
+    }
+    function searchArt(title, year) {
+        if (!KEYS.tmdb || !title) return Promise.resolve(null);
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&query=" + encodeURIComponent(title)).then(function (d) {
+            var found = (d.results || []).filter(function (r) { return r.backdrop_path && (r.media_type === "tv" || r.media_type === "movie"); });
+            // The same title (and the same year, if the provider gives it) before the first one found
+            var exact = found.filter(function (r) { return same(r.name || r.title, title) || same(r.original_name || r.original_title, title); });
+            var dated = exact.filter(function (r) { return year && String(r.first_air_date || r.release_date || "").substr(0, 4) === year; });
+            var hit = dated[0] || exact[0] || found[0];
+            if (!hit) return null;
+            hit._kind = hit.media_type === "tv" ? "tv" : "movie";
+            return artOf(hit);
+        }).catch(function () { return null; });
+    }
+    /* Like on Apple TV, the picture with the title already drawn on it: TMDB tags it with a language, the
+       interface's language first. Else the textless background, with the title logo laid over it (widgets.js). */
+    function keyArt(hit) {
+        var plain = { image: IMG + "w780" + hit.backdrop_path };
+        return getJson(TMDB + "/" + hit._kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
+            function best(list, lang) {
+                return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
+                    .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
+            }
+            var titled = best(im.backdrops, APL.lang) || best(im.backdrops, "en");
+            if (titled) return { image: IMG + "w780" + titled.file_path, titled: true };
+            var logo = best(im.logos, APL.lang) || best(im.logos, "en");
+            return { image: plain.image, logo: logo ? IMG + "w500" + logo.file_path : "" };
+        }).catch(function () { return plain; });
+    }
+    function artOf(hit, imdbId) {
+        return Promise.all([noteFor(hit, imdbId), keyArt(hit)]).then(function (both) {
+            var n = both[0], k = both[1];
+            return { title: hit.title || hit.name, image: k.image, titled: !!k.titled, logo: k.logo || "", rating: n.rating, ratingFrom: n.ratingFrom };
+        });
+    }
+    /* The same from an IMDb id (Stremio uses them). */
+    function findImdb(imdbId) {
+        if (!KEYS.tmdb || !/^tt[0-9]+$/.test(imdbId)) return Promise.resolve(null);
+        return getJson(TMDB + "/find/" + imdbId + "?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&external_source=imdb_id").then(function (d) {
+            var film = (d.movie_results || []).filter(function (r) { return r.backdrop_path; })[0];
+            var show = (d.tv_results || []).filter(function (r) { return r.backdrop_path; })[0];
+            var hit = film || show;
+            if (!hit) return null;
+            hit._kind = film ? "movie" : "tv";
+            return artOf(hit, imdbId);
+        }).catch(function () { return null; });
+    }
+
+    APL.live = {
+        searchArt: searchArt,
+        findImdb: findImdb,
+        itemsFor: itemsFor,
+        itemsNow: itemsNow,
+        noteOf: noteOf,
+        metaOf: metaOf,
+        hasSource: function (app) { return !!sourceFor(app); },
+        keys: function () { return { tmdb: !!KEYS.tmdb, youtube: !!KEYS.youtube, fanart: !!KEYS.fanart }; }
+    };
+})(window);

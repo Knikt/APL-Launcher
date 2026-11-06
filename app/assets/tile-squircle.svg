@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 252 158" width="252" height="158">
+  <!-- Continuous-corner tile mask. The straight edges run to 37.5px from each
+       corner and the turn is a quadratic, so curvature starts gently instead of
+       snapping from a straight line into a 30px arc. -->
+  <path fill="#fff" d="M37.5 0 H214.5 Q252 0 252 37.5 V120.5 Q252 158 214.5 158 H37.5 Q0 158 0 120.5 V37.5 Q0 0 37.5 0 Z"/>
+</svg>

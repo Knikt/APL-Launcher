@@ -27,3 +27,9 @@ PP*.woff2
 /explorations/
 /docs/research/
 /docs/articles/
+
+# Proprietary SF Pro files are injected from .local/ at packaging time.
+/app/assets/fonts/sf/
+
+# Freebuff working files
+/.cloud-attachments/

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <!-- The Home tile's backdrop: CleanFrame's own house mark, the same stroke
+       drawing the dock tile carries (assets/icons/home.svg), set large on the
+       warm dark ground the control panel uses. One flat ground, one gradient
+       glow and a single stroked path - no filters, no fills per shape - so the
+       set rasterises it in a single pass. The private package may replace this
+       file with the same photograph the tile's backdrop uses. -->
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="42%" r="58%">
+      <stop offset="0" stop-color="#ff9f0a" stop-opacity=".32"/>
+      <stop offset=".55" stop-color="#c46a00" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#140c05" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="#0d0b09"/>
+  <rect width="1920" height="1080" fill="url(#glow)"/>
+  <g transform="translate(960 424) scale(20)">
+    <path transform="translate(-12 -12)" d="m3 10 9-7 9 7v11h-6v-7H9v7H3Z"
+          fill="none" stroke="#ffffff" stroke-opacity=".93" stroke-width="1.6"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <!-- Ground bands behind the dock, so tiles and labels stay legible. -->
+  <path d="M0 660 L1920 560 L1920 1080 L0 1080 Z" fill="#070403" opacity=".72"/>
+  <path d="M0 900 L1920 820 L1920 1080 L0 1080 Z" fill="#050302" opacity=".78"/>
+</svg>
