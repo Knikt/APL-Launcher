@@ -266,6 +266,26 @@
       '<div class="ha-sheet" id="haSheet" hidden>' +
         '<div class="ha-sheet-head" id="haSheetHead"></div>' +
         '<div class="ha-sheet-rows" id="haSheetRows" role="menu"></div>' +
+      '</div>' +
+
+      '<div class="ha-setup" id="haSetup" hidden>' +
+        '<h1 class="ha-setup-title">Connect to Home Assistant</h1>' +
+        '<p class="ha-setup-lead">Sign in once with the account you already use. ' +
+          'Home Assistant issues a token to this screen and can end it at any time ' +
+          'under Profile -> Security.</p>' +
+        '<div class="ha-field"><span class="ha-field-name">Address</span>' +
+          '<input type="text" id="haUrl" spellcheck="false" autocomplete="off" ' +
+          'placeholder="http://homeassistant.local:8123"></div>' +
+        '<div class="ha-field"><span class="ha-field-name">Username</span>' +
+          '<input type="text" id="haUser" spellcheck="false" autocapitalize="off" autocomplete="username"></div>' +
+        '<div class="ha-field"><span class="ha-field-name">Password</span>' +
+          '<input type="password" id="haPass" autocomplete="current-password"></div>' +
+        '<div class="ha-field is-action"><span class="ha-field-name">Sign in</span>' +
+          '<span class="ha-field-value" id="haGo">Connect</span></div>' +
+        '<div class="ha-field is-alt" id="haAlt" hidden><span class="ha-field-name">Preview</span>' +
+          '<span class="ha-field-value">Show the demo house</span></div>' +
+        '<div class="ha-note" id="haNote">A long-lived access token works too: ' +
+          'Profile -> Security -> Long-lived access tokens.</div>' +
       '</div>';
     sideEl = box.querySelector('#haSide');
     mainEl = box.querySelector('.ha-main');
@@ -415,7 +435,7 @@
   }
 
   function paint(force) {
-    if (!built || !box) return;
+    if (!built || !box || setupMode) return;
     var next = sig(), i, els;
 
     if (force || next !== lastSig) {
@@ -561,6 +581,7 @@
 
   function key(k) {
     var rows, idx, row;
+    if (setupMode) { setupKey(k); return; }
     /* Back steps out one layer: the accessory sheet first, then the app. A
        viewer who opened a temperature by mistake should not lose the house. */
     if (k === 'back') {
@@ -652,11 +673,89 @@
     }
   }
 
+  /* ---------- Connect ---------- */
+  /* Shown instead of the house when this screen has no token yet. It is the
+     first thing a new installation sees, so it has to work with a remote:
+     up and down move between fields, OK focuses one or presses Connect, and
+     the fields themselves are ordinary inputs so the TV's keyboard types
+     into them. */
+  var setupMode = false, setupAt = 0, previewHouse = false;
+
+  function setupFields() {
+    if (!box) return [];
+    var all = box.querySelectorAll('.ha-setup .ha-field'), out = [], i;
+    for (i = 0; i < all.length; i++) if (!all[i].hidden) out.push(all[i]);
+    return out;
+  }
+
+  function setupNote(text, bad) {
+    var n = box && box.querySelector('#haNote');
+    if (!n) return;
+    n.textContent = text || '';
+    n.className = 'ha-note' + (bad ? ' is-bad' : '');
+  }
+
+  function paintSetup() {
+    if (!box) return;
+    var setup = box.querySelector('#haSetup');
+    if (setup) setup.hidden = !setupMode;
+    var alt = box.querySelector('#haAlt');
+    if (alt) alt.hidden = !(ha && ha.preview);
+    var url = box.querySelector('#haUrl');
+    if (url && !url.value && ha && ha.dashboardUrl) url.value = ha.dashboardUrl();
+    var fields = setupFields(), i;
+    for (i = 0; i < fields.length; i++) fields[i].classList.toggle('is-focus', i === setupAt);
+  }
+
+  function setupValue(sel) {
+    var el = box && box.querySelector(sel);
+    return el ? el.value : '';
+  }
+
+  function doConnect() {
+    if (!ha || !ha.connect) { setupNote('This build has no Home Assistant client.', true); return; }
+    setupNote('Signing in to Home Assistant...');
+    ha.connect(setupValue('#haUrl'), setupValue('#haUser'), setupValue('#haPass'), function (err) {
+      if (err) { setupNote(err, true); return; }
+      setupMode = false;
+      setupAt = 0;
+      if (box) box.classList.remove('is-setup');
+      paintSetup();
+      lastSig = '';
+      paint(true);
+    });
+  }
+
+  function focusSetup() {
+    var fields = setupFields(), f = fields[setupAt], input = f && f.querySelector('input');
+    if (input) { try { input.focus(); } catch (e) {} return; }
+    var a = root.document.activeElement;
+    if (a && a.blur) a.blur();
+  }
+
+  function setupKey(k) {
+    var fields = setupFields(), n = fields.length;
+    if (!n) return;
+    if (k === 'down') { setupAt = Math.min(n - 1, setupAt + 1); focusSetup(); paintSetup(); return; }
+    if (k === 'up') { setupAt = Math.max(0, setupAt - 1); focusSetup(); paintSetup(); return; }
+    if (k === 'ok') {
+      var f = fields[setupAt];
+      if (!f) return;
+      if (f.classList.contains('is-action')) { doConnect(); return; }
+      if (f.id === 'haAlt') { previewHouse = true; close(); setTimeout(open, 40); return; }
+      var input = f.querySelector('input');
+      if (input) { try { input.focus(); } catch (e) {} setupNote(''); }
+      return;
+    }
+    if (k === 'back') { close(); return; }
+  }
+
   /* ---------- Open / close ---------- */
   function open() {
     if (openFlag) return;
     build();
     if (!box) return;
+    setupMode = !previewHouse && !(ha && ha.connected && ha.connected());
     /* The same picture as the Home tile's backdrop: the private package's
        photograph when it has one, the drawn mark otherwise. Read once per open
        so a backdrop change from elsewhere is picked up without a rebuild. */
@@ -681,6 +780,18 @@
     box.classList.remove('is-open');
     void box.offsetWidth;
     box.classList.add('is-open');
+    if (setupMode) {
+      box.classList.add('is-setup');
+      setupAt = 0;
+      paintSetup();
+      focusSetup();
+      tick();
+      clearInterval(clockTimer);
+      clockTimer = setInterval(tick, 20000);
+      return;
+    }
+    box.classList.remove('is-setup');
+    paintSetup();
     if (ha && ha.setPanelActive) ha.setPanelActive(true);
     if (ha && ha.refresh) ha.refresh();
     if (ha && ha.subscribe) {
@@ -698,6 +809,7 @@
   function close() {
     if (!openFlag) return;
     openFlag = false;
+    setupMode = false;
     sheetOpen = false;
     sheetDev = null;
     clearInterval(clockTimer);
@@ -716,6 +828,10 @@
     var map = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 8: 'back', 27: 'back', 461: 'back', 10009: 'back' };
     var k = map[ev.keyCode];
     if (!k) return;
+    /* Typing in the connect form: the caret belongs to the field, not to the
+       d-pad, so the horizontal keys are left to it. */
+    if (setupMode && ev.target && ev.target.tagName === 'INPUT' &&
+        (ev.keyCode === 37 || ev.keyCode === 39)) return;
     ev.preventDefault();
     if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
     ev.stopPropagation();

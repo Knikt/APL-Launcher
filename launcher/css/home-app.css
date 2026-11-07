@@ -443,3 +443,91 @@ body .home-app {
    capsules beside it, so a lamp or a speaker reads as a glyph rather than a
    small rectangle with a picture in it. */
 .home-app .ha-chip, .home-app .ha-chip.is-large { border-radius: 50%; }
+
+/* ---------- Connect ----------
+   The screen a new installation lands on: wide rows, one focus ring, and the
+   note underneath does the explaining so no manual is needed beside the TV. */
+.home-app.is-setup .ha-side,
+.home-app.is-setup .ha-main,
+.home-app.is-setup .ha-sheet { display: none; }
+
+.ha-setup {
+  position: absolute;
+  z-index: 8;
+  left: 140px;
+  top: 132px;
+  width: 900px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ha-setup[hidden] { display: none; }
+
+.ha-setup-title {
+  margin: 0 0 4px;
+  font-size: 52px;
+  line-height: 58px;
+  font-weight: 700;
+  letter-spacing: -1.3px;
+}
+
+.ha-setup-lead {
+  margin: 0 0 10px;
+  max-width: 760px;
+  font-size: 20px;
+  line-height: 28px;
+  color: rgba(255,255,255,.72);
+}
+
+.ha-field {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 72px;
+  padding: 0 22px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.10);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+}
+
+.ha-field.is-focus {
+  background: rgba(255,255,255,.17);
+  box-shadow: inset 0 0 0 3px #fff;
+}
+
+.ha-field[hidden] { display: none; }
+
+.ha-field-name {
+  width: 148px;
+  flex: none;
+  font-size: 18px;
+  color: rgba(255,255,255,.70);
+}
+
+.ha-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font: inherit;
+  font-size: 22px;
+}
+
+.ha-field input::placeholder { color: rgba(255,255,255,.34); }
+
+.ha-field.is-action .ha-field-value { margin-left: auto; font-size: 21px; font-weight: 600; }
+
+.ha-field.is-alt .ha-field-value { margin-left: auto; font-size: 18px; color: rgba(255,255,255,.66); }
+
+.ha-note {
+  min-height: 24px;
+  margin-top: 6px;
+  font-size: 17px;
+  line-height: 24px;
+  color: rgba(255,255,255,.58);
+}
+
+.ha-note.is-bad { color: #ffb2a4; }

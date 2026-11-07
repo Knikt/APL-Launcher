@@ -34,6 +34,11 @@
        mistyped address is better refused than launched into a blank screen. */
     function url() {
         var c = conf(), u = c && String(c.url || "");
+        /* A screen that signed in keeps its address on the device: the tile
+           has to stay even when this build ships no keys file. */
+        if (!/^https?:\/\/\S+$/i.test(u) && global.CleanFrameHA && global.CleanFrameHA.dashboardUrl) {
+            u = String(global.CleanFrameHA.dashboardUrl() || "");
+        }
         return /^https?:\/\/\S+$/i.test(u) ? u : "";
     }
 
@@ -72,7 +77,13 @@
     }
 
     APL.ha = {
-        available: function () { return !!url(); },
+        /* The tile exists when the app can either open a dashboard or ask for
+           a sign-in: a build carrying the Home app always has somewhere to go,
+           and a build without it still needs an address in the keys. */
+        available: function () {
+            if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.open) return true;
+            return !!url();
+        },
         url: url,
         name: name,
         open: open
