@@ -143,6 +143,16 @@
     function bake(src, done) {
         if (!src) { drop(); return; }
         wanted = src;
+        if (src.indexOf("grad:") === 0) {
+            if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
+            baked = gradImage(src.slice(5).split("|"));
+            bakedFrom = src;
+            forget();
+            paint();
+            notify();
+            if (done) done();
+            return;
+        }
         if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
         render(src, function (data) {
             /* A render that lands after the focus has moved on is kept for next
@@ -218,8 +228,57 @@
 
     function lens(x, y) { return (-x) + "px " + (-y) + "px"; }
 
+    /* The skin is decided by the preference, never by load order. Nothing added
+       the body class when this file ran before the pref store had settled, so
+       the Control Center kept its plain fills and the pill's clock sat under its
+       own pane, which is a black hole where the time should be. */
+    function ensure() {
+        if (!body) body = document.body;
+        if (!body) return false;
+        if (body.classList.contains("glass")) return true;
+        if (!wanted()) return false;
+        body.classList.add("glass");
+        wire();
+        return true;
+    }
+
+    /* An app with no artwork is backed by a gradient (Sheets of Light, a brand
+       card). There is no URL to slice, so the pane is drawn from the very
+       colours behind it: the glass is on every app, and nothing has to be
+       dropped while a picture that will never come is waited for. */
+    function gradOf(el) {
+        if (!el) return "";
+        var cs = global.getComputedStyle(el);
+        var stops = String(cs.backgroundImage || "").match(/rgba?\([^)]+\)/g) || [];
+        if (!stops.length) {
+            var c = cs.backgroundColor;
+            if (!c || c === "transparent" || /rgba?\(0, 0, 0, 0\)/.test(c)) return "";
+            stops = [c];
+        }
+        return "grad:" + stops.join("|");
+    }
+
+    function gradScene() { return gradOf(document.querySelector(".bg.is-active")); }
+
+    function gradImage(stops) {
+        var out = document.createElement("canvas");
+        out.width = BAKE_W;
+        out.height = BAKE_H;
+        var c = out.getContext("2d");
+        var g = c.createLinearGradient(0, 0, 0, BAKE_H), i;
+        for (i = 0; i < stops.length; i++) {
+            g.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), stops[i].trim());
+        }
+        c.fillStyle = g;
+        c.fillRect(0, 0, BAKE_W, BAKE_H);
+        /* The same brightness the baked pictures carry. */
+        c.fillStyle = "rgba(255, 255, 255, " + (LIGHT - 1) + ")";
+        c.fillRect(0, 0, BAKE_W, BAKE_H);
+        return out.toDataURL("image/jpeg", 0.72);
+    }
+
     function paint() {
-        if (!baked) return;
+        if (!baked || !ensure()) return;
         var list = document.querySelectorAll(TARGETS.join(",")), i, el, r, key, l;
         for (i = 0; i < list.length; i++) {
             el = list[i];
@@ -274,7 +333,7 @@
     function refresh() {
         global.clearTimeout(timer);
         timer = global.setTimeout(function () {
-            var src = forced || scene();
+            var src = forced || scene() || gradScene();
             /* Nothing behind (a generated brand card, a channel with no poster):
                the pane goes, so the dock and the Control Center never keep the
                last app's backdrop. Not on the spot, though: a poster that lands a
@@ -296,7 +355,7 @@
 
     /* Bake again only when the artwork really changed. */
     function sync() {
-        var src = forced || scene();
+        var src = forced || scene() || gradScene();
         if (src && src !== bakedFrom) bake(src);
     }
 
