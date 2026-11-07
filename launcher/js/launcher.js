@@ -284,6 +284,10 @@
         /* A picture still being prepared for the app we just left must not land
            now. Its fallback fires half a second later and paints the old show
            over the new one - the flash that goes new, previous, new. */
+        /* Only the app in focus owns the backdrop. A catalogue for the app we
+           just left answers later, and showing its picture here put the previous
+           show back over the new one: the flash that goes new, previous, new. */
+        if (!force && apps.length && apps[nav.index] && apps[nav.index] !== app) return;
         backdropToken++;
         var pick = backdropPick(app);
         if (pick && pick.url) { setPoster(app, pick, force); return; }
