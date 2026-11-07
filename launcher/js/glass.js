@@ -128,7 +128,17 @@
         img.onload = function () {
             var data = "";
             try { data = draw(img); } catch (e) { data = ""; }
-            finish(data);
+            if (!data) { finish(""); return; }
+            /* Decode the frozen pane before anyone can show it: a pane whose
+               bitmap is not ready paints an empty frame first, which is a
+               flicker in exactly the moment the picture changes. */
+            var im = new global.Image();
+            var settled = false;
+            function ok() { if (settled) return; settled = true; finish(data); }
+            im.src = data;
+            if (im.decode) im.decode().then(ok, ok);
+            else { im.onload = ok; im.onerror = ok; }
+            global.setTimeout(ok, 250);
         };
         img.onerror = function () { finish(""); };
         /* A poster from the catalogue lives on images.justwatch.com: without
@@ -433,7 +443,10 @@
         [0, 250, 600, 1000, 1600, 2400, 3600].forEach(function (ms) {
             global.setTimeout(function () { refresh(); sync(); }, ms);
         });
-        document.addEventListener("keydown", refresh, true);
+        /* A key only moves things: re-slice the geometry, never look at the
+           backdrop again. Doing both here was a second, later swap of the pane
+           on every step along the row - the throb on a change of focus. */
+        document.addEventListener("keydown", paint, true);
         /* A redrawn tile gets its layer back, and a backdrop that has just
            finished fading gets sliced in place of the one before it. */
         document.addEventListener("keyup", function () { paint(); sync(); }, true);

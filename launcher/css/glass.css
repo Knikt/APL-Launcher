@@ -56,6 +56,19 @@ body.glass .scard__art--glass {
 body.glass .bg.is-motion,
 body.glass .bg.is-slide { animation: none; }
 
+/* A hairline of light along the top edge: the reflection of a lit room. */
+.cg__glass::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 6%;
+    right: 6%;
+    height: 1px;
+    border-radius: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.42) 18%, rgba(255, 255, 255, 0.42) 82%, rgba(255, 255, 255, 0));
+}
+
 /* 5 % of white, lit from the top edge: the glass, not the picture. */
 .cg__glass::after {
     content: "";
