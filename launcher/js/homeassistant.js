@@ -16,7 +16,9 @@
 
    APL.ha.available()   the address is set
    APL.ha.name()        the tile's name ("Home" unless set)
-   APL.ha.open()        opens the dashboard in Internet
+   APL.ha.open()        our own Home app when the build carries it
+                        (window.CleanFrameHomeApp), otherwise the
+                        dashboard in Internet
    ============================================================ */
 (function (global) {
     "use strict";
@@ -41,6 +43,14 @@
     }
 
     function open() {
+        /* Our own Home app first, when this build carries it: the tile opens the
+           screen we made, with the launcher's focus handling and no page load.
+           A build without it keeps the dashboard hand-off, so the tile is never
+           dead on someone else's installation. */
+        if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.open) {
+            global.CleanFrameHomeApp.open();
+            return;
+        }
         var u = url();
         if (!u) {
             APL.toast(APL.t("Home Assistant is not set up"));
