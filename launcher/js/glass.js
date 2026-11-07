@@ -392,10 +392,11 @@
     /* A page that opens over the Home Screen re-slices after its own layout
        has settled: one call, and its panes carry the material. */
     APL.glassAfter = function (el) {
-        global.setTimeout(function () {
-            paint();
-            if (el && el.classList) el.classList.add("has-glass");
-        }, 0);
+        if (el && el.classList) el.classList.add("has-glass");
+        /* A panel's tiles have no geometry until they have slid in, so one look
+           at 0 ms only dresses whichever tile was already laid out. Look again
+           as the panel arrives. */
+        [0, 120, 400, 900].forEach(function (ms) { global.setTimeout(paint, ms); });
     };
 
     /* Settings > Liquid Glass. `perf`, the screen's own light mode, wins:
