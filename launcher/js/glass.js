@@ -138,11 +138,17 @@
         img.src = src;
     }
 
+    var wanted = "";         /* the artwork that should be on screen right now */
+
     function bake(src, done) {
         if (!src) { drop(); return; }
+        wanted = src;
         if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
         render(src, function (data) {
-            if (data && data !== baked) {
+            /* A render that lands after the focus has moved on is kept for next
+               time, not shown. Without this a fast scroll shows panes out of
+               order, and each late one is a jump the eye catches at once. */
+            if (data && data !== baked && src === wanted) {
                 baked = data;
                 bakedFrom = src;
                 forget();
@@ -164,6 +170,7 @@
         var list = document.querySelectorAll(TARGETS.join(",")), i, l;
         baked = "";
         bakedFrom = "";
+        wanted = "";
         for (i = 0; i < list.length; i++) {
             l = list[i].__cgLayer;
             if (l) l.classList.remove("is-on");
@@ -226,12 +233,23 @@
             el.__cgKey = key;
             l = layerFor(el);
             if (l.__src !== baked) {
-                /* The pane is already rendered (see the cache above), so it goes
-                   up in one frame: one layer, one style write. A second pane
-                   fading in over the old one was what read as a shimmer over the
-                   dock and the pill. */
-                l.__src = baked;
-                l.style.backgroundImage = 'url("' + baked + '")';
+                /* The pane is already rendered (see the cache above): one style
+                   write, laid over the old pane, which leaves on the next frame.
+                   Nothing fades over anything and nothing is ever empty, so the
+                   dock and the pill cannot shimmer. */
+                var n = document.createElement("i");
+                n.className = "cg__glass is-on";
+                n.setAttribute("aria-hidden", "true");
+                n.__src = baked;
+                n.style.backgroundImage = 'url("' + baked + '")';
+                n.style.setProperty("--gx", (-r.x) + "px");
+                n.style.setProperty("--gy", (-r.y) + "px");
+                el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
+                el.__cgLayer = n;
+                (function (old) {
+                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 32);
+                })(l);
+                continue;
             }
             l.style.setProperty("--gx", (-r.x) + "px");
             l.style.setProperty("--gy", (-r.y) + "px");
