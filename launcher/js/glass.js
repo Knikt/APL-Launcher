@@ -47,7 +47,7 @@
     var baked = "";          /* data URL of the frozen backdrop */
     var bakedFrom = "";      /* the artwork it was made from */
     var forced = "";         /* setSource() override */
-    var timer = 0, empty = 0;
+    var timer = 0, empty = 0, tries = 0;
     var settle = 0;          /* second look, once the new backdrop has faded in */
     var body = null;
 
@@ -341,9 +341,15 @@
                decides, and a bake starting in between cancels it. */
             global.clearTimeout(empty);
             if (!src) {
-                empty = global.setTimeout(function () { if (!scene()) drop(); }, 240);
+                empty = global.setTimeout(function () { if (!scene() && !gradScene()) drop(); }, 240);
+                /* Nothing behind yet - the catalogue has not answered or the
+                   first layer is still being shown. Look again shortly instead
+                   of waiting for a key, which is why the glass used to arrive
+                   only after the first press. */
+                if (++tries < 12) global.setTimeout(refresh, 200);
                 return;
             }
+            tries = 0;
             bake(src);
         }, 120);
         /* The backdrop of the app being focused fades in after the key, so the
