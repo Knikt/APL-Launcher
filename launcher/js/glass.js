@@ -236,7 +236,7 @@
         if (!body) body = document.body;
         if (!body) return false;
         if (body.classList.contains("glass")) return true;
-        if (!wanted()) return false;
+        if (!skinOn()) return false;
         body.classList.add("glass");
         wire();
         return true;
@@ -393,7 +393,7 @@
 
     /* Settings > Liquid Glass. `perf`, the screen's own light mode, wins:
        it exists to keep the set smooth. */
-    function wanted() {
+    function skinOn() {
         if (!APL.sys || !APL.sys.pref) return true;
         var v = APL.sys.pref("liquidGlass");
         return v === undefined ? true : !!v;
@@ -404,7 +404,7 @@
         if (!body) return;
         /* No perf gate any more: this material is a picture, not a live filter. The
            screen's light mode keeps the plain fills (glass.css hides the panes). */
-        var on = wanted();
+        var on = skinOn();
         body.classList.toggle("glass", on);
         if (!on) { baked = ""; bakedFrom = ""; wanted = ""; drop(); return; }
         refresh();
