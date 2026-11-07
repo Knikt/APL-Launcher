@@ -151,7 +151,13 @@
             return;
         }
         var img = new Image();
-        img.onload = function () {
+        /* onload is not the whole bitmap. Drawing then left the blurred backdrop
+           half filled, and the Control Center sometimes showed that banded blur
+           of the app's backdrop instead of the picture. */
+        var painted = false;
+        function paintBlur() {
+            if (painted) return;
+            painted = true;
             if (token !== blurToken) return;              // another image was requested in the meantime
             var c = blurLayer(), ctx = c.getContext("2d"), w = c.width, h = c.height;
             var m = c._filters ? 14 : 0;                  // margin: no dark edge from the blur
@@ -163,6 +169,11 @@
             ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
             c.style.opacity = "1";
             dom.bgBlur.style.background = "#05060a";
+        }
+        img.onload = function () {
+            if (img.decode) img.decode().then(paintBlur, paintBlur);
+            else paintBlur();
+            global.setTimeout(paintBlur, 400);            // a decode that never settles
         };
         img.onerror = function () { if (token === blurToken) dom.bgBlur.style.background = backdropFor(app); };
         img.src = src;

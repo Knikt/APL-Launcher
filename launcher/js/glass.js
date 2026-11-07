@@ -141,7 +141,14 @@
             for (i = 0; i < list.length; i++) { try { list[i](data); } catch (e) {} }
         }
         var img = new global.Image();
-        img.onload = function () {
+        /* onload fires before every row is decoded. Drawing then bakes a
+           half-decoded picture into the pane, and the 10x upscale shows it as
+           the backdrop filling in line by line - which is what a first visit to
+           an app looked like. The whole bitmap is awaited first. */
+        var painted = false;
+        function paintSource() {
+            if (painted) return;
+            painted = true;
             var data = "";
             try { data = draw(img); } catch (e) { data = ""; }
             if (!data) { finish(""); return; }
@@ -155,6 +162,11 @@
             if (im.decode) im.decode().then(ok, ok);
             else { im.onload = ok; im.onerror = ok; }
             global.setTimeout(ok, 250);
+        }
+        img.onload = function () {
+            if (img.decode) img.decode().then(paintSource, paintSource);
+            else paintSource();
+            global.setTimeout(paintSource, 400);        // a decode that never settles
         };
         img.onerror = function () { finish(""); };
         /* A poster from the catalogue lives on images.justwatch.com: without
