@@ -419,7 +419,12 @@
         refresh();
         /* The first artwork lands late, and a page that opens over the Home
            Screen asks again once it has: three cheap looks, then silence. */
-        [900, 1800, 3000].forEach(function (ms) { global.setTimeout(refresh, ms); });
+        /* The artwork lands when the catalogue answers, which is well after
+           this runs: look early and often, so the pane is up with the picture
+           instead of appearing a second or two later. */
+        [0, 250, 600, 1000, 1600, 2400, 3600].forEach(function (ms) {
+            global.setTimeout(function () { refresh(); sync(); }, ms);
+        });
         document.addEventListener("keydown", refresh, true);
         /* A redrawn tile gets its layer back, and a backdrop that has just
            finished fading gets sliced in place of the one before it. */
