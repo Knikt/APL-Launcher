@@ -438,3 +438,8 @@ body .home-app {
    keys the app draws on its own dark plate, and nothing is requested for a
    backdrop that is not here. */
 .home-app .ha-backdrop { background-image: var(--ha-photo, none); background-color: #0b0d12; }
+
+/* Round icon plates. The chip is the accessory's badge: a circle, like the status
+   capsules beside it, so a lamp or a speaker reads as a glyph rather than a
+   small rectangle with a picture in it. */
+.home-app .ha-chip, .home-app .ha-chip.is-large { border-radius: 50%; }
