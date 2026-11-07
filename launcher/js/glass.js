@@ -74,14 +74,16 @@
                 if (list[i].getAttribute("data-app") === id) return list[i];
             }
         }
-        return document.querySelector(".bg.is-active");
+        /* The named layer can be gone by now (a layer is removed once it has
+           faded): whatever is still on screen is the picture. #bgBlur is not in
+           this chain on purpose - it is the blurred copy, so slicing it gives a
+           pane of a blur, which is what the Control Center was showing. */
+        var act = document.querySelectorAll(".bg.is-active");
+        return act.length ? act[act.length - 1] : null;
     }
 
     function scene() {
-        /* The dock keeps one prepared .bg per app, and those are the ones that
-           carry the artwork, not #bgA/#bgB. */
-        return urlOf(sceneEl()) ||
-               urlOf($("bgA")) || urlOf($("bgB")) || urlOf($("bgBlur"));
+        return urlOf(sceneEl()) || urlOf($("bgA")) || urlOf($("bgB"));
     }
 
     /* The pane for each artwork is rendered once and kept, so a picture that
@@ -420,7 +422,9 @@
         /* A panel's tiles have no geometry until they have slid in, so one look
            at 0 ms only dresses whichever tile was already laid out. Look again
            as the panel arrives. */
-        [0, 120, 400, 900].forEach(function (ms) { global.setTimeout(paint, ms); });
+        [0, 120, 400, 900].forEach(function (ms) {
+            global.setTimeout(function () { sync(); paint(); }, ms);
+        });
     };
 
     /* Settings > Liquid Glass. `perf`, the screen's own light mode, wins:
