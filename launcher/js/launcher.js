@@ -297,7 +297,18 @@
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
         if (APL.glass && APL.glass.refresh) APL.glass.refresh();
-        if (apps.indexOf(app) < DOCK_SIZE) { showLayer(layerFor(app), app); return; }
+        if (apps.indexOf(app) < DOCK_SIZE) {
+            /* The picture is decoded before its layer is shown. A cover
+               background resolves its percentages against the loaded image, so a
+               layer shown first paints at the top of the box and snaps to centre
+               when the file lands - the picture that "loads from the top" the
+               first time an app is visited. */
+            whenDecoded(image, function () {
+                if (token !== backdropToken) return;
+                showLayer(layerFor(app), app);
+            });
+            return;
+        }
         if (bgActive.dataset.app === app.id) return;
         whenDecoded(image, function () {
             if (token !== backdropToken) return;          // another app was selected in the meantime
