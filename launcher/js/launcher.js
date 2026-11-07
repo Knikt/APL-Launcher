@@ -383,6 +383,12 @@
             next.dataset.poster = pick.url;
             next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
             showLayer(next, app);
+            /* The picture is on screen: the glass must re-read the scene now.
+               Painting alone kept the pane baked for the app's own artwork when
+               the poster had not been baked yet, so the dock and every Control
+               Center tile carried that blurred app backdrop instead of the
+               picture behind them - worst on a first scroll through the apps. */
+            if (APL.glass && APL.glass.refresh) APL.glass.refresh();
             if (APL.glass && APL.glass.paint) APL.glass.paint();
             /* The next title's pane is made while this one is on screen, so the
                ten-second change lands on a slice that is already rendered. */

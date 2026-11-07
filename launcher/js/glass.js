@@ -434,7 +434,10 @@
         /* A panel's tiles have no geometry until they have slid in, so one look
            at 0 ms only dresses whichever tile was already laid out. Look again
            as the panel arrives. */
-        [0, 120, 400, 900].forEach(function (ms) {
+        /* Two later looks as well: a panel opened during a cold scroll can
+           arrive before the poster's pane has been baked, and it used to keep
+           whatever the dock had until the next key. */
+        [0, 120, 400, 900, 1600, 2600].forEach(function (ms) {
             global.setTimeout(function () { sync(); paint(); }, ms);
         });
     };
