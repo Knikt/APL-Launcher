@@ -67,12 +67,23 @@
        earlier one can still be the one leaving, so the launcher names the app
        whose backdrop is live and this follows that name. */
     function sceneEl() {
-        var id = document.body.getAttribute("data-bg-app");
+        /* The element that was actually faded in, recorded by launcher.js. A
+           dock app has more than one layer carrying its id - its own artwork,
+           then a poster for it - and both are inserted immediately before bgA,
+           so each new one lands LATER in the document. "The first one with this
+           id" was therefore always the oldest: the app's own backdrop stayed
+           under the glass while the dynamic picture was on screen, which is the
+           blurred app backdrop the dock, the pill and the Control Center kept
+           showing. */
+        var live = document.body.__bgLive;
+        if (live && document.documentElement.contains(live)) return live;
+        var id = document.body.getAttribute("data-bg-app"), i, list, hit = null;
         if (id) {
-            var list = document.querySelectorAll(".bg[data-app]"), i;
+            list = document.querySelectorAll(".bg[data-app]");
             for (i = 0; i < list.length; i++) {
-                if (list[i].getAttribute("data-app") === id) return list[i];
+                if (list[i].getAttribute("data-app") === id) hit = list[i];   // the newest
             }
+            if (hit) return hit;
         }
         /* The named layer can be gone by now (a layer is removed once it has
            faded): whatever is still on screen is the picture. #bgBlur is not in

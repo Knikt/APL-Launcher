@@ -267,6 +267,9 @@
         clearTimeout(next._out);
         clearTimeout(old._out);
         bgActive = next;
+        /* The element itself, not only its id: several layers can carry the
+           same app, and the glass has to slice the one that was faded in. */
+        document.body.__bgLive = next;
         /* Name the app whose backdrop is live. Two layers keep is-active while
            they cross over, so "the first active layer" can still be the one
            leaving, and the glass would slice the show before last. */
