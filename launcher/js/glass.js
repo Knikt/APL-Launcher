@@ -278,7 +278,8 @@
     }
 
     function paint() {
-        if (!baked || !ensure()) return;
+        if (!ensure()) return;
+        if (!baked) return;
         var list = document.querySelectorAll(TARGETS.join(",")), i, el, r, key, l;
         for (i = 0; i < list.length; i++) {
             el = list[i];
@@ -445,6 +446,17 @@
                 observer._t = global.setTimeout(paint, 40);
             });
             observer.observe(body, { childList: true, subtree: true });
+            /* A backdrop becoming the one on screen is the moment the panes
+               should follow it. Watching the stage beats guessing times: on a
+               cold start no .bg is active for the first second or two, so every
+               timer fired into an empty scene and the glass only appeared after
+               the first key press. */
+            var boom = 0;
+            var layers = new global.MutationObserver(function () {
+                global.clearTimeout(boom);
+                boom = global.setTimeout(function () { refresh(); sync(); }, 60);
+            });
+            layers.observe(body, { attributes: true, attributeFilter: ["class", "style"], subtree: true });
         }
         global.addEventListener("resize", paint);
     }
