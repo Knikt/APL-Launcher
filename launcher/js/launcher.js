@@ -256,6 +256,10 @@
         clearTimeout(next._out);
         clearTimeout(old._out);
         bgActive = next;
+        /* Name the app whose backdrop is live. Two layers keep is-active while
+           they cross over, so "the first active layer" can still be the one
+           leaving, and the glass would slice the show before last. */
+        if (next.dataset && next.dataset.app) document.body.setAttribute("data-bg-app", next.dataset.app);
         if (old.compareDocumentPosition(next) & global.Node.DOCUMENT_POSITION_FOLLOWING) {
             next.classList.add("is-active");                     // above: fades in over the old one
             old._out = setTimeout(function () { hideLayer(old); }, FADE_MS + 50);
@@ -277,6 +281,10 @@
         /* Nothing changes the backdrop under the Control Center, a drawer,
            search or Settings: the picture stays still while they are up. */
         if (!force && overlayOpen()) return;
+        /* A picture still being prepared for the app we just left must not land
+           now. Its fallback fires half a second later and paints the old show
+           over the new one - the flash that goes new, previous, new. */
+        backdropToken++;
         var pick = backdropPick(app);
         if (pick && pick.url) { setPoster(app, pick, force); return; }
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out

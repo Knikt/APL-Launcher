@@ -63,10 +63,24 @@
     /* The artwork on screen. A generated brand card has no URL (it is a
        gradient), and those keep the plain translucent fill: an empty
        answer is a valid answer. */
+    /* The layer on screen. During a crossfade two layers carry is-active and the
+       earlier one can still be the one leaving, so the launcher names the app
+       whose backdrop is live and this follows that name. */
+    function sceneEl() {
+        var id = document.body.getAttribute("data-bg-app");
+        if (id) {
+            var list = document.querySelectorAll(".bg[data-app]"), i;
+            for (i = 0; i < list.length; i++) {
+                if (list[i].getAttribute("data-app") === id) return list[i];
+            }
+        }
+        return document.querySelector(".bg.is-active");
+    }
+
     function scene() {
-        /* The layer actually on screen: the dock keeps one prepared .bg per app,
-           and those are the ones that carry the artwork, not #bgA/#bgB. */
-        return urlOf(document.querySelector(".bg.is-active")) ||
+        /* The dock keeps one prepared .bg per app, and those are the ones that
+           carry the artwork, not #bgA/#bgB. */
+        return urlOf(sceneEl()) ||
                urlOf($("bgA")) || urlOf($("bgB")) || urlOf($("bgBlur"));
     }
 
@@ -268,7 +282,7 @@
         return "grad:" + stops.join("|");
     }
 
-    function gradScene() { return gradOf(document.querySelector(".bg.is-active")); }
+    function gradScene() { return gradOf(sceneEl()); }
 
     function gradImage(stops) {
         var out = document.createElement("canvas");
