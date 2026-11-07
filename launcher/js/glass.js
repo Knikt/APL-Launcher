@@ -347,14 +347,16 @@
            screen's light mode keeps the plain fills (glass.css hides the panes). */
         var on = wanted();
         body.classList.toggle("glass", on);
-        if (!on) { baked = ""; bakedFrom = ""; drop(); return; }
+        if (!on) { baked = ""; bakedFrom = ""; wanted = ""; drop(); return; }
         refresh();
+        wire();
     }
 
-    function start() {
-        apply();
-        if (APL.sys && APL.sys.onPref) APL.sys.onPref("liquidGlass", apply);
-        if (!body || !body.classList.contains("glass")) return;
+    /* Wired once, and only while the skin is on. */
+    var wired = false;
+    function wire() {
+        if (wired) return;
+        wired = true;
         refresh();
         /* The first artwork lands late, and a page that opens over the Home
            Screen asks again once it has: three cheap looks, then silence. */
@@ -375,6 +377,16 @@
             observer.observe(body, { childList: true, subtree: true });
         }
         global.addEventListener("resize", paint);
+    }
+
+    function start() {
+        apply();
+        if (APL.sys && APL.sys.onPref) APL.sys.onPref("liquidGlass", apply);
+        /* The pref store and the screen settle at their own pace, and this used
+           to bail out here for good if the class was not on the body yet: one
+           boot-order race and the glass never came on at all, which is what
+           "it renders and is stable later" looked like. Look again instead. */
+        [120, 900, 1800].forEach(function (ms) { global.setTimeout(apply, ms); });
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
