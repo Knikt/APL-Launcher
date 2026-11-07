@@ -137,25 +137,136 @@
     notify();
   }
 
-  /* ---------- the house, when nobody typed one in ---------- */
+  /* ---------- the house: which entities, and which room ----------
+     /api/states says what exists, and that is all it says: it carries no room
+     information, and there is no REST endpoint for areas (Home Assistant has
+     only ever exposed them over its WebSocket API). So the grouping here is
+     read once per session from the registries:
+
+       config/area_registry/list                  the rooms and their names
+       config/device_registry/list                which device is in which room
+       config/entity_registry/list_for_display    entity -> device, and an
+                                                  entity's own room when set
+
+     An entity is in the room it was given; failing that, in its device's
+     room; failing that, in its parent device's room (child devices inherit).
+     Entities with no room anywhere go in one "Other" room rather than
+     vanishing. Disabled entities are already excluded by Home Assistant
+     itself in list_for_display, so an entity someone turned off does not
+     appear on the TV.
+
+     If the WebSocket cannot be reached - an old instance, a blocked port, or
+     a token without the rights - the house still draws, in a single room:
+     a screen with everything in it beats a screen with nothing. */
   var DOMAIN = { light: 'light', switch: 'switch', climate: 'climate', fan: 'fan', media_player: 'media' };
+  var registry = null;
+
+  function labelOf(st, id) {
+    var a = st && st.attributes;
+    if (a && a.friendly_name) return String(a.friendly_name);
+    return String(id.split('.').slice(1).join(' ').replace(/_/g, ' '));
+  }
+
+  function deviceArea(id, devices, depth) {
+    var d = devices[id];
+    if (!d || depth > 4) return '';
+    if (d.area_id) return d.area_id;
+    var parent = d.parent_device_id || d.via_device_id || '';
+    return parent && parent !== id ? deviceArea(parent, devices, depth + 1) : '';
+  }
+
+  /* Pure: states plus registries in, rooms out. Kept separate so the mapping
+     can be exercised without a house attached to it. */
+  function roomsFrom(map, reg) {
+    reg = reg || {};
+    var names = {}, devices = {}, entityArea = {}, i, a, d, e, id, aid, item, type, byArea = {}, loose = [], scenes = [];
+    for (i = 0; i < (reg.areas || []).length; i++) {
+      a = reg.areas[i] || {};
+      aid = a.area_id || a.id;
+      if (aid) names[aid] = String(a.name || aid);
+    }
+    for (i = 0; i < (reg.devices || []).length; i++) {
+      d = reg.devices[i] || {};
+      if (d.id) devices[d.id] = d;
+    }
+    for (i = 0; i < (reg.entities || []).length; i++) {
+      e = reg.entities[i] || {};
+      id = e.ei || e.entity_id;
+      if (!id) continue;
+      aid = e.ai || e.area_id || '';
+      if (!aid) aid = deviceArea(e.di || e.device_id, devices, 0);
+      if (aid) entityArea[id] = aid;
+    }
+    for (id in map) {
+      if (!map.hasOwnProperty(id)) continue;
+      type = id.split('.')[0];
+      item = { id: id, name: labelOf(map[id], id), type: DOMAIN[type] || 'scene' };
+      if (type === 'scene') { scenes.push(item); continue; }
+      if (!DOMAIN[type]) continue;
+      aid = entityArea[id];
+      if (aid) { (byArea[aid] = byArea[aid] || []).push(item); }
+      else loose.push(item);
+    }
+    var rooms = [], r;
+    function byName(x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; }
+    for (aid in byArea) {
+      if (!byArea.hasOwnProperty(aid)) continue;
+      rooms.push({ id: aid, name: names[aid] || 'Home', devices: byArea[aid].sort(byName).slice(0, 30) });
+    }
+    rooms.sort(byName);
+    if (loose.length) rooms.push({ id: 'other', name: 'Other', devices: loose.sort(byName).slice(0, 30) });
+    scenes.sort(byName);
+    return { rooms: rooms, scenes: scenes.slice(0, 12) };
+  }
+
+  function wsBase() {
+    var b = originOf(dashboardUrl());
+    return b ? b.replace(/^http/i, 'ws') + '/api/websocket' : '';
+  }
+
+  function loadRegistry(done) {
+    var url = wsBase(), tok = token(), ws, sent = false, closed = false, timer;
+    if (!url || !tok || !root.WebSocket) { done(null); return; }
+    try { ws = new root.WebSocket(url); } catch (e) { done(null); return; }
+    function finish(data) {
+      if (closed) return;
+      closed = true;
+      clearTimeout(timer);
+      try { ws.close(); } catch (e) {}
+      done(data);
+    }
+    timer = setTimeout(function () { finish(null); }, 8000);
+    ws.onerror = function () { finish(null); };
+    ws.onmessage = function (ev) {
+      var m;
+      try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === 'auth_required') { ws.send(JSON.stringify({ type: 'auth', access_token: tok })); return; }
+      if (m.type === 'auth_invalid') { finish(null); return; }
+      if (m.type !== 'auth_ok' || sent) return;
+      sent = true;
+      var out = {}, left = 3;
+      ws.onmessage = function (e2) {
+        var r;
+        try { r = JSON.parse(e2.data); } catch (err) { return; }
+        if (!r || r.id == null) return;
+        if (r.id === 1) out.entities = r.result || [];
+        else if (r.id === 2) out.devices = r.result || [];
+        else if (r.id === 3) out.areas = r.result || [];
+        left--;
+        if (left <= 0) finish(out);
+      };
+      ws.send(JSON.stringify({ id: 1, type: 'config/entity_registry/list_for_display' }));
+      ws.send(JSON.stringify({ id: 2, type: 'config/device_registry/list' }));
+      ws.send(JSON.stringify({ id: 3, type: 'config/area_registry/list' }));
+    };
+  }
+
   function deriveHouse() {
     if (ROOMS.length) return;
-    var devs = [], scenes = [], id, type, st, name, friendly;
-    for (id in states) {
-      if (!states.hasOwnProperty(id)) continue;
-      type = id.split('.')[0];
-      st = states[id] || {};
-      friendly = st.attributes && st.attributes.friendly_name;
-      name = String(friendly || id.split('.').slice(1).join(' ').replace(/_/g, ' '));
-      if (DOMAIN[type]) devs.push({ id: id, name: name, type: DOMAIN[type] });
-      else if (type === 'scene') scenes.push({ id: id, name: name, type: 'scene' });
-    }
-    if (!devs.length && !scenes.length) return;
-    devs.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-    scenes.sort(function (a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
-    ROOMS = [{ id: 'home', name: 'Home', devices: devs.slice(0, 30) }];
-    SCENES = scenes.slice(0, 12);
+    var house = roomsFrom(states, registry);
+    if (!house.rooms.length && !house.scenes.length) return;
+    ROOMS = house.rooms;
+    SCENES = house.scenes;
     root.CleanFrameHA.ROOMS = ROOMS;
     root.CleanFrameHA.SCENES = SCENES;
   }
@@ -186,48 +297,101 @@
 
   /* Sign in with the account the viewer already has. Home Assistant issues
      the token; the password is used once, in this request, and is never
-     stored. */
+     stored.
+
+     Two details that decide whether this works at all:
+
+     - /auth/login_flow takes JSON, but /auth/token takes form fields, not
+       JSON: Home Assistant answers 400 to a JSON body there.
+     - The flow can ask for another answer before it issues a code, which is
+       what an account with two-factor enabled does. That step is kept and the
+       code is sent in the same field as the password, so nothing has to be
+       built twice for it. */
+  var pendingFlow = '';
+
+  function postForm(path, fields, cb) {
+    var b = base();
+    if (!b) { cb(0, null); return; }
+    var body = [], k;
+    for (k in fields) {
+      if (fields.hasOwnProperty(k)) body.push(encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]));
+    }
+    var x = new XMLHttpRequest();
+    x.open('POST', b + path, true);
+    x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      var data = null;
+      try { data = JSON.parse(x.responseText); } catch (e) {}
+      cb(x.status, data);
+    };
+    x.onerror = function () { cb(0, null); };
+    x.send(body.join('&'));
+  }
+
+  function keepTokens(u, d, cb) {
+    pendingBase = '';
+    if (!d || !d.access_token) { cb(why(400)); return; }
+    store({
+      url: u,
+      token: d.access_token,
+      refresh: d.refresh_token || '',
+      expires: Date.now() + (d.expires_in || 1800) * 1000
+    });
+    pendingFlow = '';
+    registry = null;
+    refresh();
+    cb(null);
+  }
+
+  function submitFlow(flowId, payload, u, cb) {
+    postJson('/auth/login_flow/' + flowId, payload, function (st, d) {
+      if (st !== 200 || !d) { pendingBase = ''; pendingFlow = ''; cb(why(st)); return; }
+      if (d.type === 'create_entry' && d.result) {
+        postForm('/auth/token', {
+          grant_type: 'authorization_code',
+          code: d.result,
+          client_id: CID
+        }, function (st2, d2) { keepTokens(u, d2, cb); });
+        return;
+      }
+      if (d.type === 'form' && d.step_id) {
+        /* An extra answer is needed - two-factor, or a "trust this device"
+           step. Keep the flow open and ask for the code. */
+        pendingFlow = flowId;
+        pendingBase = '';
+        cb('Two-factor: enter the code Home Assistant asked for in the Password field, then press Connect.');
+        return;
+      }
+      pendingBase = '';
+      pendingFlow = '';
+      cb(d.errors ? 'Home Assistant did not accept that username or password.' :
+                    'That account has to finish its setup in Home Assistant first.');
+    });
+  }
+
   function connect(url, user, pass, cb) {
     var u = String(url || '').replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
     var origin = originOf(u);
     if (!origin) { cb('The address should look like http://homeassistant.local:8123'); return; }
-    if (!user || !pass) { cb('Enter the username and password of a Home Assistant account.'); return; }
     pendingBase = origin;
+    if (pendingFlow) {
+      if (!pass) { pendingBase = ''; cb('Enter the code Home Assistant asked for.'); return; }
+      submitFlow(pendingFlow, { client_id: CID, code: pass }, u, cb);
+      return;
+    }
+    if (!user || !pass) {
+      pendingBase = '';
+      cb('Enter the username and password of a Home Assistant account.');
+      return;
+    }
     postJson('/auth/login_flow', {
       client_id: CID,
       handler: ['homeassistant', null],
       redirect_uri: CID + '/'
     }, function (st, d) {
       if (st !== 200 || !d || !d.flow_id) { pendingBase = ''; cb(why(st)); return; }
-      postJson('/auth/login_flow/' + d.flow_id, {
-        client_id: CID,
-        username: user,
-        password: pass
-      }, function (st2, d2) {
-        if (st2 !== 200 || !d2) { pendingBase = ''; cb(why(st2)); return; }
-        if (d2.type !== 'create_entry' || !d2.result) {
-          pendingBase = '';
-          cb(d2.errors ? 'Home Assistant did not accept that username or password.' :
-                         'That account has to finish its setup in Home Assistant first.');
-          return;
-        }
-        postJson('/auth/token', {
-          grant_type: 'authorization_code',
-          code: d2.result,
-          client_id: CID
-        }, function (st3, d3) {
-          pendingBase = '';
-          if (st3 !== 200 || !d3 || !d3.access_token) { cb(why(st3)); return; }
-          store({
-            url: u,
-            token: d3.access_token,
-            refresh: d3.refresh_token || '',
-            expires: Date.now() + (d3.expires_in || 1800) * 1000
-          });
-          refresh();
-          cb(null);
-        });
-      });
+      submitFlow(d.flow_id, { client_id: CID, username: user, password: pass }, u, cb);
     });
   }
 
@@ -269,7 +433,7 @@
     if (!conn || !conn.refresh) { cb(); return; }
     if (conn.expires && Date.now() < conn.expires - 60000) { cb(); return; }
     pendingBase = originOf(conn.url);
-    postJson('/auth/token', {
+    postForm('/auth/token', {
       grant_type: 'refresh_token',
       refresh_token: conn.refresh,
       client_id: CID
@@ -306,6 +470,14 @@
             }
             states = map;
             deriveHouse();
+            if (!registry) {
+              loadRegistry(function (reg) {
+                if (!reg) return;
+                registry = reg;
+                deriveHouse();
+                notify();
+              });
+            }
           } catch (e) { online = false; }
         }
         notify();
@@ -410,6 +582,7 @@
     connect: connect,
     setToken: setToken,
     disconnect: disconnect,
+    roomsFrom: roomsFrom,
     ROOMS: ROOMS,
     SCENES: SCENES,
     getState: getState,
