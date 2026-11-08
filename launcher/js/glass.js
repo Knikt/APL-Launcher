@@ -151,7 +151,7 @@
             if (data) remember(src, data);
             for (i = 0; i < list.length; i++) { try { list[i](data); } catch (e) {} }
         }
-        var img = new global.Image();
+        var img = null, started = false, objectUrl = "";
         /* onload fires before every row is decoded. Drawing then bakes a
            half-decoded picture into the pane, and the 10x upscale shows it as
            the backdrop filling in line by line - which is what a first visit to
@@ -162,6 +162,7 @@
             painted = true;
             var data = "";
             try { data = draw(img); } catch (e) { data = ""; }
+            if (objectUrl) { try { global.URL.revokeObjectURL(objectUrl); } catch (e) {} objectUrl = ""; }
             if (!data) { finish(""); return; }
             /* Decode the frozen pane before anyone can show it: a pane whose
                bitmap is not ready paints an empty frame first, which is a
@@ -174,17 +175,45 @@
             else { im.onload = ok; im.onerror = ok; }
             global.setTimeout(ok, 250);
         }
-        img.onload = function () {
-            if (img.decode) img.decode().then(paintSource, paintSource);
-            else paintSource();
-            global.setTimeout(paintSource, 400);        // a decode that never settles
-        };
-        img.onerror = function () { finish(""); };
-        /* A poster from the catalogue lives on images.justwatch.com: without
-           this the canvas is tainted, toDataURL throws, and every lens would
-           quietly disappear behind remote artwork. */
-        if (!/^(data:|blob:)/i.test(src)) img.crossOrigin = "anonymous";
-        img.src = src;
+        function useImage(url, cors) {
+            if (started) return;
+            started = true;
+            img = new global.Image();
+            /* A poster from the catalogue lives on images.justwatch.com: without
+               this the canvas is tainted, toDataURL throws, and every lens would
+               quietly disappear behind remote artwork. */
+            if (cors) img.crossOrigin = "anonymous";
+            img.onload = function () {
+                if (img.decode) img.decode().then(paintSource, paintSource);
+                else paintSource();
+                global.setTimeout(paintSource, 400);    // a decode that never settles
+            };
+            img.onerror = function () {
+                if (objectUrl) { try { global.URL.revokeObjectURL(objectUrl); } catch (e) {} objectUrl = ""; }
+                finish("");
+            };
+            img.src = url;
+        }
+
+        /* image.tmdb.org serves a CORS fetch of a poster with
+           `Access-Control-Allow-Origin: *` but Chromium refuses that same file as
+           an <img crossorigin="anonymous">, so every TMDB backdrop lost its lens
+           and fell back to a plain fill. The bytes are fetched as a blob instead:
+           a blob URL is same-origin, so the canvas is readable as usual. Hosts
+           whose fetch is refused still take the plain <img> path. */
+        var remote = !/^(data:|blob:)/i.test(src);
+        if (remote && global.fetch && global.URL && global.URL.createObjectURL) {
+            global.fetch(src, { mode: "cors", credentials: "omit" }).then(function (r) {
+                if (!r.ok) throw new Error("http " + r.status);
+                return r.blob();
+            }).then(function (blob) {
+                if ((blob.type || "").indexOf("image/") !== 0) throw new Error("not an image");
+                objectUrl = global.URL.createObjectURL(blob);
+                useImage(objectUrl, false);
+            }).catch(function () { useImage(src, true); });
+        } else {
+            useImage(src, remote);
+        }
     }
 
     var wanted = "";         /* the artwork that should be on screen right now */
