@@ -213,6 +213,18 @@ namespace APL.Bridge
             return hosts.Distinct().ToList();
         }
 
+#if TIZEN6
+        /// <summary>The Tizen 6 build (.NET Core 3.1) has no ConnectAsync that takes a token: the token closes the socket instead.</summary>
+        private static async Task ConnectWithin(TcpClient client, string host, int port, CancellationToken token)
+        {
+            using (token.Register(() => client.Dispose()))
+            {
+                try { await client.ConnectAsync(host, port); }
+                catch (Exception) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
+            }
+        }
+#endif
+
         /// <summary>
         /// A request to Vetro: status and body. Starts with the address that worked last; one that does not let us
         /// connect within 5 s moves on to the next. Once connected, a slow answer is only a timeout. Only a
@@ -233,7 +245,11 @@ namespace APL.Bridge
                 {
                     using (var connect = new CancellationTokenSource(ConnectTimeout))
                     {
+#if TIZEN6
+                        try { await ConnectWithin(client, host, VetroPort, connect.Token); }
+#else
                         try { await client.ConnectAsync(host, VetroPort, connect.Token); }
+#endif
                         catch (Exception ex)
                         {
                             lastError = host + ": " + (ex is OperationCanceledException ? "no answer" : ex.Message);

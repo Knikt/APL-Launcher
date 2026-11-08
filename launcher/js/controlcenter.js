@@ -508,8 +508,8 @@
     function refresh() {
         nav.tiles.forEach(function (t) { if (t._item.type !== "backlight") draw(t._item, t); });
         paintCaption(nav.current());
-        var d = new Date(), h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
-        timeEl.textContent = sys.pref("clock24") ? String(h).padStart(2, "0") + ":" + m : ((h % 12) || 12) + ":" + m;
+        var d = new Date(), h = d.getHours(), m = ((d.getMinutes()) < 10 ? "0" : "") + d.getMinutes();
+        timeEl.textContent = sys.pref("clock24") ? ((h) < 10 ? "0" : "") + h + ":" + m : ((h % 12) || 12) + ":" + m;
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
     }
 

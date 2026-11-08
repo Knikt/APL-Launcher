@@ -29,6 +29,8 @@
     function toggle(label, key, desc) { return { type: "toggle", label: label, key: key, desc: desc }; }
     function choice(label, key, options, desc, apply) { return { type: "choice", label: label, key: key, options: options, desc: desc, apply: apply }; }
     function action(label, run, desc, icon) { return { type: "action", label: label, run: run, desc: desc, icon: icon }; }
+    /* A row that only works through Vetro: without it on the screen, it says so (settings.js, needsVetro). */
+    function vetro(item) { item.vetro = true; return item; }
     /* Real setting of the screen (sys.native): slider without "options", otherwise a list of values. */
     function n(id, label, desc, options, format) { return { type: "native", id: id, label: label, desc: desc, options: options, format: format }; }
     var ON_OFF = [[0, APL.t("Off")], [1, APL.t("On")]];
@@ -133,10 +135,10 @@
             menu(APL.t("Remote and Devices"), "remote", [
                 choice(APL.t("Play/Pause Button"), "pauseKey", [["controlcenter", APL.t("Control Center")], ["playpause", APL.t("Play and Pause")]],
                     APL.t("What the play/pause button does while an app is in front: open the Control Center over it, or play and pause in the app. On the Home Screen it always opens the Control Center, and holding Home opens it everywhere.")),
-                action(APL.t("Set Up the Remote Buttons"), function () { APL.overlay.setUpButtons(); },
-                    APL.t("Sends Home and ⏯ to APL Launcher in Vetro, as APL Launcher Setup does. For a launcher installed from a phone with Apps2Samsung, or when Home opens Samsung's home again."), "remote"),
-                action(APL.t("Alexa on the Microphone Button"), function () { APL.settings.close(); APL.services.alexaMic(); },
-                    APL.t("Do this once: in the Voice menu, choose Amazon Alexa and sign in to your Amazon account. Then hold the microphone button on the remote and talk to Alexa."), "mic"),
+                vetro(action(APL.t("Set Up the Remote Buttons"), function () { APL.overlay.setUpButtons(); },
+                    APL.t("Sends Home and ⏯ to APL Launcher in Vetro, as APL Launcher Setup does. For a launcher installed from a phone with Apps2Samsung, or when Home opens Samsung's home again."), "remote")),
+                vetro(action(APL.t("Alexa on the Microphone Button"), function () { APL.settings.close(); APL.services.alexaMic(); },
+                    APL.t("Do this once: in the Voice menu, choose Amazon Alexa and sign in to your Amazon account. Then hold the microphone button on the remote and talk to Alexa."), "mic")),
                 toggle("Alexa (Echo Dot)", "alexaBridge", APL.t("Say “Alexa, discover my devices” once. Then: “Alexa, turn on TizenTube”, “Alexa, turn off the screen”, “Alexa, turn on the AirPods”, “Alexa, turn on game mode”.")),
                 action("Bluetooth", openAudio, APL.t("Connect or pair AirPods, headphones or a speaker."), "bluetooth")
             ], APL.t("The remote's buttons, Alexa, Bluetooth.")),
@@ -248,10 +250,10 @@
                     APL.toast(APL.t("Searching for artwork in the background…"), true);
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
-                toggle(APL.t("Close Unused Apps"), "idleClose",
-                    APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay.")),
-                action(APL.t("Free Up Memory"), function () { APL.freeMemory(); },
-                    APL.t("Closes the apps left open behind the launcher (Netflix, Disney+, Samsung's YouTube…). They reopen normally, but start over from the beginning. TizenTube stays ready."), "reset")
+                vetro(toggle(APL.t("Close Unused Apps"), "idleClose",
+                    APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay."))),
+                vetro(action(APL.t("Free Up Memory"), function () { APL.freeMemory(); },
+                    APL.t("Closes the apps left open behind the launcher (Netflix, Disney+, Samsung's YouTube…). They reopen normally, but start over from the beginning. TizenTube stays ready."), "reset"))
             ], APL.t("Artwork found online, apps left open, memory.")),
 
             /* -------- General & Privacy -------- */
@@ -261,7 +263,7 @@
                     function (v) { if (v !== language) setTimeout(function () { global.location.reload(); }, 400); }),
                 toggle(APL.t("24-Hour Time"), "clock24", APL.t("Time format on the Home Screen and in Control Center.")),
                 n("homeApp", APL.t("Start on APL Launcher"), APL.t("The screen opens APL Launcher at power-on, about a second after the picture, instead of the TV input. Off: the screen starts as before."), ON_OFF),
-                toggle(APL.t("Close Apps at Start-Up"), "bootCleanup", APL.t("Once per full power-on, closes what the system opens on its own: Netflix, TV Plus, Disney+, Samsung Internet, Art Mode, the pieces of the Samsung home screen and the blocked services. Frees about 350 MB.")),
+                vetro(toggle(APL.t("Close Apps at Start-Up"), "bootCleanup", APL.t("Once per full power-on, closes what the system opens on its own: Netflix, TV Plus, Disney+, Samsung Internet, Art Mode, the pieces of the Samsung home screen and the blocked services. Frees about 350 MB."))),
                 menu(APL.t("Power and Energy Saving"), "leaf", [
                     n("ecoSensor", APL.t("Brightness Optimization"), APL.t("Lowers the brightness in a dark room."), ON_OFF),
                     n("energy", APL.t("Power Saving Mode"), APL.t("Reduces power consumption."), ON_OFF)
@@ -270,8 +272,8 @@
                     toggle(APL.t("Reduce Motion"), "reduceMotion", APL.t("Removes the launcher's zooms and fades."))
                 ], APL.t("Launcher animations.")),
                 menu(APL.t("Samsung Services"), "shield", [
-                    action(APL.t("Block All"), function () { APL.services.cutAll(); },
-                        APL.t("Stops the Samsung services below from starting. They go away at the screen's next full restart. Nothing is uninstalled."), "shield"),
+                    vetro(action(APL.t("Block All"), function () { APL.services.cutAll(); },
+                        APL.t("Stops the Samsung services below from starting. They go away at the screen's next full restart. Nothing is uninstalled."), "shield")),
                     action(APL.t("Restore All"), function () { APL.services.restoreAll(); },
                         APL.t("Brings back what was blocked here, at the screen's next start-up."), "reset")
                 ].concat(APL.services.groups.map(function (g) {

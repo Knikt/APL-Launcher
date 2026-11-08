@@ -1,8 +1,8 @@
 {
- "version": "1.0.20",
+ "version": "1.0.21",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "APL TV, Search, Live TV, Nuvio's Continue Watching, Netflix listed, Prime Video's Top Shelf in every country, 5 to 7 apps per row",
+ "notes": "The launcher stays in memory, no Samsung home after a full start, Samsung's menus without Vetro, Tizen 4 start-up fix, softer clicks, Setup signing fix",
  "scripts": [
   "js/diag.js",
   "js/lang-fr.js",

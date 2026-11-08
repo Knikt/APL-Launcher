@@ -711,6 +711,21 @@
         if (app && mode !== "grid" && nav.index < DOCK_SIZE) startLive(app);
     };
 
+    /* The panes of the apps either side are baked while this one is on screen:
+       stepping along the row never waits for one, which was the last place a
+       pane could still arrive a moment after the picture it belongs to. */
+    function warmNear(i) {
+        if (!APL.glass || !APL.glass.prefetch) return;
+        [-1, 1].forEach(function (d) {
+            var app = apps[i + d];
+            if (!app) return;
+            var pick = null;
+            try { pick = backdropPick(app); } catch (e) {}
+            if (pick && pick.url) { APL.glass.prefetch(pick.url); return; }
+            var art = artOf(app);
+            if (art) APL.glass.prefetch(art);
+        });
+    }
     /* After a short pause on the app, its current content is loaded. */
     function startLive(app) {
         stopLive();
@@ -748,6 +763,7 @@
         if (!inDock) { clearTimeout(bgTimer); return; }
         var live = APL.live && APL.live.hasSource(app);
         dom.hint.classList.toggle("is-visible", (!!artOf(app) || live) && APL.sys.pref("showHint"));
+        warmNear(i);                                   // either side, before it is asked for
         if (live && bgActive.dataset.app && bgActive.dataset.app.indexOf(app.id + "#") === 0) return;   // already shown
         /* Its own artwork is already the layer on screen (after a change of the
            Dynamic Backdrops setting, for one). The shelf picture still has to
@@ -904,8 +920,8 @@
 
     function startClock() {
         function tick() {
-            var d = new Date(), h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
-            var text = APL.sys.pref("clock24") ? String(h).padStart(2, "0") + ":" + m : ((h % 12) || 12) + ":" + m;
+            var d = new Date(), h = d.getHours(), m = ((d.getMinutes()) < 10 ? "0" : "") + d.getMinutes();
+            var text = APL.sys.pref("clock24") ? ((h) < 10 ? "0" : "") + h + ":" + m : ((h % 12) || 12) + ":" + m;
             if (dom.clock.textContent !== text) dom.clock.textContent = text;
         }
         tick();
@@ -917,7 +933,7 @@
         var keep = nav && nav.index >= 0 ? apps[nav.index] && apps[nav.index].id : null;
         dropLayers();
         allApps.forEach(function (a) { if (a.folder && APL.folders.byId(a.folder)) a.tileHtml = APL.folders.tileHtml(APL.folders.byId(a.folder)); });
-        // The Smart Hub tile starts hidden, once per profile: shown from Settings › Apps › Show on Home Screen
+        // The Smart Hub tile starts hidden, once per profile: shown from Settings › Home Screen › Show on Home Screen
         if (!APL.sys.pref("smartHubTileSet")) {
             var hide = APL.sys.pref("hiddenApps").slice();
             if (hide.indexOf(SAMSUNG_HOME_TILE) === -1) hide.push(SAMSUNG_HOME_TILE);
@@ -995,7 +1011,7 @@
               shelfHtml: '<div class="brandcard__glyph vtile--sources">' + APL.icon("source", 180, 1.3) + '</div>',
               run: function () { APL.openSources(); } },
             // Samsung's own home: the way out now that Vetro keeps the Home key for the launcher.
-            // Hidden like any app (Settings › Apps › Show on Home Screen, or hold OK › Hide App).
+            // Hidden like any app (Settings › Home Screen › Show on Home Screen, or hold OK › Hide App).
             { id: SAMSUNG_HOME_TILE, name: "Smart Hub", virtual: true, accent: "#1428a0", eyebrow: "SYSTÈME",
               tileHtml: '<div class="vtile vtile--samsunghome">' + APL.icon("apps", 92, 1.6) + '</div>',
               shelfHtml: '<div class="brandcard__glyph vtile--samsunghome">' + APL.icon("apps", 180, 1.3) + '</div>',
@@ -1008,6 +1024,8 @@
        launcher back over it within a second ("Return to the Launcher"). */
     var SAMSUNG_HOME_TILE = "apl.samsunghome";
     function openSamsungHome() {
+        // Without Vetro nothing can show it, but Home on the remote is still Samsung's
+        if (APL.sys.noVetro()) { toast(APL.t("Smart Hub needs Vetro. Without it, Home on the remote opens Samsung's home.")); return; }
         if (APL.sys.PREVIEW) { toast(APL.t("Opens Samsung's Smart Hub on the screen")); return; }
         // The overlay opens it itself (it reaches Vetro on its own, without the bridge) and then
         // leaves it on screen; without the overlay, the launcher asks Vetro.

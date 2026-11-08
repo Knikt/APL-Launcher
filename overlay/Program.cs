@@ -50,6 +50,9 @@ namespace APL
         private readonly IdleApps idleApps = new IdleApps();
         private Autorun autorun;                     // Autorun Smart Hub off while the screen sleeps (Autorun.cs)
         private const double WakeWindowS = 120;      // Vetro's agent is back within ~90 s of a wake
+        // After a full start, Home reaches the screen until Vetro takes it (about 70 s on the M8), as after a wake
+        private const double StartWindowS = 180;
+        private MemoryGuard memoryGuard;             // the launcher left out of the low-memory killer (MemoryGuard.cs)
 
         public Program() : base("", WindowMode.Transparent) { }
 
@@ -58,6 +61,21 @@ namespace APL
             base.OnCreate();
             Window win = Window.Instance;
             win.BackgroundColor = new Color(0f, 0f, 0f, 0f);
+#if TIZEN6
+            // Tizen 6 (#21): an ordinary window shown over an app sent the app to the background (paused or
+            // closed), Samsung's home showed behind the Control Center and Return to the Launcher put the
+            // launcher over it. A see-through notification window stays above the app without taking its place
+            // (window.priority.set in the manifest).
+            try
+            {
+                win.SetTransparency(true);
+                win.SetOpaqueState(false);
+                win.Type = WindowType.Notification;
+                bool level = win.SetNotificationLevel(NotificationLevel.Top);
+                Note("window: notification, level " + (level ? "top" : "refused"));
+            }
+            catch (Exception ex) { Note("window: " + ex.Message); }
+#endif
             win.Hide();
             string res = DirectoryInfo.Resource;
             string fonts = System.IO.Path.Combine(res, "fonts");
@@ -78,6 +96,9 @@ namespace APL
             idleApps.Start();
             autorun = new Autorun(DirectoryInfo.Data);
             autorun.Start();
+            memoryGuard = new MemoryGuard();
+            memoryGuard.Start();
+            WatchVetroHold();
             // Samsung's home may already be in front when this app starts: Home pressed in the first seconds after
             // power-on, before Vetro takes the key and before the launcher opens this app. Handled like a change.
             OnFullscreenChanged();
@@ -156,6 +177,13 @@ namespace APL
             catch (Exception ex) { Note("vconf watch: " + ex.Message); }
         }
 
+        /// <summary>Seconds since the screen started; unreadable counts as long ago (no start window).</summary>
+        private static double Uptime()
+        {
+            try { return double.Parse(File.ReadAllText("/proc/uptime").Split(' ')[0], System.Globalization.CultureInfo.InvariantCulture); }
+            catch (Exception) { return double.MaxValue; }
+        }
+
         internal static string FullscreenApp()
         {
             IntPtr text = vconf_get_str(FullscreenKey);
@@ -170,6 +198,7 @@ namespace APL
         {
             string front = FullscreenApp();
             idleApps.Front(front);
+            memoryGuard?.FrontChanged();
             if (samsungHomeWanted)
             {
                 if (IsSamsungHome(front)) return;          // the one the tile opened
@@ -187,6 +216,60 @@ namespace APL
                 OpenLauncher();
                 return;
             }
+            // In the minutes after a full start, Home reaches the screen until Vetro's input helper takes the remote
+            // (about 70 s on the M8), and the screen opens its home: no 350 ms on Samsung's home then, the launcher
+            // goes over it at once (APL Boot does the same, more slowly). Once Vetro holds Home, Samsung's home in
+            // front is something else, a flash while an app starts: the usual check.
+            if (Uptime() < StartWindowS && !vetroHoldsHome)
+            {
+                Note("just after a start, before Vetro holds Home: launcher");
+                homeCheck?.Stop();
+                OpenLauncher();
+                return;
+            }
+            CheckHomeStays();
+        }
+
+        /// <summary>
+        /// Whether Vetro's input helper holds the remote, asked every 5 s during the minutes after a full start. Known
+        /// in advance: asked when Samsung's home shows, Vetro took 5 s to answer at that time (the network was
+        /// still coming up on the M8), and APL Boot had put the launcher back by then.
+        /// </summary>
+        private volatile bool vetroHoldsHome;
+        private Timer holdWatch;
+        private bool holdAsking;
+        private void WatchVetroHold()
+        {
+            if (Uptime() >= StartWindowS) { vetroHoldsHome = true; return; }
+            holdWatch = new Timer(5000);
+            holdWatch.Tick += delegate
+            {
+                if (vetroHoldsHome || Uptime() >= StartWindowS) { vetroHoldsHome = true; return false; }
+                AskVetroHold();
+                return true;
+            };
+            holdWatch.Start();
+            AskVetroHold();
+        }
+        private async void AskVetroHold()
+        {
+            if (holdAsking) return;
+            holdAsking = true;
+            try
+            {
+                if ((await Vetro.Exec("pgrep -f '[S]amsungTvRemoteInputAgent' >/dev/null && echo held")).Trim() == "held")
+                {
+                    vetroHoldsHome = true;
+                    Note("Vetro holds Home (uptime " + Uptime().ToString("F0") + " s)");
+                }
+            }
+            catch (Exception) { }                          // Vetro not up yet
+            finally { holdAsking = false; }
+        }
+
+        /// <summary>Samsung's home counts only if it is still in front 350 ms later.</summary>
+        private void CheckHomeStays()
+        {
             if (homeCheck == null)
             {
                 homeCheck = new Timer(350);

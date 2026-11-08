@@ -242,11 +242,15 @@ function Find-SigningProfile {
         }
         if ($best) { $script:profileXml = $bestXml; return $best }
     }
-    # Fallback: from the list of profiles (leaving out profiles without saved passwords).
+    # Fallback: from the list of profiles (leaving out profiles without saved passwords). The CLI first
+    # prints "Loaded in '...\profiles.xml'." and a header: only the lines after "[Profile Name]" are names.
+    # ("Loaded" was taken for a profile, and the package came out unsigned: #36.)
     $names = @()
-    foreach ($line in ((Invoke-Native $tizen @('security-profiles', 'list')).Output -split "`n")) {
-        $n = ($line.Trim() -split '\s+')[0]
-        if ($n -and $n -notmatch '^\[|^-|Profile|^APLLauncher$') { $names += $n }
+    $lines = @((Invoke-Native $tizen @('security-profiles', 'list')).Output -split "`n")
+    $header = [array]::FindIndex([string[]]$lines, [Predicate[string]]{ param($l) $l -match '^\s*\[Profile Name\]' })
+    for ($i = $header + 1; $i -lt $lines.Count; $i++) {
+        $n = ($lines[$i].Trim() -split '\s+')[0]
+        if ($n -and $n -notmatch "^\[|^-|Profile|^APLLauncher$|^Loaded$|'|\.xml") { $names += $n }
     }
     $t = $names | Where-Object { $_ -match 'tizentube' } | Select-Object -First 1
     if ($t) { return $t }
