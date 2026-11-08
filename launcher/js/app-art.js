@@ -348,12 +348,15 @@
                 return it.svc && it.svc.indexOf(key) >= 0;
             });
             if (mine.length) return mine;
-            return cache.general && cache.general.length ? cache.general : null;
+            /* The service is sold here but has nothing of its own in the list:
+               no backdrop. What it streams is not the storefront's trending row,
+               and a film from another service under its name is a lie. */
+            return null;
         }
-        /* A service this list does not name (a channel, a store, a player) still
-           gets a picture: the storefront's trending list stands in, as it already
-           does for the players. */
-        return cache.general && cache.general.length ? cache.general : null;
+        /* Not a streaming service this catalogue knows (Settings, TizenTube, a
+           channel, a store): no backdrop. This catch-all was why every app ended
+           up carrying the trending list. */
+        return null;
     }
 
     /* One title per app, and the same one until the list is rebuilt: a poster

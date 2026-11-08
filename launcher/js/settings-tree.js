@@ -111,8 +111,12 @@
                 ].concat(apps.map(function (a) {
                     return { type: "hide", label: a.name, id: a.id, desc: APL.t("OK to show or hide “{name}” on the Home Screen.", { name: a.name }) };
                 })), APL.t("Choose the apps shown on the Home Screen.")),
-                info(APL.t("Rearrange"), function () { return APL.t("Hold OK"); },
-                    APL.t("On the Home Screen, hold OK on an app: Edit Home Screen, Hide App or Delete App.")),
+                action(APL.t("Rearrange"), function () {
+                    APL.settings.close();
+                    var first = APL.allApps ? APL.allApps()[0] : null;
+                    if (!first || !APL.startEdit) { APL.toast(APL.t("Nothing to move yet")); return; }
+                    APL.startEdit(first.id);
+                }, APL.t("On the Home Screen, hold OK on an app: Edit Home Screen, Hide App or Delete App. This puts the first app in that mode, to move it with the arrows."), "grid"),
                 action(APL.t("Reset Home Screen"), function () {
                     if (APL.resetHomeOrder) APL.resetHomeOrder();
                     APL.toast(APL.t("Original layout restored"), true);

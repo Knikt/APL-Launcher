@@ -95,6 +95,11 @@
            the setting doing nothing on most of the wall; those shelves are
            handed over instead (see startBackdrops). */
         if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
+        /* Only a real streaming service, and only one the catalogue can name:
+           Settings, TizenTube, Sources, Smart Hub, folders and TV inputs keep
+           their own artwork. */
+        if (!app || app.virtual || app.folder) return null;
+        if (APL.appArt.known && !APL.appArt.known(app)) return null;
         try { return APL.appArt.pick(app); } catch (e) { return null; }
     }
 
@@ -1102,6 +1107,8 @@
         APL.launchApp(app.id).catch(function (err) { hideVeil(); toast(err.message || APL.t("Couldn't open the app")); });
     };
     APL.makeTile = makeTile;
+    /* Settings > Rearrange: the same mode as holding OK on a tile. */
+    APL.startEdit = startEdit;
 
     function hideApp(app) {
         var hidden = APL.sys.pref("hiddenApps").slice();
