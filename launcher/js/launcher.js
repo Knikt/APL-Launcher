@@ -664,7 +664,10 @@
         var live = APL.live && APL.live.hasSource(app);
         dom.hint.classList.toggle("is-visible", (!!artOf(app) || live) && APL.sys.pref("showHint"));
         if (live && bgActive.dataset.app && bgActive.dataset.app.indexOf(app.id + "#") === 0) return;   // already shown
-        if (bgActive.dataset.app === app.id) return;
+        /* Its own artwork is already the layer on screen (after a change of the
+           Dynamic Backdrops setting, for one). The shelf picture still has to
+           start, or the shelf stays empty until the focus leaves and returns. */
+        if (bgActive.dataset.app === app.id) { if (live) startLive(app); return; }
         shelfInfo(null);
         // Full-screen artwork changed a fraction of a second after the focus: when
         // scrolling fast, a large image isn't decoded on every press.
@@ -960,10 +963,15 @@
             if (app && mode !== "grid") setBackdrop(app);
         });
         APL.sys.onPref("cleanFrameBackdrops", function (v) {
-            if (v) takeShelves(); else giveShelves();
+            if (v) { takeShelves(); stopLive(); } else giveShelves();
             dropLayers();
             var app = apps[lastFocus];
-            if (app && mode !== "grid") setBackdrop(app, true);   // the user asked for it
+            if (!app || mode === "grid") return;
+            setBackdrop(app, true);                              // the user asked for it
+            /* Give the shelves back, and their picture with them: the app in
+               focus shows what it is playing now straight away, instead of
+               keeping its own artwork until it is left and come back to. */
+            if (!v) startLive(app);
         });
     }
 
