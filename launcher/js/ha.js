@@ -33,6 +33,7 @@
   'use strict';
 
   var STORE = 'apl.ha.conn';
+  var APL = root.APL || {};
   var K = (root.APL_KEYS && root.APL_KEYS.ha) || {};
   var PREVIEW = !!(root.APL && root.APL.sys && root.APL.sys.PREVIEW);
   /* Home Assistant ties the code it issues to the client that asked for it,
@@ -84,6 +85,67 @@
   }
   function token() {
     return String((conn && conn.token) || K.token || '');
+  }
+
+  /* ---------- WebSocket ----------
+     The one channel a browser can use without Home Assistant allowing this
+     screen first: a socket is not subject to CORS. States and service calls
+     therefore go over it when it is up, which is what makes a long-lived
+     token work on a stock install; REST stays as the fallback. */
+  var WS = { sock: 0, ready: 0, seq: 1, waiting: {}, token: '' };
+
+  function wsClose() {
+    if (WS.sock) { try { WS.sock.close(); } catch (e) {} }
+    WS.sock = 0; WS.ready = 0; WS.token = ''; WS.waiting = {};
+  }
+
+  function wsCall(msg, cb) {
+    if (!WS.ready) { if (cb) cb(false, null); return; }
+    var id = WS.seq++;
+    WS.waiting[id] = cb || 1;
+    msg.id = id;
+    try { WS.sock.send(JSON.stringify(msg)); }
+    catch (e) { delete WS.waiting[id]; if (cb) cb(false, null); }
+  }
+
+  /* cb(ok) once: auth_ok, auth_invalid, or no answer in six seconds. */
+  function wsOpen(tok, cb) {
+    var url = wsBase();
+    if (!url || !tok) { cb(false); return; }
+    if (WS.ready && WS.token === tok) { cb(true); return; }
+    wsClose();
+    var sock, answered = false;
+    function once(ok) { if (answered) return; answered = true; cb(ok); }
+    try { sock = new WebSocket(url); } catch (e) { once(false); return; }
+    WS.sock = sock; WS.token = tok;
+    sock.onopen = function () {
+      try { sock.send(JSON.stringify({ type: 'auth', access_token: tok })); } catch (e) { once(false); }
+    };
+    sock.onmessage = function (ev) {
+      var m, f;
+      try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (m.type === 'auth_ok') { WS.ready = 1; once(true); return; }
+      if (m.type === 'auth_invalid') { wsClose(); once(false); return; }
+      if (m.type === 'result' && m.id != null && WS.waiting[m.id]) {
+        f = WS.waiting[m.id];
+        delete WS.waiting[m.id];
+        if (f !== 1) f(!!m.success, m.result);
+      }
+    };
+    sock.onclose = function () {
+      WS.ready = 0; WS.sock = 0;
+      once(false);
+    };
+    setTimeout(function () { if (!answered) { wsClose(); once(false); } }, 6000);
+  }
+
+  /* A house built from another connection - the demo one included - must not
+     outlive it: the next server's rooms are not these rooms. */
+  function resetHouse() {
+    ROOMS.length = 0;
+    SCENES.length = 0;
+    registry = null;
+    if (root.CleanFrameHA) { root.CleanFrameHA.ROOMS = ROOMS; root.CleanFrameHA.SCENES = SCENES; }
   }
 
   function notify() {
@@ -289,10 +351,10 @@
   }
 
   function why(st) {
-    if (st === 0) return 'Home Assistant did not answer. Check the address, and that the TV is on the same network.';
-    if (st === 403) return 'Home Assistant refused the request. It may not allow this screen yet (CORS).';
-    if (st === 401) return 'Home Assistant refused those details.';
-    return 'Home Assistant answered ' + st + '.';
+    if (st === 0) return APL.t('Home Assistant did not answer. Check the address, and that the TV is on the same network.');
+    if (st === 403) return APL.t('Home Assistant refused the request. It may not allow this screen yet (CORS).');
+    if (st === 401) return APL.t('Home Assistant refused those details.');
+    return APL.t('Home Assistant answered {status}.', { status: st });
   }
 
   /* Sign in with the account the viewer already has. Home Assistant issues
@@ -339,7 +401,7 @@
       expires: Date.now() + (d.expires_in || 1800) * 1000
     });
     pendingFlow = '';
-    registry = null;
+    resetHouse();
     refresh();
     cb(null);
   }
@@ -360,29 +422,29 @@
            step. Keep the flow open and ask for the code. */
         pendingFlow = flowId;
         pendingBase = '';
-        cb('Two-factor: enter the code Home Assistant asked for in the Password field, then press Connect.');
+        cb(APL.t('Two-factor: enter the code Home Assistant asked for in the Password field, then press Connect.'));
         return;
       }
       pendingBase = '';
       pendingFlow = '';
-      cb(d.errors ? 'Home Assistant did not accept that username or password.' :
-                    'That account has to finish its setup in Home Assistant first.');
+      cb(d.errors ? APL.t('Home Assistant did not accept that username or password.') :
+                    APL.t('That account has to finish its setup in Home Assistant first.'));
     });
   }
 
   function connect(url, user, pass, cb) {
     var u = String(url || '').replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
     var origin = originOf(u);
-    if (!origin) { cb('The address should look like http://homeassistant.local:8123'); return; }
+    if (!origin) { cb(APL.t('The address should look like http://homeassistant.local:8123')); return; }
     pendingBase = origin;
     if (pendingFlow) {
-      if (!pass) { pendingBase = ''; cb('Enter the code Home Assistant asked for.'); return; }
+      if (!pass) { pendingBase = ''; cb(APL.t('Enter the code Home Assistant asked for.')); return; }
       submitFlow(pendingFlow, { client_id: CID, code: pass }, u, cb);
       return;
     }
     if (!user || !pass) {
       pendingBase = '';
-      cb('Enter the username and password of a Home Assistant account.');
+      cb(APL.t('Enter the username and password of a Home Assistant account.'));
       return;
     }
     postJson('/auth/login_flow', {
@@ -395,36 +457,44 @@
     });
   }
 
-  /* The other door: a long-lived token, checked before it is kept. */
+  /* The other door: a long-lived token. Checked over the socket first, because
+     that is the check a stock Home Assistant accepts: a WebSocket does not need
+     this screen listed in cors_allowed_origins. */
+  function keepToken(u, tok) {
+    pendingBase = '';
+    store({ url: u, token: tok, refresh: '', expires: 0 });
+    resetHouse();
+    refresh();
+  }
+
   function setToken(url, tok, cb) {
     var u = String(url || '').replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
     var origin = originOf(u);
     tok = String(tok || '').replace(/^\s+|\s+$/g, '');
-    if (!origin) { cb('The address should look like http://homeassistant.local:8123'); return; }
-    if (!tok) { cb('Paste the token Home Assistant showed you.'); return; }
+    if (!origin) { cb(APL.t('The address should look like http://homeassistant.local:8123')); return; }
+    if (!tok) { cb(APL.t('Paste the token Home Assistant showed you.')); return; }
     pendingBase = origin;
-    var x = new XMLHttpRequest();
-    x.open('GET', origin + '/api/states', true);
-    x.setRequestHeader('Authorization', 'Bearer ' + tok);
-    x.onreadystatechange = function () {
-      if (x.readyState !== 4) return;
-      pendingBase = '';
-      if (x.status === 200) {
-        store({ url: u, token: tok, refresh: '', expires: 0 });
-        refresh();
-        cb(null);
-      } else {
-        cb(x.status === 401 ? 'Home Assistant refused that token.' : why(x.status));
-      }
-    };
-    x.onerror = function () { pendingBase = ''; cb(why(0)); };
-    x.send();
+    wsOpen(tok, function (ok) {
+      if (ok) { keepToken(u, tok); cb(null); return; }
+      var x = new XMLHttpRequest();
+      x.open('GET', origin + '/api/states', true);
+      x.setRequestHeader('Authorization', 'Bearer ' + tok);
+      x.onreadystatechange = function () {
+        if (x.readyState !== 4) return;
+        if (x.status === 200) { keepToken(u, tok); cb(null); }
+        else { pendingBase = ''; cb(x.status === 401 ? APL.t('Home Assistant refused that token.') : why(x.status)); }
+      };
+      x.onerror = function () { pendingBase = ''; cb(why(0)); };
+      x.send();
+    });
   }
 
   function disconnect() {
+    wsClose();
     store(null);
     states = {};
     online = false;
+    resetHouse();
     notify();
   }
 
@@ -451,46 +521,71 @@
     });
   }
 
+  function applyStates(list) {
+    var i, id, map = {};
+    for (i = 0; i < list.length; i++) {
+      id = list[i] && list[i].entity_id;
+      if (id) map[id] = list[i];
+    }
+    states = map;
+    deriveHouse();
+    if (!registry) {
+      loadRegistry(function (reg) {
+        if (!reg) return;
+        registry = reg;
+        deriveHouse();
+        notify();
+      });
+    }
+  }
+
   function refresh() {
     var b = originOf(dashboardUrl());
     if (!b || !token()) { if (PREVIEW && !conn) notify(); return; }
     renew(function () {
-      var x = new XMLHttpRequest();
-      x.open('GET', b + '/api/states', true);
-      x.setRequestHeader('Authorization', 'Bearer ' + token());
-      x.onreadystatechange = function () {
-        if (x.readyState !== 4) return;
-        online = x.status >= 200 && x.status < 300;
-        if (online) {
-          try {
-            var list = JSON.parse(x.responseText), i, id, map = {};
-            for (i = 0; i < list.length; i++) {
-              id = list[i].entity_id;
-              if (id) map[id] = list[i];
-            }
-            states = map;
-            deriveHouse();
-            if (!registry) {
-              loadRegistry(function (reg) {
-                if (!reg) return;
-                registry = reg;
-                deriveHouse();
-                notify();
-              });
-            }
-          } catch (e) { online = false; }
-        }
-        notify();
-      };
-      x.onerror = function () { online = false; notify(); };
-      x.send();
+      var tok = token();
+      wsOpen(tok, function (ok) {
+        if (!ok) { refreshRest(b, tok); return; }
+        wsCall({ type: 'get_states' }, function (good, list) {
+          online = !!good && !!list;
+          if (online) applyStates(list);
+          notify();
+        });
+      });
     });
+  }
+
+  function refreshRest(b, tok) {
+    var x = new XMLHttpRequest();
+    x.open('GET', b + '/api/states', true);
+    x.setRequestHeader('Authorization', 'Bearer ' + tok);
+    x.onreadystatechange = function () {
+      if (x.readyState !== 4) return;
+      online = x.status >= 200 && x.status < 300;
+      if (online) {
+        try { applyStates(JSON.parse(x.responseText)); } catch (e) { online = false; }
+      }
+      notify();
+    };
+    x.onerror = function () { online = false; notify(); };
+    x.send();
   }
 
   function service(domain, svc, data) {
     if (PREVIEW && !token()) { applyLocally(svc, data || {}); return; }
     var b = originOf(dashboardUrl());
     if (!b || !token()) return;
+    var body = data || {};
+    wsOpen(token(), function (ok) {
+      if (!ok) { serviceRest(b, domain, svc, body); return; }
+      wsCall({ type: 'call_service', domain: domain, service: svc, service_data: body }, function (good) {
+        if (good) { setTimeout(refresh, 250); return; }
+        serviceRest(b, domain, svc, body);
+      });
+    });
+  }
+
+  function serviceRest(b, domain, svc, data) {
     var x = new XMLHttpRequest();
     x.open('POST', b + '/api/services/' + domain + '/' + svc, true);
     x.setRequestHeader('Authorization', 'Bearer ' + token());
@@ -580,6 +675,7 @@
     dashboardUrl: dashboardUrl,
     dashboard: dashboardUrl(),
     connect: connect,
+    socket: function () { return !!WS.ready; },
     setToken: setToken,
     disconnect: disconnect,
     roomsFrom: roomsFrom,

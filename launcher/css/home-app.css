@@ -531,3 +531,47 @@ body .home-app {
 }
 
 .ha-note.is-bad { color: #ffb2a4; }
+
+/* ---------- The TV keyboard ----------
+   Typing opens a keyboard over the lower half of the screen. While a field has
+   focus the form becomes compact and moves to the top: the title shrinks, the
+   introduction goes (it has been read by then), and the note stays with the
+   rows because it is where an error appears. Every focused row sits above
+   y=520, clear of a keyboard that starts around 560. */
+.home-app.is-typing .ha-setup {
+  top: 34px;
+  gap: 10px;
+  transition: top 200ms var(--ease-apple-out);
+}
+
+.home-app.is-typing .ha-setup-title {
+  font-size: 32px;
+  line-height: 38px;
+  margin-bottom: 0;
+  letter-spacing: -.6px;
+}
+
+.home-app.is-typing .ha-setup-lead { display: none; }
+
+.home-app.is-typing .ha-field { min-height: 62px; }
+
+.home-app.is-typing .ha-field-name { width: 132px; font-size: 17px; }
+
+.home-app.is-typing .ha-note { margin-top: 0; min-height: 0; }
+
+/* The connect form is laid out for the keyboard rather than moved for it:
+   every row ends above y 450 at 1080, where the TV's keyboard (from ~560)
+   cannot cover it. Compact type keeps the five rows in that space. */
+.home-app .ha-setup { gap: 10px; }
+
+.home-app .ha-setup-title { font-size: 34px; line-height: 40px; margin: 0; letter-spacing: -.8px; }
+
+.home-app .ha-setup-lead { margin: 0 0 4px; font-size: 17px; line-height: 23px; max-width: 820px; }
+
+.home-app .ha-field { min-height: 58px; }
+
+.home-app .ha-field-name { width: 130px; font-size: 17px; }
+
+.home-app .ha-field input { font-size: 20px; }
+
+.home-app .ha-note { margin-top: 2px; font-size: 15px; line-height: 21px; min-height: 0; }

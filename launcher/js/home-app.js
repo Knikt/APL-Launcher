@@ -48,6 +48,10 @@
     energy: '<path d="M13.5 3 5.6 13.4h5.2L10.5 21l7.9-10.4h-5.2z"/>'
   };
 
+  /* Every word this screen draws goes through APL.t: the app, the connect
+     screen and the sheet are English unless lang-fr.js is asked. */
+  function t(s) { return (root.APL && root.APL.t) ? root.APL.t(s) : s; }
+
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -124,21 +128,24 @@
 
   /* ---------- Sidebar ---------- */
   var CATS = [
-    { id: 'cat:climate', type: 'climate', name: 'Climate' },
-    { id: 'cat:light', type: 'light', name: 'Lights' },
-    { id: 'cat:fan', type: 'fan', name: 'Fans' },
-    { id: 'cat:media', type: 'media', name: 'Speakers & TVs' }
+    { id: 'cat:climate', type: 'climate', name: t('Climate') },
+    { id: 'cat:light', type: 'light', name: t('Lights') },
+    { id: 'cat:fan', type: 'fan', name: t('Fans') },
+    { id: 'cat:media', type: 'media', name: t('Speakers & TVs') }
   ];
 
   function sideItems() {
-    var out = [{ id: 'home', name: 'Home', icon: 'home', head: false }], i, list = rooms();
-    out.push({ head: true, name: 'Categories' });
+    var out = [{ id: 'home', name: t('Home'), icon: 'home', head: false }], i, list = rooms();
+    out.push({ head: true, name: t('Categories') });
     for (i = 0; i < CATS.length; i++) out.push({ id: CATS[i].id, name: CATS[i].name, icon: CATS[i].type });
-    out.push({ head: true, name: 'Rooms' });
+    out.push({ head: true, name: t('Rooms') });
     for (i = 0; i < list.length; i++) out.push({ id: list[i].id, name: list[i].name, icon: 'home' });
+    /* Last row: the door back to the connect screen, so a wrong server or a
+       finished test never needs a reinstall to get rid of. */
+    out.push({ id: 'haOut', name: t('Sign out'), icon: 'more' });
     return out;
   }
-  function sideRowId(index) {
+    function sideRowId(index) {
     var list = sideItems(), row = list[index];
     return row && !row.head ? row.id : zone;
   }
@@ -253,7 +260,7 @@
       '<div class="ha-bar">' +
         '<span class="ha-bar-time" id="haClock"></span>' +
         '<span class="ha-bar-day" id="haDay"></span>' +
-        '<span class="ha-bar-title">Home</span>' +
+        '<span class="ha-bar-title">' + t('Home') + '</span>' +
         '<span class="ha-bar-tools" aria-hidden="true">' + ico('plus') + ico('more') + '</span>' +
       '</div>' +
       '<nav class="ha-side" id="haSide" role="menu" aria-label="Categories and rooms"></nav>' +
@@ -261,7 +268,7 @@
         '<h1 class="ha-title" id="haTitle"></h1>' +
         '<div class="ha-chips" id="haChips"></div>' +
         '<div class="ha-sections" id="haSections"></div>' +
-        '<p class="ha-hint">OK on an accessory opens temperature, speed, brightness and mode. Back leaves Home.</p>' +
+        '<p class="ha-hint">' + t('OK on an accessory opens temperature, speed, brightness and mode. Back leaves Home.') + '</p>' +
       '</main>' +
       '<div class="ha-sheet" id="haSheet" hidden>' +
         '<div class="ha-sheet-head" id="haSheetHead"></div>' +
@@ -269,23 +276,23 @@
       '</div>' +
 
       '<div class="ha-setup" id="haSetup" hidden>' +
-        '<h1 class="ha-setup-title">Connect to Home Assistant</h1>' +
-        '<p class="ha-setup-lead">Sign in once with the account you already use. ' +
-          'Home Assistant issues a token to this screen and can end it at any time ' +
-          'under Profile -> Security.</p>' +
-        '<div class="ha-field"><span class="ha-field-name">Address</span>' +
+        '<h1 class="ha-setup-title">' + t('Connect to Home Assistant') + '</h1>' +
+        '<p class="ha-setup-lead">' + t('Sign in once with the account you already use, or paste a long-lived access token (Profile -> Security).') + '</p>' +
+        '<div class="ha-field"><span class="ha-field-name">' + t('Address') + '</span>' +
           '<input type="text" id="haUrl" spellcheck="false" autocomplete="off" ' +
           'placeholder="http://homeassistant.local:8123"></div>' +
-        '<div class="ha-field"><span class="ha-field-name">Username</span>' +
+        '<div class="ha-field"><span class="ha-field-name">' + t('Token') + '</span>' +
+          '<input type="text" id="haToken" spellcheck="false" autocapitalize="off" autocomplete="off" ' +
+          'placeholder="' + t('Long-lived access token, if you made one') + '"></div>' +
+        '<div class="ha-field"><span class="ha-field-name">' + t('Username') + '</span>' +
           '<input type="text" id="haUser" spellcheck="false" autocapitalize="off" autocomplete="username"></div>' +
-        '<div class="ha-field"><span class="ha-field-name">Password</span>' +
+        '<div class="ha-field"><span class="ha-field-name">' + t('Password') + '</span>' +
           '<input type="password" id="haPass" autocomplete="current-password"></div>' +
-        '<div class="ha-field is-action"><span class="ha-field-name">Sign in</span>' +
-          '<span class="ha-field-value" id="haGo">Connect</span></div>' +
-        '<div class="ha-field is-alt" id="haAlt" hidden><span class="ha-field-name">Preview</span>' +
-          '<span class="ha-field-value">Show the demo house</span></div>' +
-        '<div class="ha-note" id="haNote">A long-lived access token works too: ' +
-          'Profile -> Security -> Long-lived access tokens.</div>' +
+        '<div class="ha-field is-action"><span class="ha-field-name">' + t('Sign in') + '</span>' +
+          '<span class="ha-field-value" id="haGo">' + t('Connect') + '</span></div>' +
+        '<div class="ha-field is-alt" id="haAlt" hidden><span class="ha-field-name">' + t('Preview') + '</span>' +
+          '<span class="ha-field-value">' + t('Show the demo house') + '</span></div>' +
+        '<div class="ha-note" id="haNote">' + t('A username and a password need this screen allowed in Home Assistant (http: cors_allowed_origins). A token needs nothing set.') + '</div>' +
       '</div>';
     sideEl = box.querySelector('#haSide');
     mainEl = box.querySelector('.ha-main');
@@ -299,6 +306,14 @@
     sheetRowsEl = box.querySelector('#haSheetRows');
     box.addEventListener('click', onClick);
     built = true;
+    if (!root.__aplSetupFocus) {
+      root.__aplSetupFocus = true;
+      root.document.addEventListener('focusin', function (ev) {
+        if (!setupMode || !box) return;
+        var t = ev.target;
+        if (t && t.tagName === 'INPUT' && box.contains(t)) liftSetup(t);
+      });
+    }
   }
 
   function sideHtml() {
@@ -326,7 +341,7 @@
       }
       html += '</div></section>';
     }
-    return html || '<p class="ha-empty">Nothing here yet.</p>';
+    return html || '<p class="ha-empty">' + t('Nothing here yet.') + '</p>';
   }
 
   function tileElements() { return sectionsEl ? sectionsEl.querySelectorAll('.ha-tile') : []; }
@@ -335,23 +350,23 @@
   function controlsFor(dev) {
     var st = stateOf(dev), a = st.attributes || {}, on = isOn(dev), rows = [];
     if (dev.type === 'climate') {
-      rows.push({ id: 'power', label: 'Power', value: on ? haText(st.state) : 'Off', act: 'toggle' });
-      rows.push({ id: 'temp', label: 'Temperature', value: (typeof a.temperature === 'number' ? a.temperature : '--') + '\u00b0C', act: 'step' });
-      rows.push({ id: 'mode', label: 'Mode', value: haText(st.state || 'off'), act: 'cycle' });
-      if (typeof a.current_temperature === 'number') rows.push({ id: 'room', label: 'Room Temperature', value: a.current_temperature + '\u00b0C', act: 'info' });
+      rows.push({ id: 'power', label: t('Power'), value: on ? haText(st.state) : 'Off', act: 'toggle' });
+      rows.push({ id: 'temp', label: t('Temperature'), value: (typeof a.temperature === 'number' ? a.temperature : '--') + '\u00b0C', act: 'step' });
+      rows.push({ id: 'mode', label: t('Mode'), value: haText(st.state || 'off'), act: 'cycle' });
+      if (typeof a.current_temperature === 'number') rows.push({ id: 'room', label: t('Room Temperature'), value: a.current_temperature + '\u00b0C', act: 'info' });
     } else if (dev.type === 'fan') {
       var pct = on ? Math.round(a.percentage || 0) : 0;
-      rows.push({ id: 'power', label: 'Power', value: on ? 'On' : 'Off', act: 'toggle' });
-      rows.push({ id: 'speed', label: 'Speed', value: on ? fanStep(pct) + ' of 6' : 'Off', act: 'step' });
+      rows.push({ id: 'power', label: 'Power', value: on ? t('On') : t('Off'), act: 'toggle' });
+      rows.push({ id: 'speed', label: t('Speed'), value: on ? fanStep(pct) + ' of 6' : 'Off', act: 'step' });
     } else if (dev.type === 'light') {
       rows.push({ id: 'power', label: 'Power', value: on ? 'On' : 'Off', act: 'toggle' });
-      rows.push({ id: 'brightness', label: 'Brightness', value: brightnessOf(dev) + '%', act: 'step' });
+      rows.push({ id: 'brightness', label: t('Brightness'), value: brightnessOf(dev) + '%', act: 'step' });
     } else if (dev.type === 'media') {
-      rows.push({ id: 'play', label: 'Playback', value: on ? 'Playing' : 'Paused', act: 'toggle' });
-      rows.push({ id: 'volume', label: 'Volume', value: volumeOf(dev) + '%', act: 'step' });
-      rows.push({ id: 'title', label: 'Now Playing', value: a.media_title || a.app_name || 'Nothing', act: 'info' });
+      rows.push({ id: 'play', label: t('Playback'), value: on ? t('Playing') : t('Paused'), act: 'toggle' });
+      rows.push({ id: 'volume', label: t('Volume'), value: volumeOf(dev) + '%', act: 'step' });
+      rows.push({ id: 'title', label: t('Now Playing'), value: a.media_title || a.app_name || t('Nothing'), act: 'info' });
     } else if (dev.type === 'scene') {
-      rows.push({ id: 'run', label: 'Run Scene', value: dev.name, act: 'toggle' });
+      rows.push({ id: 'run', label: t('Run Scene'), value: dev.name, act: 'toggle' });
     } else {
       rows.push({ id: 'power', label: 'Power', value: on ? 'On' : 'Off', act: 'toggle' });
     }
@@ -387,7 +402,7 @@
     var v = tileValue(sheetDev);
     return '<span class="ha-chip is-large acc-' + typeIcon(sheetDev.type) + '">' + ico(typeIcon(sheetDev.type)) + '</span>' +
       '<div class="ha-sheet-copy"><h2>' + esc(sheetDev.name) + '</h2><p>' + esc(v.main + (v.sub ? ' \u00b7 ' + v.sub : '')) + '</p></div>' +
-      '<span class="ha-sheet-hint">Back closes</span>';
+      '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
   }
   function rowHtml() {
     if (!sheetDev) return '';
@@ -427,11 +442,11 @@
   }
 
   function focusTitle() {
-    if (zone === 'home') return 'Home';
+    if (zone === 'home') return t('Home');
     if (zone.indexOf('cat:') === 0) {
       for (var i = 0; i < CATS.length; i++) if (CATS[i].id === zone) return CATS[i].name;
     }
-    return (roomById(zone) || {}).name || 'Home';
+    return (roomById(zone) || {}).name || t('Home');
   }
 
   function paint(force) {
@@ -550,10 +565,19 @@
   }
 
   function selectZone(id) {
-    zone = id;
+    if (id === 'haOut') { signOut(); return; }
+    zone = id;    zone = id;
     f.zone = 'grid';
     f.i = 0;
     if (sectionsEl) sectionsEl.scrollTop = 0;
+  }
+
+  /* Forget the server and show the form again. */
+  function signOut() {
+    if (ha && ha.disconnect) ha.disconnect();
+    previewHouse = false;
+    close();
+    setTimeout(open, 40);
   }
 
   function openSheetFor(dev) {
@@ -698,7 +722,18 @@
   function paintSetup() {
     if (!box) return;
     var setup = box.querySelector('#haSetup');
-    if (setup) setup.hidden = !setupMode;
+    if (setup) {
+      setup.hidden = !setupMode;
+      /* Set here rather than left to a rule: a class-scoped `top` lost to the
+         base rule in the packaged stylesheet, and the form then sat under the
+         TV's keyboard. At 56px the whole form ends around y 450 of 1080,
+         clear of a keyboard that starts near 560 - no lift required. */
+      setup.style.position = 'absolute';
+      setup.style.left = '140px';
+      setup.style.top = '56px';
+      setup.style.width = '880px';
+    }
+    wireSetup();
     var alt = box.querySelector('#haAlt');
     if (alt) alt.hidden = !(ha && ha.preview);
     var url = box.querySelector('#haUrl');
@@ -712,33 +747,84 @@
     return el ? el.value : '';
   }
 
+  /* A token in its own field wins over the password: it is the path that works
+     on a Home Assistant nobody configured for this screen. */
   function doConnect() {
-    if (!ha || !ha.connect) { setupNote('This build has no Home Assistant client.', true); return; }
-    setupNote('Signing in to Home Assistant...');
-    ha.connect(setupValue('#haUrl'), setupValue('#haUser'), setupValue('#haPass'), function (err) {
-      if (err) { setupNote(err, true); return; }
-      setupMode = false;
-      setupAt = 0;
-      if (box) box.classList.remove('is-setup');
-      paintSetup();
-      lastSig = '';
-      paint(true);
-    });
+    if (!ha || !ha.connect) { setupNote(t('This build has no Home Assistant client.'), true); return; }
+    var tok = setupValue('#haToken');
+    if (tok && ha.setToken) {
+      setupNote(t('Checking the token...'));
+      ha.setToken(setupValue('#haUrl'), tok, afterConnect);
+      return;
+    }
+    setupNote(t('Signing in to Home Assistant...'));
+    ha.connect(setupValue('#haUrl'), setupValue('#haUser'), setupValue('#haPass'), afterConnect);
+  }
+
+  function afterConnect(err) {
+    if (err) { setupNote(err, true); return; }
+    setupMode = false;
+    setupAt = 0;
+    if (box) {
+      box.classList.remove('is-setup');
+      box.classList.remove('is-typing');
+      var panel = box.querySelector('#haSetup');
+      if (panel) panel.style.transform = '';
+      /* Nothing keeps a token on screen once it is stored. */
+      var tok = box.querySelector('#haToken');
+      if (tok) tok.value = '';
+    }
+    paintSetup();
+    lastSig = '';
+    paint(true);
   }
 
   function focusSetup() {
     var fields = setupFields(), f = fields[setupAt], input = f && f.querySelector('input');
-    if (input) { try { input.focus(); } catch (e) {} return; }
+    if (input) {
+      try { input.focus(); } catch (e) {}
+      /* Lifted here as well as on focusin: some WebKit builds move focus
+         without delivering the event to the element that gained it. */
+      liftSetup(input);
+      return;
+    }
     var a = root.document.activeElement;
     if (a && a.blur) a.blur();
+    if (box) box.classList.remove('is-typing');
   }
 
   function setupKey(k) {
     var fields = setupFields(), n = fields.length;
+    var active = root.document.activeElement;
+    var typing = !!(active && active.tagName === 'INPUT');
     if (!n) return;
+    /* The TV's keyboard comes up over the lower half of the screen, so while a
+       field has focus the form is lifted (paintSetup keeps the row in the top
+       third). Back means "put the keyboard away" first: losing the whole app
+       because someone wanted to see the screen would be the wrong answer. */
+    if (k === 'back') {
+      if (typing) {
+        active.blur();
+        if (box) box.classList.remove('is-typing');
+        resetSetupLift();
+        paintSetup();
+        return;
+      }
+      close();
+      return;
+    }
     if (k === 'down') { setupAt = Math.min(n - 1, setupAt + 1); focusSetup(); paintSetup(); return; }
     if (k === 'up') { setupAt = Math.max(0, setupAt - 1); focusSetup(); paintSetup(); return; }
     if (k === 'ok') {
+      if (typing) {
+        /* OK in the password field signs in; anywhere else it moves on, so a
+           remote never needs a separate "next" key. */
+        if (active.id === 'haPass' || active.id === 'haToken') { doConnect(); return; }
+        setupAt = Math.min(n - 1, setupAt + 1);
+        focusSetup();
+        paintSetup();
+        return;
+      }
       var f = fields[setupAt];
       if (!f) return;
       if (f.classList.contains('is-action')) { doConnect(); return; }
@@ -747,7 +833,74 @@
       if (input) { try { input.focus(); } catch (e) {} setupNote(''); }
       return;
     }
-    if (k === 'back') { close(); return; }
+  }
+
+  /* Where the keyboard starts, in stage pixels, when the TV opens it. Tizen's
+     is roughly the bottom 45% at 1080; keeping every focused row above 520
+     leaves room either way. */
+  var KEYBOARD_TOP = 520;
+
+  function resetSetupLift() {
+    var panel = box && box.querySelector('#haSetup');
+    if (panel) panel.style.transform = '';
+  }
+
+  /* Compact, and moved to the top of the stage, while a field holds the
+     keyboard. Both parts are set here rather than left to a selector: a
+     class-scoped rule for `top` did not win against the base rule in the
+     built stylesheet, and the form ended up under the keyboard. */
+  function liftSetup(input) {
+    if (!box) return;
+    /* The class only makes the form compact while typing; the position is
+       already high enough for the keyboard, so nothing moves. */
+    box.classList.add('is-typing');
+    keepFieldVisible(input);
+  }
+
+  /* The compact form already fits above the keyboard, so this only does
+     anything when it does not: it moves the panel by the overflow of the
+     focused row, never further than the panel's own top. Lifting the whole
+     form to a fixed line - the first attempt - pushed the title and the
+     address row off the top of the screen. */
+  function keepFieldVisible(input) {
+    var panel = box && box.querySelector('#haSetup');
+    var field = input && input.parentNode;
+    if (!panel || !field) return;
+    panel.style.transform = '';
+    var rel = 0, n = field;
+    while (n && n !== panel) { rel += n.offsetTop; n = n.offsetParent; }
+    var panelTop = panel.offsetTop;
+    var bottom = panelTop + rel + field.offsetHeight;
+    var limit = KEYBOARD_TOP - 24;
+    var shift = bottom > limit ? bottom - limit : 0;
+    if (shift > panelTop) shift = panelTop > 0 ? panelTop : 0;
+    panel.style.transform = shift > 0 ? 'translateY(-' + shift + 'px)' : '';
+  }
+
+  function wireSetup() {
+    var setup = box && box.querySelector('#haSetup');
+    if (!setup || setup.__aplWired) return;
+    setup.__aplWired = true;
+    setup.addEventListener('focusin', function (ev) {
+      if (!ev.target || ev.target.tagName !== 'INPUT') return;
+      box.classList.add('is-typing');
+      keepFieldVisible(ev.target);
+    });
+    setup.addEventListener('focusout', function () {
+      setTimeout(function () {
+        var a = root.document.activeElement;
+        if (a && a.tagName === 'INPUT') return;
+        box.classList.remove('is-typing');
+        resetSetupLift();
+      }, 60);
+    });
+    /* Some Tizen versions resize the web view for the keyboard rather than
+       covering it; recomputing on resize keeps the row in sight either way. */
+    root.addEventListener('resize', function () {
+      if (!box || !setupMode) return;
+      var a = root.document.activeElement;
+      if (a && a.tagName === 'INPUT') keepFieldVisible(a);
+    });
   }
 
   /* ---------- Open / close ---------- */
@@ -810,6 +963,10 @@
     if (!openFlag) return;
     openFlag = false;
     setupMode = false;
+    if (box) {
+      box.classList.remove('is-typing');
+      resetSetupLift();
+    }
     sheetOpen = false;
     sheetDev = null;
     clearInterval(clockTimer);

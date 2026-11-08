@@ -327,7 +327,7 @@ html, body {
 /* The Home app: its own white plate, with the Home Assistant mark in the
    brand's blue. Only the logo differs from the HomeKit tile. */
 .vtile--ha-mark { background: #fff; color: #18bcf2; }
-.vtile--ha-mark .vtile__ha { width: 46px; height: 46px; display: block; fill: currentColor; }
+.vtile--ha-mark .vtile__ha { width: 92px; height: 92px; display: block; fill: currentColor; }
 
 /* ===================== SETTINGS (tvOS split view) ===================== */
 .settings {

@@ -2,7 +2,7 @@
  "version": "1.0.20",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "APL TV, Search, Live TV, Nuvio's Continue Watching, Netflix listed, Prime Video's Top Shelf in every country, 5 to 7 apps per row",
+ "notes": "A Home app: sign in on the TV, then rooms, scenes and lights from the remote",
  "scripts": [
   "js/diag.js",
   "js/lang-fr.js",
@@ -40,7 +40,7 @@
  "styles": [
   "css/launcher.css"
  ],
- "body": "<!-- Top Shelf: full-frame artwork of the selected app (2 layers for the fade) -->\n    <div id=\"bgA\" class=\"bg\"></div>\n    <div id=\"bgB\" class=\"bg\"></div>\n    <!-- Blurred grid background: a small pre-blurred image, nothing computed live -->\n    <div id=\"bgBlur\" class=\"bgblur\"></div>\n    <div class=\"scrim\"></div>\n\n    <!-- Status pill (top right): time + avatar -->\n    <div class=\"status\">\n        <span id=\"clock\" class=\"status__clock\">09:41</span>\n        <span class=\"status__avatar\" aria-hidden=\"true\"></span>\n    </div>\n\n    <!-- The Top Shelf film or series: title and rating -->\n    <div id=\"shelfInfo\" class=\"shelfinfo\">\n        <div id=\"shelfTitle\" class=\"shelfinfo__title\"></div>\n        <div id=\"shelfMeta\" class=\"shelfinfo__meta\"></div>\n    </div>\n\n    <!-- \"Press ▲ for full screen\" (launcher.js puts in the translated text) -->\n    <div id=\"hint\" class=\"hint\">\n        <span class=\"hint__chevron\" aria-hidden=\"true\"></span>\n        <span class=\"hint__text\">Press ▲ for full screen</span>\n    </div>\n\n    <!-- Home Screen: dock (top row) + the rows below -->\n    <main id=\"home\" class=\"home\">\n        <div class=\"dock\"><div id=\"row0\" class=\"row0\"></div></div>\n        <div id=\"rows\" class=\"rows\"></div>\n    </main>\n\n    <div id=\"toast\" class=\"toast\" aria-live=\"polite\"></div>\n    <div id=\"boot\" class=\"boot\"></div>",
+ "body": "<!-- Top Shelf: full-frame artwork of the selected app (2 layers for the fade) -->\n    <div id=\"bgA\" class=\"bg\"></div>\n    <div id=\"bgB\" class=\"bg\"></div>\n    <!-- Blurred grid background: a small pre-blurred image, nothing computed live -->\n    <div id=\"bgBlur\" class=\"bgblur\"></div>\n    <div class=\"scrim\"></div>\n\n    <!-- Status pill (top right): time + avatar -->\n    <div class=\"status\">\n        <span id=\"clock\" class=\"status__clock\">09:41</span>\n        <span class=\"status__avatar\" aria-hidden=\"true\"></span>\n    </div>\n\n    <!-- The Top Shelf film or series: title and rating -->\n    <div id=\"shelfInfo\" class=\"shelfinfo\">\n        <div id=\"shelfTitle\" class=\"shelfinfo__title\"></div>\n        <div id=\"shelfMeta\" class=\"shelfinfo__meta\"></div>\n    </div>\n\n    <!-- \"Press ▲ for full screen\" (launcher.js puts in the translated text) -->\n    <div id=\"hint\" class=\"hint\">\n        <span class=\"hint__chevron\" aria-hidden=\"true\"></span>\n        <span class=\"hint__text\">Press ▲ for full screen</span>\n    </div>\n\n    <!-- Home Screen: dock (top row) + the rows below -->\n    <main id=\"home\" class=\"home\">\n        <div class=\"dock\"><div id=\"row0\" class=\"row0\"></div></div>\n        <div id=\"rows\" class=\"rows\"></div>\n    </main>\n\n    <!-- CleanFrame Home: the house as an app, drawn by js/home-app.js.\n         Hidden until the Home tile opens it. -->\n    <div id=\"homeApp\" class=\"home-app\" hidden></div>\n\n    <div id=\"toast\" class=\"toast\" aria-live=\"polite\"></div>\n    <div id=\"boot\" class=\"boot\"></div>",
  "images": [
   "images/apps/amazonmusic-tile.png",
   "images/apps/apltv-tile.png",
@@ -60,7 +60,6 @@
   "images/apps/franime-tile.png",
   "images/apps/geforcenow-tile.png",
   "images/apps/hbomax-tile.png",
-  "images/apps/homekit-tile.png",
   "images/apps/jellyfin-tile.png",
   "images/apps/jiohotstar-tile.png",
   "images/apps/kodi-tile.png",

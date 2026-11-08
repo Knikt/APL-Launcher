@@ -242,7 +242,7 @@
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
                 info(APL.t("Home Assistant"), function () { return APL.ha && APL.ha.available() ? APL.t("Configured") : APL.t("Missing"); },
-                    APL.t("Adds a Home tile that opens your Home Assistant dashboard in Internet. Set its address in APL Launcher Setup, on the PC: without one, there is no tile.")),
+                    APL.t("Adds a Home app. Sign in once on the TV - the address of your Home Assistant, then the username and password of an account, or a long-lived token - and the tile opens it from then on. Nothing to set on the PC.")),
                 toggle(APL.t("Close Unused Apps"), "idleClose",
                     APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay.")),
                 action(APL.t("Free Up Memory"), function () { APL.freeMemory(); },
