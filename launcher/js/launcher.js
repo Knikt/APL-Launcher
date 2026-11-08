@@ -226,8 +226,12 @@
         if (!src) { then(); return; }
         var im = new Image();
         im.src = src;
-        if (im.decode) im.decode().then(then, then);
-        else { im.onload = then; im.onerror = then; }
+        /* The decoded element is handed on: the glass bakes its pane from this
+           very bitmap (APL.glass.prepare(src, done, im)) instead of fetching the
+           file again, which is what made the dock trail the picture. */
+        var done = function () { then(im); };
+        if (im.decode) im.decode().then(done, done);
+        else { im.onload = done; im.onerror = done; }
     }
 
     /* The picture itself, as an <img> that is decoded before it is shown. As a
@@ -368,8 +372,9 @@
                 refreshGlass();
                 return;
             }
-            showPicture(dockLayer, image, function () {
+            showPicture(dockLayer, image, function (pic) {
                 if (token !== backdropToken) return;
+                if (APL.glass && APL.glass.prepare) APL.glass.prepare(image, null, pic);
                 showLayer(dockLayer, app);
                 refreshGlass();
             });
@@ -466,8 +471,10 @@
             posterInfo(pick);
             startRotate(app);
         };
-        whenDecoded(pick.url, function () {
-            if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply); else apply();
+        whenDecoded(pick.url, function (im) {
+            /* Baked from the element that is about to be shown, so the picture and
+               the pane land together rather than the pane a second later. */
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply, im); else apply();
         });
     }
 
@@ -645,10 +652,13 @@
         /* The same rule as a poster (setPoster): the Top Shelf picture from
            TMDB, Plex or YouTube is an <img> revealed once its decode is done, so
            it can never be painted a band at a time. */
-        showPicture(next, item.bg, function () {
+        showPicture(next, item.bg, function (pic) {
             if (bgActive === next) return;                 // already on screen
+            /* The pane is made from the picture's own bitmap before the layer is
+               faded in, so the dock changes with the backdrop and not after it. */
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, null, pic);
             fadeTo(next);
-            refreshGlass();                                // panes follow the picture now on screen
+            refreshGlass();
             shelfInfo(item);
         });
     }

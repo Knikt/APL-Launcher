@@ -154,7 +154,7 @@
     var rendering = {};
     /* One render per artwork, however many ask for it: a bake finishing after
        the focus moved on still answers everybody, and nothing is dropped. */
-    function render(src, cb) {
+    function render(src, cb, el) {
         if (cache[src]) { cb(cache[src]); return; }
         if (rendering[src]) { rendering[src].push(cb); return; }
         rendering[src] = [cb];
@@ -165,6 +165,18 @@
             for (i = 0; i < list.length; i++) { try { list[i](data); } catch (e) {} }
         }
         var img = null, started = false, objectUrl = "";
+        /* The launcher hands over the <img> it has already decoded and put on
+           screen (launcher.js passes it from whenDecoded / showPicture). Drawing
+           THAT element is one canvas pass: no second fetch of a 1080p file, no
+           second decode. Re-fetching here is why the pane trailed the picture by
+           an app, a second at a time on a cold row. */
+        if (el) {
+            img = el;
+            started = true;
+            if (el.decode) el.decode().then(paintSource, paintSource);
+            else paintSource();
+            return;
+        }
         /* onload fires before every row is decoded. Drawing then bakes a
            half-decoded picture into the pane, and the 10x upscale shows it as
            the backdrop filling in line by line - which is what a first visit to
@@ -231,7 +243,7 @@
 
     var wanted = "";         /* the artwork that should be on screen right now */
 
-    function bake(src, done) {
+    function bake(src, done, el) {
         if (!src) { drop(); return; }
         wanted = src;
         if (src.indexOf("grad:") === 0) {
@@ -257,7 +269,7 @@
                 notify();
             }
             if (done) done();
-        });
+        }, el);
     }
 
     /* The pane for a picture that is about to be shown (the next title of the
@@ -410,13 +422,13 @@
 
     /* Bake the picture now and call back once the pane is ready, so the caller can
        swap the picture and the glass in the same frame (launcher.js setPoster). */
-    function prepare(src, done) {
-        if (!done) { if (src) bake(src); return; }
+    function prepare(src, done, el) {
+        if (!done) { if (src) bake(src, null, el); return; }
         var called = false;
         function call() { if (called) return; called = true; done(); }
         if (!src) { call(); return; }
         if (src === bakedFrom && baked) { call(); return; }
-        bake(src, call);
+        bake(src, call, el);
         /* A bake can fail (artwork without CORS, no canvas, a dead server): the
            picture must still change, so the caller is never left waiting for it,
            and a failure answers at once. A bake that is merely slow is worth
