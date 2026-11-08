@@ -41,6 +41,13 @@
         { re: /hbo ?max|(^|\W)max(\W|$)/i, key: "hbomax" },
         { re: /samsung ?tv ?plus/i, key: "samsungplus" },
         { re: /\barte\b/i, key: "arte" },
+        { re: /canal ?\+|canalplus/i, key: "canalplus" },
+        { re: /crunchyroll/i, key: "crunchyroll" },
+        { re: /paramount/i, key: "paramountplus" },
+        { re: /rakuten/i, key: "rakuten" },
+        { re: /mubi/i, key: "mubi" },
+        { re: /dazn/i, key: "dazn" },
+        { re: /pluto/i, key: "plutotv" },
         /* Apps with no storefront of their own (Nuvio, Stremio, a file player)
            draw from the trending list, and the slate says which title it is. */
         { re: /stremio|nuvio|player/i, key: "general" }
@@ -58,7 +65,14 @@
         disneyplus: ["disneyplus"],
         hbomax: ["max", "hbomax", "hboumax", "hbo"],
         samsungplus: ["samsungtvplus"],
-        arte: ["arte"]
+        arte: ["arte"],
+        canalplus: ["canalplus", "canalpluspremium"],
+        crunchyroll: ["crunchyroll"],
+        paramountplus: ["paramountplus"],
+        rakuten: ["rakuten"],
+        mubi: ["mubi"],
+        dazn: ["dazn"],
+        plutotv: ["plutotv"]
     };
 
     var cache = null;
@@ -336,7 +350,10 @@
             if (mine.length) return mine;
             return cache.general && cache.general.length ? cache.general : null;
         }
-        return null;
+        /* A service this list does not name (a channel, a store, a player) still
+           gets a picture: the storefront's trending list stands in, as it already
+           does for the players. */
+        return cache.general && cache.general.length ? cache.general : null;
     }
 
     /* One title per app, and the same one until the list is rebuilt: a poster

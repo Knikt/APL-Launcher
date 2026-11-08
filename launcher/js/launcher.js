@@ -89,22 +89,13 @@
        Appearance › Dynamic Backdrops turns it off, and every app gets its artwork back. */
     function backdropPick(app) {
         if (!APL.appArt || !APL.appArt.pick) return null;
-        /* Opt-in, and a fallback only: the catalogue answers where an app has
-           nothing of its own to show. It is never shown in place of an app's
-           artwork, its Smart Hub rows (What's Popular, Plex, Spotify) or its
-           Continue Watching (Stremio, Nuvio, Hot Player, APL TV). */
+        /* Opt-in, and on every app once it is on: streaming services, the media
+           players, the channels - anything the catalogue has a title for. It
+           used to spare apps with artwork or a shelf of their own, which left
+           the setting doing nothing on most of the wall; those shelves are
+           handed over instead (see startBackdrops). */
         if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
-        if (artOf(app)) return null;
-        if (ownShelf(app)) return null;
         try { return APL.appArt.pick(app); } catch (e) { return null; }
-    }
-
-    /* Apps that bring a Top Shelf of their own, by name: the package ids differ
-       between storefronts, the names do not. Whatever they show is theirs. */
-    var OWN_SHELF = /plex|spotify|stremio|nuvio|hot ?player|apl ?tv|aquaplay|emby|jellyfin|kodi/i;
-    function ownShelf(app) {
-        if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) return true;
-        return OWN_SHELF.test(String(app && app.name || ""));
     }
 
     /* Title and year under the poster, where the Top Shelf puts its own. */
@@ -914,14 +905,34 @@
        the artwork back without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
-        /* Nothing is turned off to make room: the catalogue is a fallback, so
-           What's Popular stays on and keeps its place for every app that has
-           something of its own to show. */
+        /* The catalogue owns the picture once it is on, so the two shelves that
+           would stand in the same place step aside: What You're Watching and
+           What's Popular. Their values are kept, and given back when the
+           setting is turned off again. */
+        var KEEP = "shelfBeforeBackdrops";
+        function takeShelves() {
+            if (APL.sys.pref("cleanFrameBackdrops") !== true) return;
+            if (!APL.sys.pref(KEEP)) {
+                APL.sys.setPref(KEEP, { hubShelf: APL.sys.pref("hubShelf") !== false,
+                                        liveShelf: APL.sys.pref("liveShelf") !== false });
+            }
+            if (APL.sys.pref("hubShelf") !== false) APL.sys.setPref("hubShelf", false);
+            if (APL.sys.pref("liveShelf") !== false) APL.sys.setPref("liveShelf", false);
+        }
+        function giveShelves() {
+            var was = APL.sys.pref(KEEP);
+            if (!was) return;
+            APL.sys.setPref("hubShelf", was.hubShelf !== false);
+            APL.sys.setPref("liveShelf", was.liveShelf !== false);
+            APL.sys.setPref(KEEP, null);
+        }
+        takeShelves();
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
         });
-        APL.sys.onPref("cleanFrameBackdrops", function () {
+        APL.sys.onPref("cleanFrameBackdrops", function (v) {
+            if (v) takeShelves(); else giveShelves();
             dropLayers();
             var app = apps[lastFocus];
             if (app && mode !== "grid") setBackdrop(app, true);   // the user asked for it
