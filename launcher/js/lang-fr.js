@@ -408,7 +408,7 @@ window.APL_LANG_FR = {
     "24-Hour Time": "Horloge 24 h",
     "Time format on the Home Screen and in Control Center.": "Format de l'heure de l'accueil et du Centre de contrôle.",
     "Visual Effects": "Effets visuels",
-    "Blur and glass. Prettier but slower: off by default so the screen stays smooth.": "Flou et verre. Plus joli mais plus lent : désactivé par défaut pour que l'écran reste fluide.",
+    "The dock, the status pill and Control Center take the picture behind them, frosted: the blur is baked once per picture, so it costs the screen almost nothing. Off keeps the plain fills.": "Le dock, la pilule d'état et le Centre de contrôle prennent l'image derrière eux, givrée : le flou est calculé une fois par image, il ne coûte donc presque rien à l'écran. Désactivé : les fonds unis restent.",
     "Power and Energy Saving": "Électricité et économie d'énergie",
     "Brightness Optimization": "Optimisation de la luminosité",
     "Lowers the brightness in a dark room.": "Baisse la luminosité dans une pièce sombre.",
@@ -604,5 +604,6 @@ window.APL_LANG_FR = {
     "{keys} are back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} reviennent à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
     "{keys} is back to Samsung. Run APL Launcher Setup again to get the overlay back.": "{keys} revient à Samsung. Relance APL Launcher Setup pour retrouver l'overlay.",
     "A tile that opens Samsung's Smart Hub, the way out now that the Home button opens the launcher. Press Home there to come back.": "Une tuile qui ouvre le Smart Hub de Samsung, la porte de sortie maintenant que le bouton Home ouvre le launcher. Appuie sur Home pour revenir.",
-    "Opens Samsung's Smart Hub on the screen": "Ouvre le Smart Hub de Samsung sur l'écran"
+    "Opens Samsung's Smart Hub on the screen": "Ouvre le Smart Hub de Samsung sur l'écran",
+    "Only for apps with nothing of their own to show: a film or series that service streams right now, from the storefront's trending list for your country (JustWatch, no key). Apps with their own artwork, rows or Continue Watching keep them.": "Seulement pour les apps qui n'ont rien à montrer d'elles-mêmes : un film ou une série que ce service diffuse en ce moment, d'après les tendances du storefront de votre pays (JustWatch, sans clé). Les apps avec leur propre visuel, leurs rangées ou leur Continuer de regarder les gardent."
 };

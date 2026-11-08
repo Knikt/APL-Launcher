@@ -95,11 +95,10 @@
                             APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
                     ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
                 ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
-                toggle(APL.t("Visual Effects"), "visualEffects", APL.t("Blur and glass. Prettier but slower: off by default so the screen stays smooth.")),
-                toggle(APL.t("Liquid Glass"), "liquidGlass",
-                    APL.t("The dock, the status pill and Control Center take the picture behind them, frosted. The blur is baked once per picture instead of running live, so it costs the screen almost nothing.")),
+                toggle(APL.t("Visual Effects"), "visualEffects",
+                    APL.t("The dock, the status pill and Control Center take the picture behind them, frosted: the blur is baked once per picture, so it costs the screen almost nothing. Off keeps the plain fills.")),
                 toggle(APL.t("Dynamic Backdrops"), "cleanFrameBackdrops",
-                    APL.t("Behind each app in the dock, a film or series it streams right now: the storefront's trending list for your country, no key needed. Off: every app gets its own artwork back.")),
+                    APL.t("Only for apps with nothing of their own to show: a film or series that service streams right now, from the storefront's trending list for your country (JustWatch, no key). Apps with their own artwork, rows or Continue Watching keep them.")),
                 toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down."))
             ], APL.t("Theme, Top Shelf, visual effects.")),
 

@@ -453,19 +453,20 @@
         });
     };
 
-    /* Settings > Liquid Glass. `perf`, the screen's own light mode, wins:
-       it exists to keep the set smooth. */
+    /* Settings > Appearance > Visual Effects: the same switch the dock, the
+       Control Center and the status pill already answered to. This material
+       replaces that one in place rather than sitting beside it with a switch of
+       its own, and off brings the plain translucent fills straight back. */
     function skinOn() {
         if (!APL.sys || !APL.sys.pref) return true;
-        var v = APL.sys.pref("liquidGlass");
-        return v === undefined ? true : !!v;
+        return !!APL.sys.pref("visualEffects");
     }
 
     function apply() {
         body = document.body;
         if (!body) return;
-        /* No perf gate any more: this material is a picture, not a live filter. The
-           screen's light mode keeps the plain fills (glass.css hides the panes). */
+        /* One switch for both: Visual Effects is the only gate, so turning it
+           off leaves the screen on the plain fills this replaces. */
         var on = skinOn();
         body.classList.toggle("glass", on);
         if (!on) { baked = ""; bakedFrom = ""; wanted = ""; drop(); return; }
@@ -521,7 +522,7 @@
 
     function start() {
         apply();
-        if (APL.sys && APL.sys.onPref) APL.sys.onPref("liquidGlass", apply);
+        if (APL.sys && APL.sys.onPref) APL.sys.onPref("visualEffects", apply);
         /* The pref store and the screen settle at their own pace, and this used
            to bail out here for good if the class was not on the body yet: one
            boot-order race and the glass never came on at all, which is what

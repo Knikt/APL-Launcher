@@ -450,11 +450,23 @@
                 if (it.start) rounds.style.justifyContent = "flex-start";      // Search sits at the left edge
                 rounds.appendChild(t);
             } else {
-                if (rounds && it.cls !== "round") { body.appendChild(captionEl = el("div", "cc__caption")); rounds = null; }
+                if (rounds && it.cls !== "round") {
+                    captionEl = el("div", "cc__caption");
+                    captionEl.__group = rounds;             // the circles this label names
+                    body.appendChild(captionEl);
+                    rounds = null;
+                }
                 body.appendChild(t);
             }
             focusables.push(t);
         });
+        /* A round row can be the last group (Search sits on its own): it needs
+           its caption all the same, since the circles carry no label. */
+        if (rounds) {
+            captionEl = el("div", "cc__caption");
+            captionEl.__group = rounds;
+            body.appendChild(captionEl);
+        }
         focusables.forEach(function (t) {
             if (t._item.type === "backlight") {
                 sys.tvItem("backlight").then(function (m) {
@@ -473,16 +485,29 @@
         if (view === "audio" && !keepFocus) focusables.forEach(function (t, i) { if (t._item.check && t._item.check() && !start) start = i; });
         if (view === "pair" || keepFocus) start = Math.min(keep || 0, focusables.length - 1);
         nav.focus(start);
+        paintCaption(nav.current());
     }
 
     function captionOf(it) {
-        if (it.cls !== "round") return "";
+        if (!it || it.cls !== "round") return "";
         return it.sub ? it.title + " · " + it.sub() : it.title;
+    }
+
+    /* The round buttons carry no label of their own, so the row under them does.
+       There is more than one round row (Game Mode… Sources, then Search), so the
+       label is written on the caption that belongs to the focused circle's row
+       and every other one is left empty. */
+    function paintCaption(t) {
+        var caps = body ? body.querySelectorAll(".cc__caption") : [], i, g;
+        for (i = 0; i < caps.length; i++) {
+            g = caps[i].__group;
+            caps[i].textContent = (t && g && g.contains(t)) ? captionOf(t._item) : "";
+        }
     }
 
     function refresh() {
         nav.tiles.forEach(function (t) { if (t._item.type !== "backlight") draw(t._item, t); });
-        if (captionEl && nav.current()) captionEl.textContent = captionOf(nav.current()._item);
+        paintCaption(nav.current());
         var d = new Date(), h = d.getHours(), m = String(d.getMinutes()).padStart(2, "0");
         timeEl.textContent = sys.pref("clock24") ? String(h).padStart(2, "0") + ":" + m : ((h % 12) || 12) + ":" + m;
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
@@ -516,7 +541,7 @@
         nav = new APL.Nav({
             onFocus: function (i, t) {
                 ensureVisible(t);
-                if (captionEl) captionEl.textContent = captionOf(t._item);
+                paintCaption(t);
             },
             onSelect: function (i, t) {
                 var it = t._item;

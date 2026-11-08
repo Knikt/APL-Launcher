@@ -89,8 +89,22 @@
        Appearance › Dynamic Backdrops turns it off, and every app gets its artwork back. */
     function backdropPick(app) {
         if (!APL.appArt || !APL.appArt.pick) return null;
-        if (APL.sys.pref("cleanFrameBackdrops") === false) return null;
+        /* Opt-in, and a fallback only: the catalogue answers where an app has
+           nothing of its own to show. It is never shown in place of an app's
+           artwork, its Smart Hub rows (What's Popular, Plex, Spotify) or its
+           Continue Watching (Stremio, Nuvio, Hot Player, APL TV). */
+        if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
+        if (artOf(app)) return null;
+        if (ownShelf(app)) return null;
         try { return APL.appArt.pick(app); } catch (e) { return null; }
+    }
+
+    /* Apps that bring a Top Shelf of their own, by name: the package ids differ
+       between storefronts, the names do not. Whatever they show is theirs. */
+    var OWN_SHELF = /plex|spotify|stremio|nuvio|hot ?player|apl ?tv|aquaplay|emby|jellyfin|kodi/i;
+    function ownShelf(app) {
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) return true;
+        return OWN_SHELF.test(String(app && app.name || ""));
     }
 
     /* Title and year under the poster, where the Top Shelf puts its own. */
@@ -900,20 +914,14 @@
        the artwork back without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
-        /* One poster per app, or the storefront's Top Shelf row: they would be
-           fighting over the same backdrop, so turning the backdrops on turns
-           What's Popular off (Settings › Appearance › Top Shelf). */
-        function onlyOne() {
-            if (APL.sys.pref("cleanFrameBackdrops") === false) return;
-            if (APL.sys.pref("liveShelf")) APL.sys.setPref("liveShelf", false);
-        }
-        onlyOne();
+        /* Nothing is turned off to make room: the catalogue is a fallback, so
+           What's Popular stays on and keeps its place for every app that has
+           something of its own to show. */
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
         });
-        APL.sys.onPref("cleanFrameBackdrops", function (v) {
-            if (v) onlyOne();
+        APL.sys.onPref("cleanFrameBackdrops", function () {
             dropLayers();
             var app = apps[lastFocus];
             if (app && mode !== "grid") setBackdrop(app, true);   // the user asked for it
