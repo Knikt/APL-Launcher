@@ -170,7 +170,10 @@
            THAT element is one canvas pass: no second fetch of a 1080p file, no
            second decode. Re-fetching here is why the pane trailed the picture by
            an app, a second at a time on a cold row. */
-        if (el) {
+        /* Only a same-origin bitmap can be read back out of a canvas: an <img>
+           straight from image.tmdb.org taints it and toDataURL throws, which left
+           every TMDB pane empty. Such a picture keeps the blob fetch below. */
+        if (el && /^(data:|blob:)/i.test(el.currentSrc || el.src || "")) {
             img = el;
             started = true;
             if (el.decode) el.decode().then(paintSource, paintSource);

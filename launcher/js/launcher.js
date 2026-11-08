@@ -654,12 +654,18 @@
            it can never be painted a band at a time. */
         showPicture(next, item.bg, function (pic) {
             if (bgActive === next) return;                 // already on screen
-            /* The pane is made from the picture's own bitmap before the layer is
-               faded in, so the dock changes with the backdrop and not after it. */
-            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, null, pic);
-            fadeTo(next);
-            refreshGlass();
-            shelfInfo(item);
+            /* The pane is ready before the picture is faded in, so the dock,
+               the pill and the Control Center change with the backdrop instead
+               of a second behind it - the poster of the last app under a new
+               one. A pane that cannot be made answers at once, so nothing is
+               ever held back by glass. */
+            var go = function () {
+                if (bgActive === next) return;
+                fadeTo(next);
+                refreshGlass();
+                shelfInfo(item);
+            };
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic); else go();
         });
     }
 
@@ -676,6 +682,15 @@
         dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
             : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
         openHint();
+    }
+
+    /* The pane for the title that comes next is baked while this one is on
+       screen: the twenty-second change then lands on a slice that is already
+       made, instead of the dock finishing a bake after the picture changed. */
+    function warmNext(items, i) {
+        if (!APL.glass || !APL.glass.prefetch || !items || !items.length) return;
+        var item = items[i % items.length];
+        if (item && item.bg) APL.glass.prefetch(item.bg);
     }
 
     /* A new full-screen image costs 100 ms: as rarely as possible, and never while navigating. */
@@ -701,11 +716,13 @@
                 if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
                 var n = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
+                warmNext(items, 1);
                 liveRotate = setInterval(function () {
                     if (mode === "grid") return;                 // paused under the grid
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
                     setLiveBackdrop(app, items[n], n, items, 0);
+                    warmNext(items, n + 1);
                 }, LIVE_ROTATE_MS);
             });
         }, 650);
