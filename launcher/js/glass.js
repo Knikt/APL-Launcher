@@ -58,7 +58,9 @@
         /* The backdrop is an <img> inside the layer (launcher.js showPicture):
            that bitmap is painted whole, where a background filled itself in a
            line at a time as it decoded. */
-        var pic = el.querySelector ? el.querySelector("img") : null;
+        /* Not the brand card's logo: that is an <img> too, and slicing it put a
+           blurred app icon behind the dock on every channel without artwork. */
+        var pic = el.querySelector ? el.querySelector("img:not(.brandcard__icon)") : null;
         if (pic && pic.currentSrc) return pic.currentSrc;
         var bg = global.getComputedStyle(el).backgroundImage || "";
         var m = /url\(["']?([^"')]+)["']?\)/.exec(bg);
@@ -99,7 +101,13 @@
     }
 
     function scene() {
-        return urlOf(sceneEl()) || urlOf($("bgA")) || urlOf($("bgB"));
+        /* The layer on screen decides, including when its answer is "no picture":
+           Settings and a channel with no artwork are a gradient. Falling through
+           to bgA/bgB here read a layer that is still fading out, so leaving an app
+           for Settings kept the app's film under the dock and the pill. */
+        var el = sceneEl();
+        if (el) return urlOf(el);
+        return urlOf($("bgA")) || urlOf($("bgB"));
     }
 
     /* The pane for each artwork is rendered once and kept, so a picture that

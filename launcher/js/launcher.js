@@ -237,7 +237,7 @@
        decode has finished is painted whole. The layer keeps its own colour
        underneath and the glass reads the picture from the element (glass.js). */
     function showPicture(layer, url, then) {
-        var pic = layer.querySelector("img");
+        var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
         if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
             if (then) then(pic);                                 // the same picture, already decoded
             return;
@@ -355,7 +355,6 @@
         var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
-        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
         if (apps.indexOf(app) < DOCK_SIZE) {
             /* The picture is decoded before its layer is shown. A cover
                background resolves its percentages against the loaded image, so a
@@ -366,11 +365,13 @@
             if (!image) {
                 if (token !== backdropToken) return;
                 showLayer(dockLayer, app);
+                refreshGlass();
                 return;
             }
             showPicture(dockLayer, image, function () {
                 if (token !== backdropToken) return;
                 showLayer(dockLayer, app);
+                refreshGlass();
             });
             return;
         }
@@ -381,10 +382,11 @@
             next.innerHTML = "";
             next.style.background = image ? "#000" : backdropFor(app);
             if (!image && !plain(app)) next.appendChild(brandCard(app));
-            if (!image) { showLayer(next, app); return; }
+            if (!image) { showLayer(next, app); refreshGlass(); return; }
             showPicture(next, image, function () {
                 if (token !== backdropToken) return;
                 showLayer(next, app);
+                refreshGlass();
             });
         });
     }
@@ -467,6 +469,14 @@
         whenDecoded(pick.url, function () {
             if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply); else apply();
         });
+    }
+
+    /* The frosted panes follow the layer that is on screen. Refreshing before the
+       new layer was shown made the glass read the OLD one: moving to an app with
+       no picture (Settings) left the previous film baked in the dock and the pill. */
+    function refreshGlass() {
+        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
+        if (APL.glass && APL.glass.paint) APL.glass.paint();
     }
 
     /* An app's real icon, served by Vetro (fallback when the Tizen path can't be read). */
@@ -638,6 +648,7 @@
         showPicture(next, item.bg, function () {
             if (bgActive === next) return;                 // already on screen
             fadeTo(next);
+            refreshGlass();                                // panes follow the picture now on screen
             shelfInfo(item);
         });
     }
