@@ -470,7 +470,11 @@
                 card.style.background = "rgb(" + d[0] + "," + d[1] + "," + d[2] + ")";
                 app.edge = "#" + [d[0], d[1], d[2]].map(function (v) { return ("0" + v.toString(16)).slice(-2); }).join("");
                 // The background shown for this app takes its icon's real colour.
-                if (bgActive && bgActive.dataset.app === app.id) bgActive.style.background = backdropFor(app);
+                /* Never over a poster: the layer carrying the film from the catalogue
+                   has this app's id too, and repainting it here put the app's own
+                   picture back over the film - the backdrop that seemed to reload
+                   itself on the first pass along the dock. */
+                if (bgActive && bgActive.dataset.app === app.id && !bgActive.dataset.poster) bgActive.style.background = backdropFor(app);
             }
         } catch (e) { /* image from another origin: keep the default colour */ }
     }
