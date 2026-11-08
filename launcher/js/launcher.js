@@ -395,14 +395,22 @@
             next.dataset.app = app.id;
             next.dataset.poster = pick.url;
             next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
-            showLayer(next, app);
-            /* The picture is on screen: the glass must re-read the scene now.
-               Painting alone kept the pane baked for the app's own artwork when
-               the poster had not been baked yet, so the dock and every Control
-               Center tile carried that blurred app backdrop instead of the
-               picture behind them - worst on a first scroll through the apps. */
-            if (APL.glass && APL.glass.refresh) APL.glass.refresh();
-            if (APL.glass && APL.glass.paint) APL.glass.paint();
+            /* Setting the background starts the layer's own decode. Showing the
+               layer before that decode has finished is what painted a poster in
+               bands from the top the first time the row was scrolled: the file is
+               a progressive JPEG, and the browser fills it in as it decodes. The
+               fade waits for this copy, not for the preload's. */
+            whenDecoded(pick.url, function () {
+                if (token !== backdropToken) return;
+                showLayer(next, app);
+                /* The picture is on screen: the glass must re-read the scene now.
+                   Painting alone kept the pane baked for the app's own artwork when
+                   the poster had not been baked yet, so the dock and every Control
+                   Center tile carried that blurred app backdrop instead of the
+                   picture behind them - worst on a first scroll through the apps. */
+                if (APL.glass && APL.glass.refresh) APL.glass.refresh();
+                if (APL.glass && APL.glass.paint) APL.glass.paint();
+            });
             /* The next title's pane is made while this one is on screen, so the
                ten-second change lands on a slice that is already rendered. */
             if (APL.glass && APL.glass.prefetch) {
@@ -578,8 +586,14 @@
         next.dataset.app = tag;
         motion(next);
         wantBlur(item.bgSmall || null, app, null);
-        fadeTo(next);
-        shelfInfo(item);
+        /* The same rule as a poster (setPoster): the Top Shelf picture from
+           TMDB, Plex or YouTube is revealed once its own decode is done, or a
+           progressive JPEG shows up a band at a time from the top. */
+        whenDecoded(item.bg, function () {
+            if (bgActive === next) return;                 // already on screen
+            fadeTo(next);
+            shelfInfo(item);
+        });
     }
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
