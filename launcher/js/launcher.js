@@ -293,6 +293,15 @@
             next.classList.remove("is-instant");
             hideLayer(old);                                       // the old one fades out over it
         }
+        /* Whatever path was taken, one backdrop is on screen when the fade is
+           over. A poster that never got hidden - the show of the app just left,
+           under a channel with no show of its own - is cleared here. */
+        setTimeout(function () {
+            var list = document.querySelectorAll(".bg.is-active"), i;
+            for (i = 0; i < list.length; i++) {
+                if (list[i] !== bgActive) hideLayer(list[i]);
+            }
+        }, FADE_MS + 120);
     }
     function hideLayer(l) {
         if (l === bgActive) return;                               // shown again in the meantime
