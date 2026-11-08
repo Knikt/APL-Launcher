@@ -427,7 +427,7 @@
         body.className = "cc__body cc__body--" + view;
         scrollY = 0;
         body.style.transform = "translateY(0)";
-        var focusables = [], rounds = null;
+        var focusables = [], rounds = null, roundGroup = null;
         captionEl = null;
         items.forEach(function (it) {
             if (it.cls === "head") {
@@ -446,15 +446,24 @@
             t._item = it;
             draw(it, t);
             if (it.cls === "round") {
-                if (!rounds) { rounds = el("div", "cc__rounds"); body.appendChild(rounds); }
+                /* The label lives in the same box as the circles it names, so it
+                   can never be laid out away from them (or clipped): the circles
+                   carry no text, this line is their only label. */
+                if (!rounds) {
+                    rounds = el("div", "cc__rounds");
+                    roundGroup = el("div", "cc__roundgroup");
+                    roundGroup.appendChild(rounds);
+                    body.appendChild(roundGroup);
+                }
                 if (it.start) rounds.style.justifyContent = "flex-start";      // Search sits at the left edge
                 rounds.appendChild(t);
             } else {
                 if (rounds && it.cls !== "round") {
                     captionEl = el("div", "cc__caption");
                     captionEl.__group = rounds;             // the circles this label names
-                    body.appendChild(captionEl);
+                    roundGroup.appendChild(captionEl);
                     rounds = null;
+                    roundGroup = null;
                 }
                 body.appendChild(t);
             }
@@ -465,7 +474,7 @@
         if (rounds) {
             captionEl = el("div", "cc__caption");
             captionEl.__group = rounds;
-            body.appendChild(captionEl);
+            roundGroup.appendChild(captionEl);
         }
         focusables.forEach(function (t) {
             if (t._item.type === "backlight") {

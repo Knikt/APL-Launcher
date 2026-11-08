@@ -95,6 +95,11 @@
            the setting doing nothing on most of the wall; those shelves are
            handed over instead (see startBackdrops). */
         if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
+        /* A fallback, never a replacement: an app with a Top Shelf of its own -
+           What You're Watching, What's Popular (TMDB), Plex, Spotify, and the
+           players' Continue Watching (Stremio, Nuvio, Hot Player, APL TV) - keeps
+           it, and the catalogue only fills in where there is nothing else. */
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) return null;
         /* Only a real streaming service, and only one the catalogue can name:
            Settings, TizenTube, Sources, Smart Hub, folders and TV inputs keep
            their own artwork. */
@@ -1016,41 +1021,21 @@
        the artwork back without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
-        /* The catalogue owns the picture once it is on, so the two shelves that
-           would stand in the same place step aside: What You're Watching and
-           What's Popular. Their values are kept, and given back when the
-           setting is turned off again. */
-        var KEEP = "shelfBeforeBackdrops";
-        function takeShelves() {
-            if (APL.sys.pref("cleanFrameBackdrops") !== true) return;
-            if (!APL.sys.pref(KEEP)) {
-                APL.sys.setPref(KEEP, { hubShelf: APL.sys.pref("hubShelf") !== false,
-                                        liveShelf: APL.sys.pref("liveShelf") !== false });
-            }
-            if (APL.sys.pref("hubShelf") !== false) APL.sys.setPref("hubShelf", false);
-            if (APL.sys.pref("liveShelf") !== false) APL.sys.setPref("liveShelf", false);
-        }
-        function giveShelves() {
-            var was = APL.sys.pref(KEEP);
-            if (!was) return;
-            APL.sys.setPref("hubShelf", was.hubShelf !== false);
-            APL.sys.setPref("liveShelf", was.liveShelf !== false);
-            APL.sys.setPref(KEEP, null);
-        }
-        takeShelves();
+        /* The catalogue is a fallback, not a replacement: an app that has
+           something of its own to show keeps it. Nothing switches the shelves
+           off behind the setting's back any more, so the Top Shelf and the
+           catalogue can never fight over the same picture. */
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
         });
         APL.sys.onPref("cleanFrameBackdrops", function (v) {
-            if (v) { takeShelves(); stopLive(); } else giveShelves();
             dropLayers();
             var app = apps[lastFocus];
             if (!app || mode === "grid") return;
             setBackdrop(app, true);                              // the user asked for it
-            /* Give the shelves back, and their picture with them: the app in
-               focus shows what it is playing now straight away, instead of
-               keeping its own artwork until it is left and come back to. */
+            /* Back to the app's own shelf, with its picture straight away,
+               instead of keeping the artwork until it is left and come back to. */
             if (!v) startLive(app);
         });
     }
