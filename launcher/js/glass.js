@@ -515,23 +515,18 @@
         });
     };
 
-    /* Settings > Appearance > Visual Effects: the same switch the dock, the
-       Control Center and the status pill already answered to. This material
-       replaces that one in place rather than sitting beside it with a switch of
-       its own, and off brings the plain translucent fills straight back. */
-    function skinOn() {
-        if (!APL.sys || !APL.sys.pref) return true;
-        return !!APL.sys.pref("visualEffects");
-    }
+    /* Liquid Glass is always on: these panes are static slices baked once per
+       picture, so they have nothing to switch off. Visual Effects keeps its own
+       job - the live blur behind Settings, menus, toasts, Search and the grid's
+       wallpaper - which is the costly one and stays off by default. */
+    function skinOn() { return true; }
 
     function apply() {
         body = document.body;
         if (!body) return;
-        /* One switch for both: Visual Effects is the only gate, so turning it
-           off leaves the screen on the plain fills this replaces. */
-        var on = skinOn();
-        body.classList.toggle("glass", on);
-        if (!on) { baked = ""; bakedFrom = ""; wanted = ""; drop(); return; }
+        /* Always on: the pane is a frozen slice, not a filter, so it is not
+           tied to Visual Effects (the live blur) at all. */
+        body.classList.add("glass");
         refresh();
         wire();
     }
@@ -584,7 +579,6 @@
 
     function start() {
         apply();
-        if (APL.sys && APL.sys.onPref) APL.sys.onPref("visualEffects", apply);
         /* The pref store and the screen settle at their own pace, and this used
            to bail out here for good if the class was not on the body yet: one
            boot-order race and the glass never came on at all, which is what

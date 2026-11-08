@@ -460,6 +460,11 @@
             }
             focusables.push(t);
         });
+        /* A row with one circle (Search sits on its own) does not need the height
+           of a row of four: it stays the small button it was. */
+        [].forEach.call(body.querySelectorAll(".cc__rounds"), function (r) {
+            if (r.children.length === 1) r.classList.add("cc__rounds--solo");
+        });
         /* A round row can be the last group (Search sits on its own): it needs
            its caption all the same, since the circles carry no label. */
         if (rounds) {

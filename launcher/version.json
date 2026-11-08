@@ -2,7 +2,7 @@
  "version": "1.0.21",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "The launcher stays in memory, no Samsung home after a full start, Samsung's menus without Vetro, Tizen 4 start-up fix, softer clicks, Setup signing fix",
+ "notes": "Liquid Glass is always on for the dock, the status pill and Control Centre; Control Centre sits on a fixed grid; Dynamic Backdrops only loads when it is on.",
  "scripts": [
   "js/diag.js",
   "js/lang-fr.js",

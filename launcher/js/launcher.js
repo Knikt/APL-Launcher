@@ -1037,24 +1037,31 @@
     /* The catalogue is in flight while the dock is already up: the poster of the app in
        focus replaces its artwork as soon as it lands, and turning the setting off puts
        the artwork back without a restart. */
+    /* The catalogue is a fallback, and it costs two requests: nothing is fetched
+       until Dynamic Backdrops is turned on. A boot with the setting off (the
+       default) must not reach JustWatch at all. Turning it on loads the list and
+       paints the app in focus; turning it off puts that app's own artwork and
+       its Top Shelf straight back, without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
-        /* The catalogue is a fallback, not a replacement: an app that has
-           something of its own to show keeps it. Nothing switches the shelves
-           off behind the setting's back any more, so the Top Shelf and the
-           catalogue can never fight over the same picture. */
+        APL.sys.onPref("cleanFrameBackdrops", function (v) {
+            dropLayers();
+            if (v) {
+                APL.appArt.start(function () {
+                    var app = apps[nav.index];
+                    if (app && mode !== "grid") setBackdrop(app, true);
+                });
+                return;
+            }
+            var app = apps[lastFocus];
+            if (!app || mode === "grid") return;
+            setBackdrop(app, true);                              // the app's artwork, not a poster
+            startLive(app);                                      // its own shelf, straight away
+        });
+        if (APL.sys.pref("cleanFrameBackdrops") !== true) return;
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
-        });
-        APL.sys.onPref("cleanFrameBackdrops", function (v) {
-            dropLayers();
-            var app = apps[lastFocus];
-            if (!app || mode === "grid") return;
-            setBackdrop(app, true);                              // the user asked for it
-            /* Back to the app's own shelf, with its picture straight away,
-               instead of keeping the artwork until it is left and come back to. */
-            if (!v) startLive(app);
         });
     }
 
@@ -1221,8 +1228,6 @@
         APL.launchApp(app.id).catch(function (err) { hideVeil(); toast(err.message || APL.t("Couldn't open the app")); });
     };
     APL.makeTile = makeTile;
-    /* Settings > Rearrange: the same mode as holding OK on a tile. */
-    APL.startEdit = startEdit;
 
     function hideApp(app) {
         var hidden = APL.sys.pref("hiddenApps").slice();

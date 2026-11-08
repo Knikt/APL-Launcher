@@ -97,8 +97,7 @@
                             APL.t("Optional: HD backgrounds for movies and shows. Set it in APL Launcher Setup."))
                     ], APL.t("The keys are set in APL Launcher Setup, on the PC."))
                 ], APL.t("The Top Shelf shows the first one available, top to bottom. Turn one off to skip it.")),
-                toggle(APL.t("Visual Effects"), "visualEffects",
-                    APL.t("The dock, the status pill and Control Center take the picture behind them, frosted: the blur is baked once per picture, so it costs the screen almost nothing. Off keeps the plain fills.")),
+                toggle(APL.t("Visual Effects"), "visualEffects", APL.t("Blur and glass. Prettier but slower: off by default so the screen stays smooth.")),
                 toggle(APL.t("Dynamic Backdrops"), "cleanFrameBackdrops",
                     APL.t("A film or series that service streams right now, on the apps that have nothing of their own to show: the storefront's trending list for your country (JustWatch, no key). Apps with a Top Shelf keep it - What You're Watching, What's Popular, Plex, Spotify and the players' Continue Watching come first.")),
                 toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down."))
@@ -113,12 +112,8 @@
                 ].concat(apps.map(function (a) {
                     return { type: "hide", label: a.name, id: a.id, desc: APL.t("OK to show or hide “{name}” on the Home Screen.", { name: a.name }) };
                 })), APL.t("Choose the apps shown on the Home Screen.")),
-                action(APL.t("Rearrange"), function () {
-                    APL.settings.close();
-                    var first = APL.allApps ? APL.allApps()[0] : null;
-                    if (!first || !APL.startEdit) { APL.toast(APL.t("Nothing to move yet")); return; }
-                    APL.startEdit(first.id);
-                }, APL.t("On the Home Screen, hold OK on an app: Edit Home Screen, Hide App or Delete App. This puts the first app in that mode, to move it with the arrows."), "grid"),
+                info(APL.t("Rearrange"), function () { return APL.t("Hold OK"); },
+                    APL.t("On the Home Screen, hold OK on an app: Edit Home Screen, Hide App or Delete App.")),
                 action(APL.t("Reset Home Screen"), function () {
                     if (APL.resetHomeOrder) APL.resetHomeOrder();
                     APL.toast(APL.t("Original layout restored"), true);

@@ -5,16 +5,17 @@
    backdrop-filter. On a Tizen set that is the most expensive thing
    on screen: the blur is re-run every time a tile scales on focus
    or a panel slides in. glass.js bakes the backdrop once per
-   picture into a small canvas (960x540, blur 18 px) and lays that
-   frozen copy under each surface, sliced with background-position
-   so the picture looks continuous through the glass. Moving focus,
-   opening a panel or changing the artwork then only changes
-   background-position: nothing filters, nothing is drawn per frame.
+   picture (a 48x27 sample upscaled to 480x270, brightness baked
+   in) and lays that frozen copy under each surface, sliced with
+   background-position so the picture looks continuous through the
+   glass. Moving focus, opening a panel or changing the artwork then
+   only changes background-position: nothing filters, nothing is
+   drawn per frame.
 
-   The sheen is 5 %: enough to read as a lit pane, low enough to
-   keep the artwork's colours. Everything is behind body.glass, so
-   turning Liquid Glass off in Settings brings the plain translucent
-   fills straight back.
+   This is always on, in place of the static gradients that came
+   before it: a frozen slice costs the animation path nothing.
+   Visual Effects is the live blur (Settings, menus, toasts, Search,
+   the grid's wallpaper) and keeps its own switch.
    ============================================================ */
 
 /* One timing for the picture and for the glass over it: the same length and
@@ -94,5 +95,6 @@ body.glass .scard__art--glass > :not(.cg__glass) { position: relative; z-index: 
 body.glass .cc__t.is-focused { background: #f5f5f7; }
 body.glass .cc__t.is-focused .cg__glass { opacity: 0; }
 
-/* The screen's light mode (launcher.js applyPerf): no lens at all. */
-body.perf .cg__glass { display: none; }
+/* The screen's light mode (launcher.js applyPerf) no longer hides the pane: the
+   glass is a frozen slice baked once per picture, so it costs nothing on the
+   animation path and is not something Visual Effects should take away. */
