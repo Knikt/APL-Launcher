@@ -237,7 +237,13 @@
        decode has finished is painted whole. The layer keeps its own colour
        underneath and the glass reads the picture from the element (glass.js). */
     function showPicture(layer, url, then) {
-        var pic = document.createElement("img");
+        var pic = layer.querySelector("img");
+        if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
+            if (then) then(pic);                                 // the same picture, already decoded
+            return;
+        }
+        if (pic) pic.parentNode.removeChild(pic);
+        pic = document.createElement("img");
         pic.alt = "";
         pic.decoding = "sync";
         pic.src = url;
@@ -254,7 +260,10 @@
         if (layers[app.id]) return layers[app.id];
         var l = document.createElement("div");
         l.className = "bg";
-        l.style.background = backdropFor(app);
+        /* Artwork is the layer's picture, an <img> (showPicture), not a
+           background: a background on this full-screen layer was painted as the
+           file decoded, a line at a time from the top. */
+        l.style.background = artOf(app) ? "#000" : backdropFor(app);
         if (!artOf(app) && !plain(app)) l.appendChild(brandCard(app));
         l.dataset.app = app.id;
         dom.bgA.parentNode.insertBefore(l, dom.bgA);
@@ -353,9 +362,15 @@
                layer shown first paints at the top of the box and snaps to centre
                when the file lands - the picture that "loads from the top" the
                first time an app is visited. */
-            whenDecoded(image, function () {
+            var dockLayer = layerFor(app);
+            if (!image) {
                 if (token !== backdropToken) return;
-                showLayer(layerFor(app), app);
+                showLayer(dockLayer, app);
+                return;
+            }
+            showPicture(dockLayer, image, function () {
+                if (token !== backdropToken) return;
+                showLayer(dockLayer, app);
             });
             return;
         }
@@ -364,9 +379,13 @@
             if (token !== backdropToken) return;          // another app was selected in the meantime
             var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
             next.innerHTML = "";
-            next.style.background = backdropFor(app);
+            next.style.background = image ? "#000" : backdropFor(app);
             if (!image && !plain(app)) next.appendChild(brandCard(app));
-            showLayer(next, app);
+            if (!image) { showLayer(next, app); return; }
+            showPicture(next, image, function () {
+                if (token !== backdropToken) return;
+                showLayer(next, app);
+            });
         });
     }
 
@@ -625,11 +644,16 @@
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
     function shelfInfo(item) {
-        var has = !!(item && (item.type || item.poster));
+        /* A film or a series has a type; a video, an album or a game says where it
+           comes from ("TizenTube", "Top albums"): that is what goes under the
+           title, so What You're Watching names what it is showing on every app
+           and not only on the film ones. */
+        var has = !!(item && (item.type || item.poster || (item.title && item.sub)));
         dom.shelfInfo.classList.toggle("is-visible", has);
         if (!has) return;
         dom.shelfTitle.textContent = item.title;
-        dom.shelfMeta.textContent = item.meta !== undefined ? item.meta : APL.live.metaOf(item);
+        dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
+            : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
         openHint();
     }
 
