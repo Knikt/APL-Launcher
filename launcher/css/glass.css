@@ -54,7 +54,8 @@ body.glass .scard__art--glass {
    stage, and that drift is the shimmer the dock and the pill were showing: with
    the glass on, a backdrop change is a plain crossfade (launcher.css). */
 body.glass .bg.is-motion,
-body.glass .bg.is-slide { animation: none; }
+body.glass .bg.is-slide,
+body.glass .bg.is-slide > img { animation: none; }
 
 /* A hairline of light along the top edge: the reflection of a lit room. */
 .cg__glass::before {

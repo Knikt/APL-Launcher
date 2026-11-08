@@ -55,6 +55,11 @@
 
     function urlOf(el) {
         if (!el) return "";
+        /* The backdrop is an <img> inside the layer (launcher.js showPicture):
+           that bitmap is painted whole, where a background filled itself in a
+           line at a time as it decoded. */
+        var pic = el.querySelector ? el.querySelector("img") : null;
+        if (pic && pic.currentSrc) return pic.currentSrc;
         var bg = global.getComputedStyle(el).backgroundImage || "";
         var m = /url\(["']?([^"')]+)["']?\)/.exec(bg);
         return m ? m[1] : "";

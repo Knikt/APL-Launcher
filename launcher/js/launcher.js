@@ -230,6 +230,23 @@
         else { im.onload = then; im.onerror = then; }
     }
 
+    /* The picture itself, as an <img> that is decoded before it is shown. As a
+       CSS background on a full-screen layer the browser painted the file as it
+       decoded, so a backdrop filled in a line at a time from the top - every
+       time the row was scrolled, not only on the first pass. An <img> whose
+       decode has finished is painted whole. The layer keeps its own colour
+       underneath and the glass reads the picture from the element (glass.js). */
+    function showPicture(layer, url, then) {
+        var pic = document.createElement("img");
+        pic.alt = "";
+        pic.decoding = "sync";
+        pic.src = url;
+        layer.appendChild(pic);
+        function done() { if (then) then(pic); }
+        if (pic.decode) pic.decode().then(done, done);
+        else { pic.onload = done; pic.onerror = done; }
+    }
+
     /* Drawing a full-screen image takes 100 ms on the M8, whatever the effect: the dock
        backgrounds stay ready in invisible layers, and switching between them redraws nothing. */
     var layers = {};
@@ -403,13 +420,11 @@
             }
             next.dataset.app = app.id;
             next.dataset.poster = pick.url;
-            next.style.background = "#000 center / cover no-repeat url('" + pick.url + "')";
-            /* Setting the background starts the layer's own decode. Showing the
-               layer before that decode has finished is what painted a poster in
-               bands from the top the first time the row was scrolled: the file is
-               a progressive JPEG, and the browser fills it in as it decodes. The
-               fade waits for this copy, not for the preload's. */
-            whenDecoded(pick.url, function () {
+            /* The picture is an <img> now (showPicture): a CSS background painted
+               itself in as it decoded, which is the poster that arrived a line at
+               a time from the top on every pass along the row. The layer is shown
+               once that image's own decode is done. */
+            showPicture(next, pick.url, function () {
                 if (token !== backdropToken) return;
                 showLayer(next, app);
                 /* The picture is on screen: the glass must re-read the scene now.
@@ -595,14 +610,13 @@
         if (bgActive.dataset.app === tag) return;
         var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
         next.innerHTML = "";
-        next.style.background = "#000 center / cover no-repeat url('" + item.bg + "')";
         next.dataset.app = tag;
         motion(next);
         wantBlur(item.bgSmall || null, app, null);
         /* The same rule as a poster (setPoster): the Top Shelf picture from
-           TMDB, Plex or YouTube is revealed once its own decode is done, or a
-           progressive JPEG shows up a band at a time from the top. */
-        whenDecoded(item.bg, function () {
+           TMDB, Plex or YouTube is an <img> revealed once its decode is done, so
+           it can never be painted a band at a time. */
+        showPicture(next, item.bg, function () {
             if (bgActive === next) return;                 // already on screen
             fadeTo(next);
             shelfInfo(item);

@@ -57,6 +57,18 @@ html, body {
     will-change: opacity, transform;                 /* layer ready in advance: the fade redraws nothing */
 }
 .bg.is-active { opacity: 1; }
+/* A backdrop picture is an <img> (launcher.js showPicture): a decoded bitmap is
+   painted whole, where a CSS background on this layer filled itself in a line at
+   a time from the top as it decoded. */
+.bg > img {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+}
+.bg.is-slide > img { animation: bgSlideImg var(--glass-ms, 460ms) var(--glass-ease, ease) both; }
+@keyframes bgSlideImg { from { transform: translateX(40px); } to { transform: translateX(0); } }
+.mode-grid .bg.is-slide > img, .perf .bg.is-slide > img, .reduce-motion .bg.is-slide > img { animation: none; }
 .bg.is-instant { transition: none; }                 /* shown at once under the one fading out (launcher.js) */
 /* A backdrop change slides in as it fades, so a new app, the next title or a
    step along the row all read as one movement. */
