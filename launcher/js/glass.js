@@ -417,9 +417,14 @@
         if (!src) { call(); return; }
         if (src === bakedFrom && baked) { call(); return; }
         bake(src, call);
-        /* A bake can fail (artwork without CORS, no canvas): the picture must
-           still change, so the caller is never left waiting for it. */
-        global.setTimeout(call, 450);
+        /* A bake can fail (artwork without CORS, no canvas, a dead server): the
+           picture must still change, so the caller is never left waiting for it,
+           and a failure answers at once. A bake that is merely slow is worth
+           waiting for: a catalogue picture seen for the first time is a fetch of
+           a 1080p file, and cutting it off at 450 ms swapped the picture while
+           the dock still sliced the one before it - the pane that caught up a
+           second later, on the first pass through the apps only. */
+        global.setTimeout(call, 1200);
     }
 
     function refresh() {
