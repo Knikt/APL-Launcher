@@ -2,7 +2,7 @@
  "version": "1.0.23",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "Start on APL Launcher works from its switch, and Liquid Glass in the Control Center and Sources matches the darkened screen",
+ "notes": "",
  "scripts": [
   "js/diag.js",
   "js/lang-fr.js",
