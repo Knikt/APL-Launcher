@@ -176,6 +176,7 @@
     for (i = 0; i < list.length; i++) out.push({ id: list[i].id, name: list[i].name, icon: 'home' });
     /* Last row: the door back to the connect screen, so a wrong server or a
        finished test never needs a reinstall to get rid of. */
+    out.push({ id: 'backdrop', name: t('Backdrop'), icon: 'switch' });
     out.push({ id: 'edit', name: t(editMode ? 'Done' : 'Edit Layout'), icon: 'plus' });
     var gone = (ha && ha.hiddenDevices) ? ha.hiddenDevices().length : 0;
     if (gone) out.push({ id: 'hidden', name: t('Hidden') + ' (' + gone + ')', icon: 'more' });
@@ -325,22 +326,18 @@
 
       '<div class="ha-setup" id="haSetup" hidden>' +
         '<h1 class="ha-setup-title">' + t('Connect to Home Assistant') + '</h1>' +
-        '<p class="ha-setup-lead">' + t('Sign in once with the account you already use, or paste a long-lived access token (Profile -> Security).') + '</p>' +
+        '<p class="ha-setup-lead">' + t('Paste a long-lived access token from Home Assistant: profile, Security tab, Long-lived access tokens.') + '</p>' +
         '<div class="ha-field"><span class="ha-field-name">' + t('Address') + '</span>' +
           '<input type="text" id="haUrl" spellcheck="false" autocomplete="off" ' +
           'placeholder="http://homeassistant.local:8123"></div>' +
         '<div class="ha-field"><span class="ha-field-name">' + t('Token') + '</span>' +
           '<input type="text" id="haToken" spellcheck="false" autocapitalize="off" autocomplete="off" ' +
           'placeholder="' + t('Long-lived access token, if you made one') + '"></div>' +
-        '<div class="ha-field"><span class="ha-field-name">' + t('Username') + '</span>' +
-          '<input type="text" id="haUser" spellcheck="false" autocapitalize="off" autocomplete="username"></div>' +
-        '<div class="ha-field"><span class="ha-field-name">' + t('Password') + '</span>' +
-          '<input type="password" id="haPass" autocomplete="current-password"></div>' +
         '<div class="ha-field is-action"><span class="ha-field-name">' + t('Sign in') + '</span>' +
           '<span class="ha-field-value" id="haGo">' + t('Connect') + '</span></div>' +
         '<div class="ha-field is-alt" id="haAlt" hidden><span class="ha-field-name">' + t('Preview') + '</span>' +
           '<span class="ha-field-value">' + t('Show the demo house') + '</span></div>' +
-        '<div class="ha-note" id="haNote">' + t('A username and a password need this screen allowed in Home Assistant (http: cors_allowed_origins). A token needs nothing set.') + '</div>' +
+        '<div class="ha-note" id="haNote">' + t('The token is checked over the WebSocket, so nothing has to be allowed on the Home Assistant side.') + '</div>' +
       '</div>';
     sideEl = box.querySelector('#haSide');
     mainEl = box.querySelector('.ha-main');
@@ -446,6 +443,8 @@
   }
 
   function sheetHeadHtml() {
+    if (backdropSheet) return '<div class="ha-sheet-title">' + t('Backdrops') + '</div>' +
+      '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
     if (editDev) {
       return '<div class="ha-sheet-copy"><h2>' + esc(editDev.name) + '</h2><p>' + t('Room, order and category') + '</p></div>' +
         '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
@@ -535,7 +534,7 @@
 
   function rowHtml() {
     if (editName) return nameRowHtml();
-    var rows = editDev ? editRows(editDev) : (sheetDev ? controlsFor(sheetDev) : []), html = '', i, r, focusAt = rowIndex(rows)[f.c];
+    var rows = backdropSheet ? backdropRows() : (editDev ? editRows(editDev) : (sheetDev ? controlsFor(sheetDev) : [])), html = '', i, r, focusAt = rowIndex(rows)[f.c];
     for (i = 0; i < rows.length; i++) {
       r = rows[i];
       if (r.act === 'head') { html += '<div class="ha-row is-head">' + esc(r.label) + '</div>'; continue; }
@@ -697,6 +696,7 @@
   }
 
   function selectZone(id) {
+    if (id === 'backdrop') { openBackdrops(); return; }
     if (id === 'haOut') { signOut(); return; }
     if (id === 'edit') {
       editMode = !editMode;
@@ -759,7 +759,7 @@
        house. */
     if (k === 'back') {
       if (editName) { editName = null; paint(true); return; }
-      if (sheetOpen) { sheetOpen = false; sheetDev = null; editDev = null; paint(true); return; }
+      if (sheetOpen) { sheetOpen = false; backdropSheet = false; sheetDev = null; editDev = null; if (zone === 'backdrop') zone = 'home'; paint(true); return; }
       if (editMode) { editMode = false; paint(true); return; }
       if (zone === 'hidden') { zone = 'home'; f.i = 0; paint(true); return; }
       close();
@@ -768,6 +768,24 @@
 
     if (editName) {
       if (k === 'ok') confirmEditName();
+      return;
+    }
+
+    if (sheetOpen && backdropSheet) {
+      var bdRows = backdropRows();
+      if (k === 'up') { f.c = Math.max(0, f.c - 1); paint(true); return; }
+      if (k === 'down') { f.c = Math.min(bdRows.length - 1, f.c + 1); paint(true); return; }
+      if (k === 'ok') {
+        var bdRow = bdRows[f.c] || bdRows[0];
+        setBackdropId(bdRow.key || '');
+        applyBackdrop();
+        backdropSheet = false;
+        sheetOpen = false;
+        zone = 'home';
+        f.i = 0;
+        paint(true);
+        return;
+      }
       return;
     }
 
@@ -917,18 +935,14 @@
     return el ? el.value : '';
   }
 
-  /* A token in its own field wins over the password: it is the path that works
-     on a Home Assistant nobody configured for this screen. */
+  /* A token is the only way in, and the only way that works on a Home
+     Assistant nobody has configured for this screen. */
   function doConnect() {
-    if (!ha || !ha.connect) { setupNote(t('This build has no Home Assistant client.'), true); return; }
+    if (!ha || !ha.setToken) { setupNote(t('This build has no Home Assistant client.'), true); return; }
     var tok = setupValue('#haToken');
-    if (tok && ha.setToken) {
-      setupNote(t('Checking the token...'));
-      ha.setToken(setupValue('#haUrl'), tok, afterConnect);
-      return;
-    }
-    setupNote(t('Signing in to Home Assistant...'));
-    ha.connect(setupValue('#haUrl'), setupValue('#haUser'), setupValue('#haPass'), afterConnect);
+    if (!tok) { setupNote(t('Paste the token Home Assistant showed you.'), true); return; }
+    setupNote(t('Checking the token...'));
+    ha.setToken(setupValue('#haUrl'), tok, afterConnect);
   }
 
   function afterConnect(err) {
@@ -989,7 +1003,7 @@
       if (typing) {
         /* OK in the password field signs in; anywhere else it moves on, so a
            remote never needs a separate "next" key. */
-        if (active.id === 'haPass' || active.id === 'haToken') { doConnect(); return; }
+        if (active.id === 'haToken') { doConnect(); return; }
         setupAt = Math.min(n - 1, setupAt + 1);
         focusSetup();
         paintSetup();
@@ -1073,6 +1087,57 @@
     });
   }
 
+  /* ---------- Backdrops ----------
+     Four photographs shipped with the package, and the Home tile's own picture
+     as the default. The choice is a small string on the screen, so it survives
+     a restart without the package being rebuilt. */
+  var BACKDROP_KEY = 'apl.ha.backdrop';
+  var BACKDROPS = [
+    { id: 'dawn', name: 'Dawn' },
+    { id: 'coast', name: 'Coast' },
+    { id: 'forest', name: 'Forest' },
+    { id: 'city', name: 'City' }
+  ], backdropSheet = false;
+
+  function backdropId() {
+    try { return String(root.localStorage.getItem(BACKDROP_KEY) || ''); } catch (e) { return ''; }
+  }
+
+  function setBackdropId(id) {
+    try {
+      if (id) root.localStorage.setItem(BACKDROP_KEY, id);
+      else root.localStorage.removeItem(BACKDROP_KEY);
+    } catch (e) {}
+  }
+
+  /* '' hands the stage back to the Home tile's picture, which is what the
+     stylesheet falls back to when the property is not set. */
+  function applyBackdrop() {
+    if (!box) return;
+    var id = backdropId(), i, file = '';
+    for (i = 0; i < BACKDROPS.length; i++) if (BACKDROPS[i].id === id) file = 'images/backdrops/' + BACKDROPS[i].id + '.jpg';
+    if (!file) { try { box.style.removeProperty('--ha-photo'); } catch (e) {} return; }
+    var url = file;
+    try { url = new URL(file, document.baseURI).href; } catch (e) {}
+    box.style.setProperty('--ha-photo', 'url("' + url + '")');
+  }
+
+  function backdropRows() {
+    var rows = [{ id: '', label: t('Match the Home tile'), act: 'bd', key: '' }], i;
+    for (i = 0; i < BACKDROPS.length; i++) rows.push({ id: BACKDROPS[i].id, label: t(BACKDROPS[i].name), act: 'bd', key: BACKDROPS[i].id });
+    return rows;
+  }
+
+  function openBackdrops() {
+    backdropSheet = true;
+    sheetOpen = true;
+    sheetDev = null;
+    editDev = null;
+    f.c = 0;
+    if (sheetEl) sheetEl.hidden = false;
+    paint(true);
+  }
+
   /* ---------- Open / close ---------- */
   function open() {
     if (openFlag) return;
@@ -1090,6 +1155,7 @@
       try { photo = new URL(pick.url, document.baseURI).href; } catch (e) {}
       box.style.setProperty('--ha-photo', 'url("' + photo + '")');
     }
+    applyBackdrop();
     openFlag = true;
     zone = 'home';
     f = { zone: 'grid', i: 0, c: 0 };

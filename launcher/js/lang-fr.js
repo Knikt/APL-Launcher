@@ -698,4 +698,13 @@ window.APL_LANG_FR = {
     "Long-lived access token, if you made one": "Jeton d'accès de longue durée, si tu en as un",
     "Checking the token...": "Vérification du jeton…",
     "Sign out": "Se déconnecter",
+    "Paste a long-lived access token from Home Assistant: profile, Security tab, Long-lived access tokens.": "Colle un jeton d'accès de longue durée de Home Assistant : profil, onglet Sécurité, Jetons d'accès de longue durée.",
+    "The token is checked over the WebSocket, so nothing has to be allowed on the Home Assistant side.": "Le jeton est vérifié par la WebSocket : rien à autoriser du côté de Home Assistant.",
+    "Backdrop": "Fond",
+    "Backdrops": "Fonds d'écran",
+    "Match the Home tile": "Comme la tuile Maison",
+    "Dawn": "Aube",
+    "Coast": "Côte",
+    "Forest": "Forêt",
+    "City": "Ville",
 };
