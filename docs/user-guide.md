@@ -67,6 +67,48 @@ Open it with **⏯**, by holding **Home**, or with the red key. Glass tiles appe
 | **Brightness** | ◀ ▶ changes the real backlight (needs Vetro) |
 | **Screensaver** / **Settings** | starts the screen saver / opens Settings |
 
+## Home app (Home Assistant)
+
+The Home app shows your Home Assistant house as tiles: rooms down the side,
+categories above the grid. It asks for the address once, on the TV, and keeps
+whatever it is given. Two ways in, and they are not equally easy:
+
+- **A long-lived access token.** In Home Assistant: your profile, the Security
+  tab, Long-lived access tokens, Create token. Paste it into the Token field.
+  Nothing has to be set on the server. The token is checked over a WebSocket,
+  and a WebSocket is not subject to the cross-origin rule that stops a page
+  reading another site's answer.
+- **A username and a password.** The account you already use. This goes through
+  Home Assistant's login API, and a browser only lets a page read that answer
+  when the server names the page's origin, so `configuration.yaml` needs:
+
+```yaml
+http:
+  cors_allowed_origins:
+    - http://the-address-the-launcher-runs-from
+```
+
+  The entry has to match the origin exactly, scheme, host and port, with no
+  trailing slash, and Home Assistant has to be restarted afterwards (Developer
+  Tools, Restart; reloading the configuration is not enough for `http:`).
+
+A wildcard does not work. With `- "*"`, or an empty list, Home Assistant
+accepts the sign-in request but sends no `Access-Control-Allow-Origin` header,
+so the browser refuses to read the answer and the app reports that nothing came
+back. The origin has to be named.
+
+On the TV the launcher's origin is not a web address that can be listed, so a
+username and password cannot work there: use a token. It also never expires,
+which suits a screen that runs for months. A rule that is easy to miss: after
+the password sign-in the token is renewed every half hour, and that renewal is
+another request the same rule applies to.
+
+Once inside, **Edit Layout** in the sidebar rearranges the house: move an
+accessory to another room, make a room or a category, step an accessory up or
+down inside its room, or take it off the house with **Remove from Home**. What
+was taken off is listed under **Hidden**, and can be put back from there. The
+arrangement is stored on the TV and is never written back to Home Assistant.
+
 ## Settings
 
 Apple TV–style split view: a big icon and a description on the left, the list on the right. It covers every Samsung settings section:
