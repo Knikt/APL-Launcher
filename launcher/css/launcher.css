@@ -522,7 +522,7 @@ html, body {
     background: radial-gradient(circle at 35% 30%, #7cc4ff, #2f6bdc 55%, #1b2f86 100%);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
 }
-.cc__viewport { max-height: 920px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* 24 px: room for an enlarged row (1.06 × 586 px) */
+.cc__viewport { max-height: 1000px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the whole grid and the caption: never a cut last row */
 /* One grid for every tile, 534 px wide: 260 + 14 + 260. 260 px is the narrowest
    column the French labels fit in on one line ("Économiseur", "Minuterie");
    wider than that only makes every tile a longer rectangle. */
