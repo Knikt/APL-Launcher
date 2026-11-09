@@ -275,6 +275,10 @@
         whenDecoded(src, function () {
             if (token !== frostToken) return;                 // another picture was asked for in the meantime
             dom.dock.style.setProperty("--glass-img", src ? 'url("' + String(src).replace(/"/g, "%22") + '")' : "none");
+            /* The dock's own copy is a slice of the picture at the dock's height,
+               not a stretch: without this it always showed the same band of the
+               image, which no longer lined up with what is behind it. */
+            dom.dock.style.setProperty("--glass-y", (-(dom.dock.offsetTop || 0)) + "px");
         });
     }
     function flushBlur() {

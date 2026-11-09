@@ -31,6 +31,7 @@
     /* These canvases are read back (getImageData, toDataURL) and never shown: kept in ordinary memory.
        On the GPU each read waited for it, 90 ms at a time on an LG G5, in the middle of an animation. */
     var READ = { willReadFrequently: true };
+    var PANE_FADE_MS = 300;              /* the picture's crossfade (launcher.js FADE_MS) */
 
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
@@ -383,6 +384,14 @@
                 forget();
                 paint();
                 notify();
+            } else if (!data && src === wanted && baked) {
+                /* The picture cannot be read back (a host that serves no CORS
+                   header): keeping the pane that was there left the app before
+                   last under the dock, a backdrop that never matched the one on
+                   screen. With the pane dropped, the dock's own frosted copy of
+                   the picture - var(--glass-img), which follows the layer - is
+                   what shows through. */
+                drop();
             }
             if (done) done();
         }, el);
@@ -566,8 +575,20 @@
                 tint(n, el, r);
                 el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
                 el.__cgLayer = n;
+                /* The picture crossfades to the next one over 300 ms, so the pane
+                   over it does too: it used to cut, and a cut against a fade is
+                   the dock changing before the backdrop has finished changing.
+                   The old slice stays under the new one until the fade is over,
+                   so neither surface is ever empty. */
+                n.style.transition = "opacity " + PANE_FADE_MS + "ms var(--glass-ease, ease)";
+                n.style.opacity = "0";
+                void n.offsetWidth;
+                n.style.opacity = "1";
                 (function (old) {
-                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 32);
+                    global.setTimeout(function () {
+                        if (old && old.parentNode) old.parentNode.removeChild(old);
+                        n.style.transition = "";
+                    }, PANE_FADE_MS + 40);
                 })(l);
                 continue;
             }
