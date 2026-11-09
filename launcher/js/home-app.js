@@ -907,6 +907,9 @@
   }
 
   function paintSetup() {
+    /* A token saved on the screen connects by itself; without this the form
+       sits over a house that is already there until something repaints. */
+    if (setupMode && ha && ha.connected && ha.connected()) setupMode = false;
     if (!box) return;
     var setup = box.querySelector('#haSetup');
     if (setup) {
