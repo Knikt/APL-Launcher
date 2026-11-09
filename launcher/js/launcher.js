@@ -416,6 +416,26 @@
         if (l._stale) setTimeout(function () { if (l !== bgActive && l.parentNode) l.parentNode.removeChild(l); }, FADE_MS + 50);
     }
 
+    /* The picture and the glass over it change in the same frame: the pane is
+       baked from the very bitmap that is about to be shown, and only then does
+       the layer go on screen. Showing the picture first and letting the dock
+       catch up is the glass arriving a beat after the backdrop - the desync
+       that showed as the dock changing second while the row was stepped
+       through. prepare() answers at once when the pane is already rendered
+       (prefetchAround keeps the neighbours ready) and after at most 1.2 s when
+       it cannot be, so a picture is never held back indefinitely. */
+    function reveal(app, layer, image, pic) {
+        var token = backdropToken;
+        var done = function () {
+            if (token !== backdropToken) return;      // another app was chosen meanwhile
+            showLayer(layer, app);
+            refreshGlass();
+            warmNear(nav.index);      // the neighbours are already sliced: the next step waits for nothing
+        };
+        if (APL.glass && APL.glass.prepare) APL.glass.prepare(image, done, pic);
+        else done();
+    }
+
     var backdropToken = 0;
     function setBackdrop(app, force) {
         /* Nothing changes the backdrop under the Control Center, a drawer,
@@ -451,9 +471,7 @@
             }
             showPicture(dockLayer, image, function (pic) {
                 if (token !== backdropToken) return;
-                if (APL.glass && APL.glass.prepare) APL.glass.prepare(image, null, pic);
-                showLayer(dockLayer, app);
-                refreshGlass();
+                reveal(app, dockLayer, image, pic);
             });
             return;
         }
@@ -465,10 +483,9 @@
             if (image) next.style.background = "#000"; else cardBack(next, app);
             if (!image && !plain(app)) next.appendChild(brandCard(app));
             if (!image) { showLayer(next, app); refreshGlass(); return; }
-            showPicture(next, image, function () {
+            showPicture(next, image, function (pic) {
                 if (token !== backdropToken) return;
-                showLayer(next, app);
-                refreshGlass();
+                reveal(app, next, image, pic);
             });
         });
     }
