@@ -21,7 +21,7 @@
   var box = null, sideEl = null, mainEl = null, sectionsEl = null, chipsEl = null;
   var titleEl = null, clockEl = null, dayEl = null;
   var sheetEl = null, sheetHeadEl = null, sheetRowsEl = null;
-  var built = false, openFlag = false, clockTimer = 0;
+  var built = false, openFlag = false, clockTimer = 0, wiredHa = false;
 
   /* What the main pane is showing: 'home', 'cat:<type>' or a room id. */
   var zone = 'home';
@@ -134,14 +134,49 @@
     { id: 'cat:media', type: 'media', name: t('Speakers & TVs') }
   ];
 
+  /* The viewer's own layout sits on top of the server's areas: rooms made
+     here, categories invented here, and where each accessory was put. */
+  function cats() {
+    var out = CATS.slice(0), extra = (ha && ha.userCats) ? ha.userCats() : [], i;
+    for (i = 0; i < extra.length; i++) out.push({ id: 'cat:' + extra[i].id, name: extra[i].name, custom: true });
+    return out;
+  }
+  function categoryById(id) {
+    var list = cats();
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+  function roomIdOf(dev) {
+    var list = rooms(), i, j;
+    if (!dev) return '';
+    for (i = 0; i < list.length; i++) {
+      for (j = 0; j < ((list[i] && list[i].devices) || []).length; j++) {
+        if (list[i].devices[j].id === dev.id) return list[i].id;
+      }
+    }
+    return '';
+  }
+  function customCategoryDevices(catId) {
+    var id = catId.indexOf('cat:') === 0 ? catId.slice(4) : '', out = [], list = allDevices(), i;
+    for (i = 0; i < list.length; i++) if (ha && ha.categoryOf && ha.categoryOf(list[i].id) === id) out.push({ dev: list[i] });
+    return out;
+  }
+
+  /* Edit: the grid is focused as usual, but OK on a tile opens the layout
+     sheet - move it, reorder it, put it in a category - instead of its
+     controls. Back leaves it before it closes the app. */
+  var editMode = false, editDev = null, editName = null;
+
   function sideItems() {
     var out = [{ id: 'home', name: t('Home'), icon: 'home', head: false }], i, list = rooms();
     out.push({ head: true, name: t('Categories') });
-    for (i = 0; i < CATS.length; i++) out.push({ id: CATS[i].id, name: CATS[i].name, icon: CATS[i].type });
+    var catsList = cats();
+    for (i = 0; i < catsList.length; i++) out.push({ id: catsList[i].id, name: catsList[i].name, icon: catsList[i].custom ? 'switch' : catsList[i].type });
     out.push({ head: true, name: t('Rooms') });
     for (i = 0; i < list.length; i++) out.push({ id: list[i].id, name: list[i].name, icon: 'home' });
     /* Last row: the door back to the connect screen, so a wrong server or a
        finished test never needs a reinstall to get rid of. */
+    out.push({ id: 'edit', name: t(editMode ? 'Done' : 'Edit Layout'), icon: 'plus' });
     out.push({ id: 'haOut', name: t('Sign out'), icon: 'more' });
     return out;
   }
@@ -165,10 +200,16 @@
       return out;
     }
     if (zone.indexOf('cat:') === 0) {
+      var cat = categoryById(zone);
+      if (!cat) return out;
+      if (cat.custom) {
+        out.push({ name: cat.name, items: customCategoryDevices(cat.id) });
+        return out;
+      }
       list = allDevices();
       devs = [];
       for (j = 0; j < list.length; j++) if (list[j].type === zone.slice(4)) devs.push({ dev: list[j] });
-      for (i = 0; i < CATS.length; i++) if (CATS[i].id === zone) out.push({ name: CATS[i].name, items: devs });
+      out.push({ name: cat.name, items: devs });
       return out;
     }
     room = roomById(zone);
@@ -375,7 +416,7 @@
   }
   function rowIndex(rows) {
     var out = [], i;
-    for (i = 0; i < rows.length; i++) if (rows[i].focusable) out.push(i);
+    for (i = 0; i < rows.length; i++) if (rows[i].act !== 'head' && rows[i].focusable !== false) out.push(i);
     return out;
   }
 
@@ -398,18 +439,92 @@
   }
 
   function sheetHeadHtml() {
+    if (editDev) {
+      return '<div class="ha-sheet-copy"><h2>' + esc(editDev.name) + '</h2><p>' + t('Room, order and category') + '</p></div>' +
+        '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
+    }
     if (!sheetDev) return '';
     var v = tileValue(sheetDev);
     return '<span class="ha-chip is-large acc-' + typeIcon(sheetDev.type) + '">' + ico(typeIcon(sheetDev.type)) + '</span>' +
       '<div class="ha-sheet-copy"><h2>' + esc(sheetDev.name) + '</h2><p>' + esc(v.main + (v.sub ? ' \u00b7 ' + v.sub : '')) + '</p></div>' +
       '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
   }
+  /* The layout sheet: where the accessory lives, its place in that room, and
+     the categories it belongs to. A room or category made here is created and
+     the accessory put in it in one go, so nothing is left half done. */
+  function editRows(dev) {
+    var rows = [], list = rooms(), catsList = cats(), here = roomIdOf(dev), i;
+    var mine = (ha && ha.categoryOf) ? ha.categoryOf(dev.id) : '';
+    rows.push({ id: '', label: t('Move to'), act: 'head' });
+    for (i = 0; i < list.length; i++) {
+      if (list[i].id === here) continue;
+      rows.push({ id: list[i].id, label: list[i].name, act: 'move' });
+    }
+    rows.push({ id: '', label: t('New room...'), act: 'newroom' });
+    rows.push({ id: '', label: t('Move up'), act: 'up' });
+    rows.push({ id: '', label: t('Move down'), act: 'down' });
+    rows.push({ id: '', label: t('Category'), act: 'head' });
+    for (i = 0; i < catsList.length; i++) {
+      if (!catsList[i].custom || catsList[i].id.slice(4) === mine) continue;
+      rows.push({ id: catsList[i].id.slice(4), label: catsList[i].name, act: 'cat' });
+    }
+    if (mine) rows.push({ id: '', label: t('No category'), act: 'uncat' });
+    rows.push({ id: '', label: t('New category...'), act: 'newcat' });
+    return rows;
+  }
+
+  function nameRowHtml() {
+    return '<div class="ha-row is-name"><span class="ha-row-name">' +
+      esc(editName === 'room' ? t('Room name') : t('Category name')) + '</span>' +
+      '<input id="haName" class="ha-name" type="text" maxlength="40" spellcheck="false" autocomplete="off"></div>' +
+      '<div class="ha-row is-head">' + t('Type a name, then OK') + '</div>';
+  }
+
+  function doEditRow(row) {
+    if (!row || !editDev || !ha) return;
+    var id = editDev.id;
+    if (row.act === 'move') { if (ha.moveDevice) ha.moveDevice(id, row.id); sheetOpen = false; editDev = null; }
+    else if (row.act === 'cat') { if (ha.putInCategory) ha.putInCategory(id, row.id); }
+    else if (row.act === 'uncat') { if (ha.putInCategory) ha.putInCategory(id, ''); }
+    else if (row.act === 'up' || row.act === 'down') { if (ha.moveInRoom) ha.moveInRoom(roomIdOf(editDev), id, row.act === 'up' ? -1 : 1); }
+    else if (row.act === 'newroom' || row.act === 'newcat') { startEditName(row.act === 'newroom' ? 'room' : 'cat'); return; }
+    paint(true);
+  }
+
+  /* The name field is drawn by hand rather than through paint(): a poll that
+     repaints the sheet while someone is typing would empty the field. */
+  function startEditName(kind) {
+    editName = kind;
+    f.c = 0;
+    if (sheetEl) sheetEl.hidden = false;
+    if (sheetHeadEl) sheetHeadEl.innerHTML = sheetHeadHtml();
+    if (sheetRowsEl) sheetRowsEl.innerHTML = nameRowHtml();
+    var input = sheetRowsEl && sheetRowsEl.querySelector('#haName');
+    if (input) { try { input.focus(); } catch (e) {} }
+  }
+
+  function confirmEditName() {
+    var input = sheetRowsEl && sheetRowsEl.querySelector('#haName');
+    var name = input ? input.value : '', kind = editName;
+    editName = null;
+    if (kind === 'room' && ha && ha.createRoom && /\S/.test(name)) {
+      var rid = ha.createRoom(name);
+      if (rid) { if (editDev && ha.moveDevice) ha.moveDevice(editDev.id, rid); sheetOpen = false; editDev = null; }
+    } else if (kind === 'cat' && ha && ha.createCategory && /\S/.test(name)) {
+      var cid = ha.createCategory(name);
+      if (cid && editDev && ha.putInCategory) ha.putInCategory(editDev.id, cid);
+    }
+    f.c = 0;
+    paint(true);
+  }
+
   function rowHtml() {
-    if (!sheetDev) return '';
-    var rows = controlsFor(sheetDev), html = '', i, r, focusAt = rowIndex(rows)[f.c];
+    if (editName) return nameRowHtml();
+    var rows = editDev ? editRows(editDev) : (sheetDev ? controlsFor(sheetDev) : []), html = '', i, r, focusAt = rowIndex(rows)[f.c];
     for (i = 0; i < rows.length; i++) {
       r = rows[i];
-      html += '<div class="ha-row' + (r.act === 'info' ? ' is-info' : '') + (i === focusAt && r.focusable ? ' is-focus' : '') +
+      if (r.act === 'head') { html += '<div class="ha-row is-head">' + esc(r.label) + '</div>'; continue; }
+      html += '<div class="ha-row' + (r.act === 'info' ? ' is-info' : '') + (i === focusAt && r.focusable !== false ? ' is-focus' : '') +
         '" role="menuitem" tabindex="-1" data-c="' + i + '">' +
         '<span class="ha-row-name">' + esc(r.label) + '</span>' +
         (r.act === 'step' || r.act === 'cycle' ? '<span class="ha-step">\u2039</span>' : '') +
@@ -444,13 +559,15 @@
   function focusTitle() {
     if (zone === 'home') return t('Home');
     if (zone.indexOf('cat:') === 0) {
-      for (var i = 0; i < CATS.length; i++) if (CATS[i].id === zone) return CATS[i].name;
+      var cat = categoryById(zone);
+      if (cat) return cat.name;
     }
     return (roomById(zone) || {}).name || t('Home');
   }
 
   function paint(force) {
     if (!built || !box || setupMode) return;
+    if (editName) return;
     var next = sig(), i, els;
 
     if (force || next !== lastSig) {
@@ -566,7 +683,15 @@
 
   function selectZone(id) {
     if (id === 'haOut') { signOut(); return; }
-    zone = id;    zone = id;
+    if (id === 'edit') {
+      editMode = !editMode;
+      editDev = null;
+      editName = null;
+      sheetOpen = false;
+      zone = 'home';
+    } else {
+      zone = id;
+    }
     f.zone = 'grid';
     f.i = 0;
     if (sectionsEl) sectionsEl.scrollTop = 0;
@@ -583,6 +708,14 @@
   function openSheetFor(dev) {
     if (!dev) return;
     if (dev.type === 'scene') { if (ha) ha.activateScene(dev.id); return; }
+    if (editMode) {
+      editDev = dev;
+      sheetDev = null;
+      sheetOpen = true;
+      f.c = 0;
+      return;
+    }
+    editDev = null;
     sheetDev = dev;
     sheetOpen = true;
     f.c = 0;
@@ -606,11 +739,28 @@
   function key(k) {
     var rows, idx, row;
     if (setupMode) { setupKey(k); return; }
-    /* Back steps out one layer: the accessory sheet first, then the app. A
-       viewer who opened a temperature by mistake should not lose the house. */
+    /* Back steps out one layer: the name field, the sheet, edit mode, then the
+       app. A viewer who opened a temperature by mistake should not lose the
+       house. */
     if (k === 'back') {
-      if (sheetOpen) { sheetOpen = false; sheetDev = null; paint(true); return; }
+      if (editName) { editName = null; paint(true); return; }
+      if (sheetOpen) { sheetOpen = false; sheetDev = null; editDev = null; paint(true); return; }
+      if (editMode) { editMode = false; paint(true); return; }
       close();
+      return;
+    }
+
+    if (editName) {
+      if (k === 'ok') confirmEditName();
+      return;
+    }
+
+    if (sheetOpen && editDev) {
+      rows = editRows(editDev);
+      idx = rowIndex(rows);
+      if (k === 'down') { f.c = Math.min(idx.length - 1, f.c + 1); paint(false); return; }
+      if (k === 'up') { f.c = Math.max(0, f.c - 1); paint(false); return; }
+      if (k === 'ok') { doEditRow(rows[idx[f.c]]); return; }
       return;
     }
 
@@ -686,9 +836,13 @@
           return;
         }
         if (el.getAttribute('data-c') != null && sheetOpen) {
-          var rows = controlsFor(sheetDev), at = Number(el.getAttribute('data-c'));
+          var rows = editDev ? editRows(editDev) : controlsFor(sheetDev), at = Number(el.getAttribute('data-c'));
           var pos = rowIndex(rows).indexOf(at);
-          if (pos >= 0) { f.c = pos; activate(sheetDev, rows[at].id); }
+          if (pos >= 0) {
+            f.c = pos;
+            if (editDev) doEditRow(rows[at]);
+            else activate(sheetDev, rows[at].id);
+          }
           paint(true);
           return;
         }
@@ -933,6 +1087,16 @@
     box.classList.remove('is-open');
     void box.offsetWidth;
     box.classList.add('is-open');
+    /* Wired once, not on every open: the connect screen returns before this
+       used to run, so a screen that signed in kept drawing the house it had
+       before the states arrived. */
+    if (!wiredHa && ha && ha.subscribe) {
+      wiredHa = true;
+      ha.subscribe(function () {
+        if (!openFlag || setupMode) return;
+        paint(true);
+      });
+    }
     if (setupMode) {
       box.classList.add('is-setup');
       setupAt = 0;
@@ -947,12 +1111,6 @@
     paintSetup();
     if (ha && ha.setPanelActive) ha.setPanelActive(true);
     if (ha && ha.refresh) ha.refresh();
-    if (ha && ha.subscribe) {
-      ha.subscribe(function () {
-        if (!openFlag) return;
-        paint(true);
-      });
-    }
     tick();
     clearInterval(clockTimer);
     clockTimer = setInterval(tick, 20000);
@@ -963,6 +1121,9 @@
     if (!openFlag) return;
     openFlag = false;
     setupMode = false;
+    editMode = false;
+    editDev = null;
+    editName = null;
     if (box) {
       box.classList.remove('is-typing');
       resetSetupLift();
@@ -989,6 +1150,12 @@
        d-pad, so the horizontal keys are left to it. */
     if (setupMode && ev.target && ev.target.tagName === 'INPUT' &&
         (ev.keyCode === 37 || ev.keyCode === 39)) return;
+    /* A name being typed belongs to the field: OK confirms it, and every other
+       key, the d-pad included, is left to the text caret. */
+    if (editName && ev.target && ev.target.id === 'haName') {
+      if (ev.keyCode === 13) { ev.preventDefault(); confirmEditName(); return; }
+      return;
+    }
     ev.preventDefault();
     if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
     ev.stopPropagation();
@@ -1002,7 +1169,8 @@
     state: function () {
       return {
         open: openFlag, zone: zone, focus: { zone: f.zone, c: f.c, tile: focusedDevice() && focusedDevice().id },
-        sheet: sheetOpen, sheetDevice: sheetDev && sheetDev.id
+        sheet: sheetOpen, sheetDevice: sheetDev && sheetDev.id,
+        edit: editMode, editDevice: editDev && editDev.id, naming: editName
       };
     },
     key: key

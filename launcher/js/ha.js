@@ -145,6 +145,7 @@
     ROOMS.length = 0;
     SCENES.length = 0;
     registry = null;
+    derived = false;
     if (root.CleanFrameHA) { root.CleanFrameHA.ROOMS = ROOMS; root.CleanFrameHA.SCENES = SCENES; }
   }
 
@@ -222,6 +223,10 @@
      a screen with everything in it beats a screen with nothing. */
   var DOMAIN = { light: 'light', switch: 'switch', climate: 'climate', fan: 'fan', media_player: 'media' };
   var registry = null;
+  /* True once the house was built from what the server actually said. The
+     preview starts with a house drawn in advance, and those rooms must not
+     win over a server that does answer. */
+  var derived = false;
 
   function labelOf(st, id) {
     var a = st && st.attributes;
@@ -331,10 +336,148 @@
     if (ROOMS.length && !force) return;
     var house = roomsFrom(states, registry);
     if (!house.rooms.length && !house.scenes.length) return;
+    applyLayout(house.rooms);
+    derived = true;
     ROOMS = house.rooms;
     SCENES = house.scenes;
     root.CleanFrameHA.ROOMS = ROOMS;
     root.CleanFrameHA.SCENES = SCENES;
+  }
+
+  /* ---------- the layout the viewer edits ----------
+     Home Assistant's areas are the starting point, not the last word: a room
+     can be made here, an accessory moved into it, a category invented. The
+     file is kept on the screen (localStorage) and applied on every rebuild,
+     so a server that never learns about the move still draws the house the
+     viewer arranged. Nothing is written back to Home Assistant. */
+  var LAYOUT_KEY = 'apl.ha.layout';
+  var layout = readLayout();
+
+  function asList(v) { return Object.prototype.toString.call(v) === '[object Array]' ? v : []; }
+  function asMap(v) { return v && typeof v === 'object' && !asList(v).length ? v : {}; }
+
+  function readLayout() {
+    var out = { rooms: [], cats: [], assign: {}, catof: {}, order: {} }, raw, d;
+    try { raw = root.localStorage.getItem(LAYOUT_KEY); } catch (e) { return out; }
+    if (!raw) return out;
+    try { d = JSON.parse(raw); } catch (e) { return out; }
+    if (!d || typeof d !== 'object') return out;
+    out.rooms = asList(d.rooms);
+    out.cats = asList(d.cats);
+    out.assign = asMap(d.assign);
+    out.catof = asMap(d.catof);
+    out.order = asMap(d.order);
+    return out;
+  }
+
+  function findRoomById(list, id) {
+    for (var i = 0; i < list.length; i++) if (list[i] && list[i].id === id) return list[i];
+    return null;
+  }
+
+  /* Rooms made here are appended after the server's, and a move takes the
+     accessory out of the room it was given rather than copying it: one
+     accessory is in one room at a time, which is what the sidebar promises. */
+  function applyLayout(list) {
+    var i, j, id, dev, target, room, order, r, rank = {};
+    for (i = 0; i < list.length; i++) {
+      list[i].user = false;
+      if (!list[i].devices) list[i].devices = [];
+    }
+    for (i = 0; i < layout.rooms.length; i++) {
+      r = layout.rooms[i] || {};
+      if (!r.id || !r.name || findRoomById(list, r.id)) continue;
+      list.push({ id: r.id, name: String(r.name), devices: [], extras: [], user: true });
+    }
+    for (id in layout.assign) {
+      if (!layout.assign.hasOwnProperty(id)) continue;
+      target = findRoomById(list, layout.assign[id]);
+      if (!target) continue;
+      dev = null;
+      for (i = 0; i < list.length && !dev; i++) {
+        if (list[i] === target) continue;
+        for (j = 0; j < list[i].devices.length; j++) {
+          if (list[i].devices[j] && list[i].devices[j].id === id) { dev = list[i].devices.splice(j, 1)[0]; break; }
+        }
+      }
+      if (dev) { dev.room = target.id; target.devices.push(dev); }
+    }
+    for (i = 0; i < list.length; i++) {
+      order = asList(layout.order[list[i].id]);
+      if (!order.length) continue;
+      rank = {};
+      for (j = 0; j < order.length; j++) rank[order[j]] = j;
+      list[i].devices.sort(function (a, b) {
+        var ra = rank[a.id], rb = rank[b.id];
+        return (ra == null ? order.length : ra) - (rb == null ? order.length : rb);
+      });
+    }
+  }
+
+  function saveLayout() {
+    try { root.localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout)); } catch (e) {}
+    deriveHouse(true);
+    notify();
+  }
+
+  function newId(prefix) {
+    return prefix + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+  }
+
+  function cleanName(name) {
+    return String(name == null ? '' : name).replace(/[\r\n\t]+/g, ' ').replace(/^ +| +$/g, '').slice(0, 40);
+  }
+
+  /* Returns the new room's id, or '' when the name was empty. */
+  function createRoom(name) {
+    name = cleanName(name);
+    if (!name) return '';
+    var id = newId('u');
+    layout.rooms.push({ id: id, name: name });
+    saveLayout();
+    return id;
+  }
+
+  function createCategory(name) {
+    name = cleanName(name);
+    if (!name) return '';
+    var id = newId('g');
+    layout.cats.push({ id: id, name: name });
+    saveLayout();
+    return id;
+  }
+
+  function moveDevice(id, roomId) {
+    if (!id || !roomId) return;
+    layout.assign[id] = roomId;
+    delete layout.order[id];
+    saveLayout();
+  }
+
+  /* '' takes the accessory out of the category again. */
+  function putInCategory(id, catId) {
+    if (!id) return;
+    if (catId) layout.catof[id] = catId;
+    else delete layout.catof[id];
+    saveLayout();
+  }
+
+  /* One step up or down inside its room; the order is saved for that room. */
+  function moveInRoom(roomId, id, dir) {
+    var room = findRoomById(ROOMS, roomId), list = [], i, at;
+    if (!room || !room.devices) return;
+    for (i = 0; i < room.devices.length; i++) list.push(room.devices[i].id);
+    at = list.indexOf(id);
+    if (at < 0 || at + dir < 0 || at + dir >= list.length) return;
+    list.splice(at, 1);
+    list.splice(at + dir, 0, id);
+    layout.order[roomId] = list;
+    saveLayout();
+  }
+
+  function resetLayout() {
+    layout = { rooms: [], cats: [], assign: {}, catof: {}, order: {} };
+    saveLayout();
   }
 
   /* ---------- auth ---------- */
@@ -532,7 +675,7 @@
       if (id) map[id] = list[i];
     }
     states = map;
-    deriveHouse();
+    deriveHouse(!derived);
     if (!registry) {
       loadRegistry(function (reg) {
         if (!reg) return;
@@ -685,6 +828,17 @@
     setToken: setToken,
     disconnect: disconnect,
     roomsFrom: roomsFrom,
+    /* The layout the viewer made on the screen: rooms and categories of
+       their own, where each accessory was put, and the order inside a room. */
+    userRooms: function () { return layout.rooms.slice(0); },
+    userCats: function () { return layout.cats.slice(0); },
+    categoryOf: function (id) { return layout.catof[id] || ''; },
+    createRoom: createRoom,
+    createCategory: createCategory,
+    moveDevice: moveDevice,
+    putInCategory: putInCategory,
+    moveInRoom: moveInRoom,
+    resetLayout: resetLayout,
     ROOMS: ROOMS,
     SCENES: SCENES,
     getState: getState,

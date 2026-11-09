@@ -337,7 +337,9 @@
   width: 780px;
   border-radius: 28px;
   padding-bottom: 12px;
-  background: rgba(24, 26, 30, .92);
+  /* Nearly opaque: a lit tile under a translucent panel shows through the
+     rows, and the layout sheet is tall enough to sit over one. */
+  background: rgba(20, 22, 26, .985);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.13), 0 24px 70px rgba(0,0,0,.5);
 }
 
@@ -369,6 +371,22 @@
 .ha-row-value { margin-left: auto; color: rgba(255,255,255,.74); }
 
 .ha-step { font-size: 23px; color: rgba(255,255,255,.42); }
+
+/* The layout sheet groups its rows: a heading is a label, not a control. */
+.ha-row.is-head {
+  height: 30px; padding: 0 15px; background: none;
+  font-size: 14px; letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(255,255,255,.38);
+}
+
+.ha-row.is-name { background: rgba(255,255,255,.12); }
+
+.ha-name {
+  margin-left: auto; width: 62%; height: 34px; padding: 0 12px;
+  border: 0; border-radius: 9px; outline: none;
+  background: rgba(0,0,0,.32); color: #fff; font: inherit; font-size: 19px;
+}
+.ha-name:focus { box-shadow: inset 0 0 0 2px rgba(255,255,255,.75); }
 
 
 
