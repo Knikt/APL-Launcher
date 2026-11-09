@@ -17,7 +17,6 @@ namespace APL
     /// </summary>
     internal static class Vetro
     {
-        private const int Port = 8099;
         private const string InfraredRemote = "/dev/input/event2";
         private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
         private static int hostIndex;
@@ -84,6 +83,7 @@ namespace APL
         private static async Task<TcpClient> Connect()
         {
             var hosts = Hosts();
+            int port = VetroPort.Current(Hosts);          // 8099, or the port Vetro was built with (VetroPort.cs)
             int start = Volatile.Read(ref hostIndex);
             Exception last = null;
             for (int tries = 0; tries < hosts.Count; tries++)
@@ -95,9 +95,9 @@ namespace APL
                 {
                     using (var connect = new CancellationTokenSource(ConnectTimeout))
 #if TIZEN6
-                        await ConnectWithin(client, host, Port, connect.Token);
+                        await ConnectWithin(client, host, port, connect.Token);
 #else
-                        await client.ConnectAsync(host, Port, connect.Token);
+                        await client.ConnectAsync(host, port, connect.Token);
 #endif
                     Volatile.Write(ref hostIndex, index);
                     return client;
@@ -109,6 +109,7 @@ namespace APL
                 }
             }
             ForgetHosts();                     // every address failed: the network may have changed
+            VetroPort.Recheck();               // or Vetro moved to another port
             throw last ?? new SocketException((int)SocketError.HostUnreachable);
         }
 

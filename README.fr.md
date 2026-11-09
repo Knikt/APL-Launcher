@@ -132,6 +132,12 @@ même style Apple TV.
 APL TV n'est qu'un lecteur : aucune chaîne, aucune playlist, aucun fournisseur. À utiliser avec des contenus
 que tu as le droit de regarder.
 
+## Soutenir APL Launcher
+
+APL Launcher est gratuit, open source et fait par une seule personne sur son temps libre. Si tu l'aimes et que tu veux m'aider, tu peux m'offrir un café sur [Ko-fi](https://ko-fi.com/knikt). Ce n'est jamais obligatoire et tout reste gratuit. La même page soutient aussi [APL TV](https://github.com/Knikt/APL-TV-for-TizenOS).
+
+[![Me soutenir sur Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/knikt)
+
 ## Licence
 
 APL Launcher est créé par Knikt (Gero Corp.). Code sous [licence MIT](LICENSE). APL Launcher est un projet indépendant, sans lien

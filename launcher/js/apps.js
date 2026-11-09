@@ -318,7 +318,7 @@
         return "(n=0; seen=0; while [ $n -lt 40 ]; do sleep 1; n=$((n+1)); " +
             "a=$(vconftool get memory/appfw/current_fullscreen_appid 2>/dev/null); " +
             "case \"$a\" in " +
-            "*csfs*|*home.sidebar*) seen=1; app_launcher -s " + MY_APP_ID + ";; " +
+            "*csfs*|*home.sidebar*|*coba.newhome*|*home.media*) seen=1; app_launcher -s " + MY_APP_ID + ";; " +
             "*TizenBrew*) if [ $seen = 1 ] || [ $n -ge 12 ]; then sleep 4; input_keyevent Down; sleep 1; input_keyevent Return; break; fi;; " +
             "esac; done) >/dev/null 2>&1 &";
     }

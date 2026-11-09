@@ -9,6 +9,7 @@
    type: the apps' artwork slowly scrolling by, and it tries again the
    next time.
    "dark" type: a clock on a black background.
+   On request, the clock moves from corner to corner (OLED screens).
    Any key exits the screen saver without triggering an action.
    ============================================================ */
 (function (global) {
@@ -146,6 +147,52 @@
         slideTimer = setInterval(nextArt, 14000);
     }
 
+    /* ---------- moving clock ----------
+       Settings › Screen Saver › Move the Clock, for OLED screens: every 1 to 5 minutes the clock goes to
+       the next corner, clockwise, a few pixels off each time, so it never lands twice on the same spot.
+       Each corner is measured from its own two edges, so a wider time (9:59, then 10:00) grows inward. */
+    var moveTimer = null, corner = 0, EDGE_X = 90, EDGE_Y = 60, JITTER = 28;
+    function nudge(edge) { return (edge + Math.floor(Math.random() * (JITTER + 1))) + "px"; }
+    function placeClock(c) {
+        var s = timeEl.style, right = c === 1 || c === 2, bottom = c >= 2;
+        s.top = bottom ? "auto" : nudge(EDGE_Y);
+        s.bottom = bottom ? nudge(EDGE_Y) : "auto";
+        s.left = right ? "auto" : nudge(EDGE_X);
+        s.right = right ? nudge(EDGE_X) : "auto";
+        s.width = "auto"; s.transform = "none"; s.textAlign = right ? "right" : "left";
+        // The place name of the Aerial videos sits at the bottom left: across the screen while the clock is there
+        labelEl.style.left = c === 3 ? "auto" : "";
+        labelEl.style.right = c === 3 ? EDGE_X + "px" : "";
+    }
+    function moveClock() {
+        if (!active) return;
+        corner = (corner + 1) % 4;                              // 0 top left, 1 top right, 2 bottom right, 3 bottom left
+        if (root.classList.contains("no-motion")) { placeClock(corner); return; }
+        timeEl.classList.add("is-away");                        // fades out, moves, fades back in
+        setTimeout(function () {
+            if (!active) return;
+            placeClock(corner);
+            timeEl.classList.remove("is-away");
+        }, 900);
+    }
+    function startMoving() {
+        stopMoving();
+        var every = sys.pref("screensaverClockMove");
+        if (!every) return;
+        root.classList.add("is-moving");
+        corner = 1;                                             // top right, where the small clock always was
+        placeClock(corner);
+        moveTimer = setInterval(moveClock, every * 60000);
+    }
+    function stopMoving() {
+        clearInterval(moveTimer);
+        moveTimer = null;
+        timeEl.removeAttribute("style");
+        labelEl.removeAttribute("style");
+        timeEl.classList.remove("is-away");
+        root.classList.remove("is-moving");
+    }
+
     /* ---------- start / stop ---------- */
     function start() {
         if (active) return;
@@ -157,6 +204,7 @@
         var style = sys.pref("screensaverStyle");
         root.classList.toggle("is-dark", style === "dark");
         root.classList.toggle("is-clock", style === "clock");
+        startMoving();
         if (style === "dark") return;
         if (style === "aerial" && !sys.PREVIEW_NO_VIDEO) {
             root.classList.add("is-video");
@@ -171,6 +219,7 @@
         if (!active) return;
         active = false;
         clearInterval(slideTimer);
+        stopMoving();
         stopVideos();
         layers.forEach(function (l) { l.classList.remove("is-on"); });
         root.classList.remove("is-active", "is-video");

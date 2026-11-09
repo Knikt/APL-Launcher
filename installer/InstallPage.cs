@@ -192,7 +192,7 @@ namespace APL.Setup
             if (!Vetro.IsIPv4(ip)) return;
             int seq = ++statusSeq;
             if (!quiet) RenderVetro(true);
-            var info = await Vetro.StatusAsync(ip, 2500, CancellationToken.None);
+            var info = await Vetro.StatusAsync(ip, 2500, CancellationToken.None, true);
             if (seq != statusSeq || ip != Main.Ip) return;   // the address changed meanwhile
             bool changed = !Main.VetroChecked || (Main.Vetro == null) != (info == null) ||
                            (info != null && (info.AgentReady != Main.Vetro.AgentReady || info.Version != Main.Vetro.Version));

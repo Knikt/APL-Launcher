@@ -426,7 +426,7 @@ Step 4 (Tr "Building the launcher…" "Compilation du launcher…")
 # with its web bridge. Without APL Overlay the launcher keeps Home and gives the other buttons back to Samsung.
 $webOnly = $false
 if (Test-Vetro $TvIp) {
-    $platform = Get-ScreenPlatform "http://$TvIp`:8099"
+    $platform = Get-ScreenPlatform "http://$TvIp`:$(Get-VetroPort)"
     if ($platform) {
         $webOnly = ($platform.Tizen -ge 1 -and $platform.Tizen -lt 7) -or ($platform.Tizen -eq 0 -and -not $platform.DotNet6)
         $seen = if ($platform.Tizen) { "Tizen $($platform.Tizen)" } else { Tr "an unknown Tizen version" "une version de Tizen inconnue" }
@@ -506,7 +506,7 @@ Write-Host (Tr "   A) On the screen: Settings > All Settings > Advanced Features
 Write-Host (Tr "        - 'Autorun Smart Hub'  -> OFF" "        - « Lancer Smart Hub automatiquement »        -> DÉSACTIVÉ")
 Write-Host (Tr "        - 'Autorun Last App'   -> ON" "        - « Lancer automatiquement la dernière app »  -> ACTIVÉ")
 Write-Host ""
-Write-Host (Tr "   B) On this PC, open  http://$TvIp`:8099  (Vetro) > Remapper tab:" "   B) Sur ce PC, ouvre  http://$TvIp`:8099  (Vetro) > onglet Remapper :")
+Write-Host (Tr "   B) On this PC, open  http://$TvIp`:$(Get-VetroPort)  (Vetro) > Remapper tab:" "   B) Sur ce PC, ouvre  http://$TvIp`:$(Get-VetroPort)  (Vetro) > onglet Remapper :")
 Write-Host (Tr "        in the device list, pick your remote: 'Smart Control 2016' if it is" "        dans la liste des appareils, choisis ta télécommande : « Smart Control 2016 » si elle est")
 Write-Host (Tr "        paired over Bluetooth, 'wt61p807 rc device' if it only works over infrared;" "        appairée en Bluetooth, « wt61p807 rc device » si elle marche en infrarouge seulement ;")
 Write-Host (Tr "        listen for a key > press HOME > open the app 'APL Launcher' > Save" "        écouter une touche > appuie sur HOME > ouvrir l'app « APL Launcher » > Enregistrer")

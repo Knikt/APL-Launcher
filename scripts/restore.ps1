@@ -22,7 +22,7 @@ Write-Host "  ==============================================" -ForegroundColor Y
 $savedIp = Get-SavedTvIp
 if (-not $TvIp -and -not $Unattended) { $TvIp = Read-Host ((Tr "  Screen IP address" "  Adresse IP de l'écran") + $(if ($savedIp) { " [$savedIp]" } else { "" })) }
 if ([string]::IsNullOrWhiteSpace($TvIp)) { $TvIp = $savedIp }
-$vetro = "http://$TvIp`:8099"
+$vetro = "http://$TvIp`:$(Get-VetroPort)"
 
 # ---------- 1. Vetro: Home button given back to Samsung ----------
 Write-Host ""

@@ -483,8 +483,13 @@
         } };
     }
     function publicSource(app) {
-        if (APL.sys.PREVIEW && !KEYS.tmdb && (app.live === "youtube" || app.live === "trending" || app.live === "anime" ||
-                                              TMDB_PROVIDERS[app.key] || app.tmdbProvider)) return demoSource(app);
+        /* The demo stands in for a streaming service's own Top Shelf - Netflix,
+           Prime Video, Disney+ - because that is what those apps actually carry.
+           It used to cover live: "youtube", "trending" and "anime" as well, which
+           is why TizenTube showed a Blender Studio film in the preview: a film
+           that app does not have. Those apps keep their artwork until their own
+           source (a YouTube key, a website) answers. */
+        if (APL.sys.PREVIEW && !KEYS.tmdb && (TMDB_PROVIDERS[app.key] || app.tmdbProvider)) return demoSource(app);
         if (app.live === "youtube") return KEYS.youtube ? { id: "youtube", load: function () { return youtube(); } } : null;
         if (app.live === "youtube-music") return KEYS.youtube ? { id: "youtube-10", load: function () { return youtube("10"); } }
                                                               : { id: "music-" + REGION, load: appleCharts };

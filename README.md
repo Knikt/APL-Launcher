@@ -136,6 +136,12 @@ The app runs the PowerShell scripts in `scripts/`, which also work on their own.
 
 Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Support APL Launcher
+
+APL Launcher is free, open source and made by one person in my spare time. If you like it and want to help, you can buy me a coffee on [Ko-fi](https://ko-fi.com/knikt). It's never required and everything stays free. The same page supports [APL TV](https://github.com/Knikt/APL-TV-for-TizenOS) too.
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/knikt)
+
 ## License and trademarks
 
 The source code is released under the [MIT License](LICENSE).

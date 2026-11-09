@@ -175,7 +175,7 @@
             if (r.intercepting === false) {
                 var ip = (sys.network().ip || "").replace(/^—$/, "");
                 lines.push(APL.t("One step left, in Vetro: on a phone or a computer, open {url}, then Remapper. Choose your remote (Smart Control when it is paired over Bluetooth, rc device by infrared) and turn on Remote interception.",
-                    { url: "http://" + (ip || APL.t("the screen's address")) + ":8099" }));
+                    { url: "http://" + (ip || APL.t("the screen's address")) + ":" + sys.vetroPort() }));
             }
             APL.alert({ title: APL.t("Remote Buttons"), message: lines.join("\n\n"), buttons: [{ label: APL.t("OK") }] });
         }, function (e) {

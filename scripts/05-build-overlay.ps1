@@ -13,7 +13,7 @@ param(
 )
 . "$PSScriptRoot\lib.ps1"
 $ErrorActionPreference = 'Stop'
-$Base = "http://$TvIp`:8099"
+$Base = "http://$TvIp`:$(Get-VetroPort)"
 $Overlay = "APLauncher.Overlay"
 $OldOverlay = "apl.launcher.overlay"
 

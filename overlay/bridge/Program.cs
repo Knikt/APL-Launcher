@@ -32,7 +32,6 @@ namespace APL.Bridge
     {
         private const string PortName = "APL_BRIDGE";
         private const string LauncherId = "APLauncher.Home", ReplyPort = "APL_BRIDGE_REPLY";
-        private const int VetroPort = 8099;
         private const int Chunk = 4000;                       // characters per message, as service.js
         private static readonly TimeSpan IdleAfter = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
@@ -85,6 +84,7 @@ namespace APL.Bridge
         protected override void OnCreate()
         {
             base.OnCreate();
+            APL.VetroPort.Log = Note;
             try
             {
                 port = new MessagePort(PortName, true);
@@ -234,6 +234,7 @@ namespace APL.Bridge
         private static async Task<(int, string)> Vetro(string method, string path, string body, TimeSpan timeout)
         {
             var hosts = Hosts();
+            int vetroPort = APL.VetroPort.Current(Hosts);     // 8099, or the port Vetro was built with (overlay/VetroPort.cs)
             int start = Volatile.Read(ref hostIndex);
             string lastError = "";
             for (int tries = 0; tries < hosts.Count; tries++)
@@ -246,9 +247,9 @@ namespace APL.Bridge
                     using (var connect = new CancellationTokenSource(ConnectTimeout))
                     {
 #if TIZEN6
-                        try { await ConnectWithin(client, host, VetroPort, connect.Token); }
+                        try { await ConnectWithin(client, host, vetroPort, connect.Token); }
 #else
-                        try { await client.ConnectAsync(host, VetroPort, connect.Token); }
+                        try { await client.ConnectAsync(host, vetroPort, connect.Token); }
 #endif
                         catch (Exception ex)
                         {
@@ -268,7 +269,8 @@ namespace APL.Bridge
                 finally { client.Dispose(); }
             }
             ForgetHosts();                     // every address failed: the network may have changed
-            return (502, "{\"ok\":false,\"error\":\"Vetro unreachable: " + JsonText(lastError) + "\"}");
+            APL.VetroPort.Recheck();           // or Vetro moved to another port
+            return (502, "{\"ok\":false,\"error\":\"Vetro unreachable on port " + vetroPort + ": " + JsonText(lastError) + "\"}");
         }
 
         /// <summary>Plain HTTP/1.0, as the Overlay does (overlay/Vetro.cs).</summary>
@@ -384,7 +386,8 @@ namespace APL.Bridge
         private static bool OnTvInput(State st)
         {
             return !string.IsNullOrEmpty(st.App) &&
-                   ((st.App.Contains("tv-viewer") && st.Source == 0) || st.App.Contains("csfs") || st.App.Contains("home.sidebar"));
+                   ((st.App.Contains("tv-viewer") && st.Source == 0) || st.App.Contains("csfs") || st.App.Contains("home.sidebar") ||
+                    st.App.Contains("coba.newhome") || st.App.Contains("home.media"));   // the new Home of the 2025 screens
         }
 
         private static void OpenLauncher(string why)

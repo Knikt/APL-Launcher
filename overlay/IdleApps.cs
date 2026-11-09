@@ -22,7 +22,7 @@ namespace APL
         private const int UnusedMinutes = 1;
         private const int ComebackMinutes = 5, ComebacksToLeave = 2;
         // The Frame's Art Mode (org.tizen.art-app) is a screen mode, not an app left open: closing it breaks Art Mode
-        private static readonly string[] Never = { "APLauncher.", "apl.launcher.", "vetrotvapp", "com.samsung.tv.csfs", "com.samsung.tv.home.sidebar", "org.tizen.tv-viewer", "org.tizen.art-app" };
+        private static readonly string[] Never = { "APLauncher.", "apl.launcher.", "vetrotvapp", "com.samsung.tv.csfs", "com.samsung.tv.home.sidebar", "com.samsung.tv.coba.newhome", "org.tizen.tv-viewer", "org.tizen.art-app" };
         private static readonly string[] Receivers = { "airplay", "ScreenMirroring", "multiscreen" };
         // Samsung's that open by themselves, as in the launcher's bootCleanup (not art-app, see Never)
         private static readonly HashSet<string> SelfOpening = new HashSet<string> {

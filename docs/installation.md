@@ -11,7 +11,7 @@ This guide installs APL Launcher on a Samsung Tizen TV or Smart Monitor from a W
 
 **On the screen**
 - **Developer Mode**: open *Apps*, type `1 2 3 4 5` on the remote, turn Developer Mode on, enter the PC's IP address, then restart the screen.
-- **Vetro** *(required)*: [Vetro](https://github.com/andrearicci93/vetro) runs on the screen with root access. Install it **first**, with Vetro's own guide (the screen has to be rooted). It gives the launcher the Home button and the other remote buttons, APL Overlay, the optimizer, real picture settings, Bluetooth audio, Alexa, faster closing of Samsung's home and app removal. Check that its dashboard opens on the PC at `http://<screen-ip>:8099` before going on.
+- **Vetro** *(required)*: [Vetro](https://github.com/andrearicci93/vetro) runs on the screen with root access. Install it **first**, with Vetro's own guide (the screen has to be rooted). It gives the launcher the Home button and the other remote buttons, APL Overlay, the optimizer, real picture settings, Bluetooth audio, Alexa, faster closing of Samsung's home and app removal. Check that its dashboard opens on the PC at `http://<screen-ip>:8099` before going on. A Vetro built with another port (`VETRO_PORT=…`) works too: APL Launcher Setup also tries the usual other ports (8098, 8100, 9000…), and on the screen the launcher and APL Overlay find it on any port.
 
 > Vetro and TizenBrew need the screen's *Host PC IP* to be `127.0.0.1`, which means the PC can no longer install over Developer Mode. The installer detects Vetro and installs through it instead. **If you use TizenBrew or Vetro, never change Host PC IP back to the PC's address.**
 

@@ -83,6 +83,40 @@
                "#07080c";
     }
 
+    /* ---------- dynamic backdrops (app-art.js) ---------- */
+    /* The title a service is showing right now: the storefront's trending list for the
+       screen's country (JustWatch, no key needed), one poster per app. Settings ›
+       Appearance › Dynamic Backdrops turns it off, and every app gets its artwork back. */
+    function backdropPick(app) {
+        if (!APL.appArt || !APL.appArt.pick) return null;
+        /* Opt-in, and on every app once it is on: streaming services, the media
+           players, the channels - anything the catalogue has a title for. It
+           used to spare apps with artwork or a shelf of their own, which left
+           the setting doing nothing on most of the wall; those shelves are
+           handed over instead (see startBackdrops). */
+        if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
+        /* A fallback, never a replacement: an app with a Top Shelf of its own -
+           What You're Watching, What's Popular (TMDB), Plex, Spotify, and the
+           players' Continue Watching (Stremio, Nuvio, Hot Player, APL TV) - keeps
+           it, and the catalogue only fills in where there is nothing else. */
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) return null;
+        /* Only a real streaming service, and only one the catalogue can name:
+           Settings, TizenTube, Sources, Smart Hub, folders and TV inputs keep
+           their own artwork. */
+        if (!app || app.virtual || app.folder) return null;
+        if (APL.appArt.known && !APL.appArt.known(app)) return null;
+        try { return APL.appArt.pick(app); } catch (e) { return null; }
+    }
+
+    /* Title and year under the poster, where the Top Shelf puts its own. */
+    function posterInfo(pick) {
+        if (!pick || !pick.title) { shelfInfo(null); return; }
+        var meta = [];
+        if (pick.year) meta.push(String(pick.year));
+        if (pick.kind) meta.push(pick.kind);
+        shelfInfo({ poster: true, title: pick.title, meta: meta.join(" · ") });
+    }
+
     /* Logo + name in the centre, like the provided artwork (sharp Tizen icon, never blurred). */
     function brandCard(app) {
         var card = document.createElement("div");
@@ -132,7 +166,13 @@
             return;
         }
         var img = new Image();
-        img.onload = function () {
+        /* onload is not the whole bitmap. Drawing then left the blurred backdrop
+           half filled, and the Control Center sometimes showed that banded blur
+           of the app's backdrop instead of the picture. */
+        var painted = false;
+        function paintBlur() {
+            if (painted) return;
+            painted = true;
             if (token !== blurToken) return;              // another image was requested in the meantime
             var c = blurLayer(), ctx = c.getContext("2d"), w = c.width, h = c.height;
             var m = c._filters ? 14 : 0;                  // margin: no dark edge from the blur
@@ -144,6 +184,11 @@
             ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
             c.style.opacity = "1";
             dom.bgBlur.style.background = "#05060a";
+        }
+        img.onload = function () {
+            if (img.decode) img.decode().then(paintBlur, paintBlur);
+            else paintBlur();
+            global.setTimeout(paintBlur, 400);            // a decode that never settles
         };
         img.onerror = function () { if (token === blurToken) dom.bgBlur.style.background = backdropFor(app); };
         img.src = src;
@@ -186,8 +231,35 @@
         if (!src) { then(); return; }
         var im = new Image();
         im.src = src;
-        if (im.decode) im.decode().then(then, then);
-        else { im.onload = then; im.onerror = then; }
+        /* The decoded element is handed on: the glass bakes its pane from this
+           very bitmap (APL.glass.prepare(src, done, im)) instead of fetching the
+           file again, which is what made the dock trail the picture. */
+        var done = function () { then(im); };
+        if (im.decode) im.decode().then(done, done);
+        else { im.onload = done; im.onerror = done; }
+    }
+
+    /* The picture itself, as an <img> that is decoded before it is shown. As a
+       CSS background on a full-screen layer the browser painted the file as it
+       decoded, so a backdrop filled in a line at a time from the top - every
+       time the row was scrolled, not only on the first pass. An <img> whose
+       decode has finished is painted whole. The layer keeps its own colour
+       underneath and the glass reads the picture from the element (glass.js). */
+    function showPicture(layer, url, then) {
+        var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
+        if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
+            if (then) then(pic);                                 // the same picture, already decoded
+            return;
+        }
+        if (pic) pic.parentNode.removeChild(pic);
+        pic = document.createElement("img");
+        pic.alt = "";
+        pic.decoding = "sync";
+        pic.src = url;
+        layer.appendChild(pic);
+        function done() { if (then) then(pic); }
+        if (pic.decode) pic.decode().then(done, done);
+        else { pic.onload = done; pic.onerror = done; }
     }
 
     /* Drawing a full-screen image takes 100 ms on the M8, whatever the effect: the dock
@@ -197,7 +269,10 @@
         if (layers[app.id]) return layers[app.id];
         var l = document.createElement("div");
         l.className = "bg";
-        l.style.background = backdropFor(app);
+        /* Artwork is the layer's picture, an <img> (showPicture), not a
+           background: a background on this full-screen layer was painted as the
+           file decoded, a line at a time from the top. */
+        l.style.background = artOf(app) ? "#000" : backdropFor(app);
         if (!artOf(app) && !plain(app)) l.appendChild(brandCard(app));
         l.dataset.app = app.id;
         dom.bgA.parentNode.insertBefore(l, dom.bgA);
@@ -225,9 +300,25 @@
     var FADE_MS = 300;
     function fadeTo(next) {
         var old = bgActive;
+        /* The new picture slides in as it fades, whichever way round the two
+           layers stack, so a change never pops - not for a new app, not for the
+           next title after ten seconds, not while stepping through the row. */
+        if (!next.classList.contains("is-motion")) {
+            next.classList.remove("is-slide");
+            void next.offsetWidth;                                  // restart the animation
+            next.classList.add("is-slide");
+            global.setTimeout(function () { next.classList.remove("is-slide"); }, 500);
+        }
         clearTimeout(next._out);
         clearTimeout(old._out);
         bgActive = next;
+        /* The element itself, not only its id: several layers can carry the
+           same app, and the glass has to slice the one that was faded in. */
+        document.body.__bgLive = next;
+        /* Name the app whose backdrop is live. Two layers keep is-active while
+           they cross over, so "the first active layer" can still be the one
+           leaving, and the glass would slice the show before last. */
+        if (next.dataset && next.dataset.app) document.body.setAttribute("data-bg-app", next.dataset.app);
         if (old.compareDocumentPosition(next) & global.Node.DOCUMENT_POSITION_FOLLOWING) {
             next.classList.add("is-active");                     // above: fades in over the old one
             old._out = setTimeout(function () { hideLayer(old); }, FADE_MS + 50);
@@ -237,6 +328,15 @@
             next.classList.remove("is-instant");
             hideLayer(old);                                       // the old one fades out over it
         }
+        /* Whatever path was taken, one backdrop is on screen when the fade is
+           over. A poster that never got hidden - the show of the app just left,
+           under a channel with no show of its own - is cleared here. */
+        setTimeout(function () {
+            var list = document.querySelectorAll(".bg.is-active"), i;
+            for (i = 0; i < list.length; i++) {
+                if (list[i] !== bgActive) hideLayer(list[i]);
+            }
+        }, FADE_MS + 120);
     }
     function hideLayer(l) {
         if (l === bgActive) return;                               // shown again in the meantime
@@ -245,24 +345,154 @@
     }
 
     var backdropToken = 0;
-    function setBackdrop(app) {
+    function setBackdrop(app, force) {
+        /* Nothing changes the backdrop under the Control Center, a drawer,
+           search or Settings: the picture stays still while they are up. */
+        if (!force && overlayOpen()) return;
+        /* A picture still being prepared for the app we just left must not land
+           now. Its fallback fires half a second later and paints the old show
+           over the new one - the flash that goes new, previous, new. */
+        /* Only the app in focus owns the backdrop. A catalogue for the app we
+           just left answers later, and showing its picture here put the previous
+           show back over the new one: the flash that goes new, previous, new. */
+        if (!force && apps.length && apps[nav.index] && apps[nav.index] !== app) return;
+        backdropToken++;
+        var pick = backdropPick(app);
+        if (pick && pick.url) { setPoster(app, pick, force); return; }
+        if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
+        stopRotate();
         var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
-        if (apps.indexOf(app) < DOCK_SIZE) { showLayer(layerFor(app), app); return; }
+        if (apps.indexOf(app) < DOCK_SIZE) {
+            /* The picture is decoded before its layer is shown. A cover
+               background resolves its percentages against the loaded image, so a
+               layer shown first paints at the top of the box and snaps to centre
+               when the file lands - the picture that "loads from the top" the
+               first time an app is visited. */
+            var dockLayer = layerFor(app);
+            if (!image) {
+                if (token !== backdropToken) return;
+                showLayer(dockLayer, app);
+                refreshGlass();
+                return;
+            }
+            showPicture(dockLayer, image, function (pic) {
+                if (token !== backdropToken) return;
+                if (APL.glass && APL.glass.prepare) APL.glass.prepare(image, null, pic);
+                showLayer(dockLayer, app);
+                refreshGlass();
+            });
+            return;
+        }
         if (bgActive.dataset.app === app.id) return;
         whenDecoded(image, function () {
             if (token !== backdropToken) return;          // another app was selected in the meantime
             var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
             next.innerHTML = "";
-            next.style.background = backdropFor(app);
+            next.style.background = image ? "#000" : backdropFor(app);
             if (!image && !plain(app)) next.appendChild(brandCard(app));
-            showLayer(next, app);
+            if (!image) { showLayer(next, app); refreshGlass(); return; }
+            showPicture(next, image, function () {
+                if (token !== backdropToken) return;
+                showLayer(next, app);
+                refreshGlass();
+            });
         });
     }
 
+    /* 10 s on the same app: the next title it carries takes over, like the Top
+       Shelf's own rotation. Only apps with a catalogue of their own advance
+       (app-art.js says no otherwise), so a channel never slides on to a rival. */
+    var ROTATE_MS = 10000, rotTimer = null, rotN = 0;
+    function stopRotate() { clearTimeout(rotTimer); rotTimer = null; }
+    /* The backdrop is left alone while something is over it: the Control Center,
+       a drawer, search, Settings, profiles. */
+    function overlayOpen() {
+        return /(^| )has-(cc|sources|search|settings|profiles|wdg)( |$)/.test(document.body.className);
+    }
+    function startRotate(app) {
+        stopRotate();
+        if (!APL.appArt || !APL.appArt.next) return;
+        rotTimer = setTimeout(function () {
+            rotTimer = null;
+            if (apps[nav.index] !== app || mode === "grid" || overlayOpen()) { startRotate(app); return; }
+            var pick = null;
+            try { pick = APL.appArt.next(app, ++rotN); } catch (e) {}
+            if (pick && pick.url) { setPoster(app, pick); return; }
+            startRotate(app);                    // nothing else to show: keep the timer alive
+        }, ROTATE_MS);
+    }
+
+    /* A poster, in the dock and in the grid alike. A fresh layer each time: the picture
+       changes with the title, so there is nothing to keep per app. The one before it is
+       marked stale and goes once the crossfade is over. */
+    function setPoster(app, pick, force) {
+        /* A late swap (a bake finishing after the focus moved on, the focus
+           coming back from an overlay) must not repaint the picture while the
+           Control Center or a drawer is over it. */
+        if (!force && overlayOpen()) return;
+        var token = ++backdropToken;
+        /* The picture AND the glass over it change together: the image is decoded
+           and the pane baked before either is shown, so the dock, the pill and the
+           Control Center cross at the same moment as the backdrop. */
+        var apply = function () {
+            if (token !== backdropToken) return;
+            if (bgActive.dataset.poster && bgActive.dataset.poster !== pick.url) bgActive._stale = true;
+            wantBlur(pick.url, app, pick.url);
+            var next;
+            if (apps.indexOf(app) < DOCK_SIZE) {
+                next = document.createElement("div");
+                next.className = "bg";
+                dom.bgA.parentNode.insertBefore(next, dom.bgA);
+            } else {
+                next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
+                next.innerHTML = "";
+            }
+            next.dataset.app = app.id;
+            next.dataset.poster = pick.url;
+            /* The picture is an <img> now (showPicture): a CSS background painted
+               itself in as it decoded, which is the poster that arrived a line at
+               a time from the top on every pass along the row. The layer is shown
+               once that image's own decode is done. */
+            showPicture(next, pick.url, function () {
+                if (token !== backdropToken) return;
+                showLayer(next, app);
+                /* The picture is on screen: the glass must re-read the scene now.
+                   Painting alone kept the pane baked for the app's own artwork when
+                   the poster had not been baked yet, so the dock and every Control
+                   Center tile carried that blurred app backdrop instead of the
+                   picture behind them - worst on a first scroll through the apps. */
+                if (APL.glass && APL.glass.refresh) APL.glass.refresh();
+                if (APL.glass && APL.glass.paint) APL.glass.paint();
+            });
+            /* The next title's pane is made while this one is on screen, so the
+               ten-second change lands on a slice that is already rendered. */
+            if (APL.glass && APL.glass.prefetch) {
+                var coming = null;
+                try { coming = APL.appArt.next(app, rotN + 1); } catch (e) {}
+                if (coming && coming.url) APL.glass.prefetch(coming.url);
+            }
+            posterInfo(pick);
+            startRotate(app);
+        };
+        whenDecoded(pick.url, function (im) {
+            /* Baked from the element that is about to be shown, so the picture and
+               the pane land together rather than the pane a second later. */
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply, im); else apply();
+        });
+    }
+
+    /* The frosted panes follow the layer that is on screen. Refreshing before the
+       new layer was shown made the glass read the OLD one: moving to an app with
+       no picture (Settings) left the previous film baked in the dock and the pill. */
+    function refreshGlass() {
+        if (APL.glass && APL.glass.refresh) APL.glass.refresh();
+        if (APL.glass && APL.glass.paint) APL.glass.paint();
+    }
+
     /* An app's real icon, served by Vetro (fallback when the Tizen path can't be read). */
-    function vetroIcon(id) { return "http://127.0.0.1:8099/apps/icon?appId=" + encodeURIComponent(id); }
+    function vetroIcon(id) { return APL.sys.vetroUrl("/apps/icon?appId=" + encodeURIComponent(id)); }
 
     /* Slow camera move over the Top Shelf image, like Apple TV's animated backgrounds.
        Off by default: at rest on the M8 it takes more than one core by itself (135%, versus
@@ -296,7 +526,11 @@
                 card.style.background = "rgb(" + d[0] + "," + d[1] + "," + d[2] + ")";
                 app.edge = "#" + [d[0], d[1], d[2]].map(function (v) { return ("0" + v.toString(16)).slice(-2); }).join("");
                 // The background shown for this app takes its icon's real colour.
-                if (bgActive && bgActive.dataset.app === app.id) bgActive.style.background = backdropFor(app);
+                /* Never over a poster: the layer carrying the film from the catalogue
+                   has this app's id too, and repainting it here put the app's own
+                   picture back over the film - the backdrop that seemed to reload
+                   itself on the first pass along the dock. */
+                if (bgActive && bgActive.dataset.app === app.id && !bgActive.dataset.poster) bgActive.style.background = backdropFor(app);
             }
         } catch (e) { /* image from another origin: keep the default colour */ }
     }
@@ -417,22 +651,51 @@
         if (bgActive.dataset.app === tag) return;
         var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
         next.innerHTML = "";
-        next.style.background = "#000 center / cover no-repeat url('" + item.bg + "')";
         next.dataset.app = tag;
         motion(next);
         wantBlur(item.bgSmall || null, app, null);
-        fadeTo(next);
-        shelfInfo(item);
+        /* The same rule as a poster (setPoster): the Top Shelf picture from
+           TMDB, Plex or YouTube is an <img> revealed once its decode is done, so
+           it can never be painted a band at a time. */
+        showPicture(next, item.bg, function (pic) {
+            if (bgActive === next) return;                 // already on screen
+            /* The pane is ready before the picture is faded in, so the dock,
+               the pill and the Control Center change with the backdrop instead
+               of a second behind it - the poster of the last app under a new
+               one. A pane that cannot be made answers at once, so nothing is
+               ever held back by glass. */
+            var go = function () {
+                if (bgActive === next) return;
+                fadeTo(next);
+                refreshGlass();
+                shelfInfo(item);
+            };
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic); else go();
+        });
     }
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
     function shelfInfo(item) {
-        var has = !!(item && item.type);
+        /* A film or a series has a type; a video, an album or a game says where it
+           comes from ("TizenTube", "Top albums"): that is what goes under the
+           title, so What You're Watching names what it is showing on every app
+           and not only on the film ones. */
+        var has = !!(item && (item.type || item.poster || (item.title && item.sub)));
         dom.shelfInfo.classList.toggle("is-visible", has);
         if (!has) return;
         dom.shelfTitle.textContent = item.title;
-        dom.shelfMeta.textContent = APL.live.metaOf(item);
+        dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
+            : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
         openHint();
+    }
+
+    /* The pane for the title that comes next is baked while this one is on
+       screen: the twenty-second change then lands on a slice that is already
+       made, instead of the dock finishing a bake after the picture changed. */
+    function warmNext(items, i) {
+        if (!APL.glass || !APL.glass.prefetch || !items || !items.length) return;
+        var item = items[i % items.length];
+        if (item && item.bg) APL.glass.prefetch(item.bg);
     }
 
     /* A new full-screen image costs 100 ms: as rarely as possible, and never while navigating. */
@@ -448,6 +711,21 @@
         if (app && mode !== "grid" && nav.index < DOCK_SIZE) startLive(app);
     };
 
+    /* The panes of the apps either side are baked while this one is on screen:
+       stepping along the row never waits for one, which was the last place a
+       pane could still arrive a moment after the picture it belongs to. */
+    function warmNear(i) {
+        if (!APL.glass || !APL.glass.prefetch) return;
+        [-1, 1].forEach(function (d) {
+            var app = apps[i + d];
+            if (!app) return;
+            var pick = null;
+            try { pick = backdropPick(app); } catch (e) {}
+            if (pick && pick.url) { APL.glass.prefetch(pick.url); return; }
+            var art = artOf(app);
+            if (art) APL.glass.prefetch(art);
+        });
+    }
     /* After a short pause on the app, its current content is loaded. */
     function startLive(app) {
         stopLive();
@@ -458,19 +736,24 @@
                 if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
                 var n = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
+                warmNext(items, 1);
                 liveRotate = setInterval(function () {
                     if (mode === "grid") return;                 // paused under the grid
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
                     setLiveBackdrop(app, items[n], n, items, 0);
+                    warmNext(items, n + 1);
                 }, LIVE_ROTATE_MS);
             });
         }, 650);
     }
 
-    var bgTimer = null;
+    var bgTimer = null, lastFocus = 0;
     function onFocus(i, el) {
+        lastFocus = i;
+        rotN = 0;
         var app = apps[i], inDock = el.dataset.row === "0", fromGrid = mode === "grid";
+        if (!inDock) stopRotate();
         if (mode !== "full") setMode(inDock ? "shelf" : "grid");
         else layout();
         if (APL.widgets) APL.widgets.show(inDock ? app : null, fromGrid);
@@ -480,8 +763,12 @@
         if (!inDock) { clearTimeout(bgTimer); return; }
         var live = APL.live && APL.live.hasSource(app);
         dom.hint.classList.toggle("is-visible", (!!artOf(app) || live) && APL.sys.pref("showHint"));
+        warmNear(i);                                   // either side, before it is asked for
         if (live && bgActive.dataset.app && bgActive.dataset.app.indexOf(app.id + "#") === 0) return;   // already shown
-        if (bgActive.dataset.app === app.id) return;
+        /* Its own artwork is already the layer on screen (after a change of the
+           Dynamic Backdrops setting, for one). The shelf picture still has to
+           start, or the shelf stays empty until the focus leaves and returns. */
+        if (bgActive.dataset.app === app.id) { if (live) startLive(app); return; }
         shelfInfo(null);
         // Full-screen artwork changed a fraction of a second after the focus: when
         // scrolling fast, a large image isn't decoded on every press.
@@ -757,6 +1044,37 @@
             .catch(function () { toast(APL.t("Vetro is not responding")); });
     }
 
+    /* The catalogue is in flight while the dock is already up: the poster of the app in
+       focus replaces its artwork as soon as it lands, and turning the setting off puts
+       the artwork back without a restart. */
+    /* The catalogue is a fallback, and it costs two requests: nothing is fetched
+       until Dynamic Backdrops is turned on. A boot with the setting off (the
+       default) must not reach JustWatch at all. Turning it on loads the list and
+       paints the app in focus; turning it off puts that app's own artwork and
+       its Top Shelf straight back, without a restart. */
+    function startBackdrops() {
+        if (!APL.appArt || !APL.appArt.start) return;
+        APL.sys.onPref("cleanFrameBackdrops", function (v) {
+            dropLayers();
+            if (v) {
+                APL.appArt.start(function () {
+                    var app = apps[nav.index];
+                    if (app && mode !== "grid") setBackdrop(app, true);
+                });
+                return;
+            }
+            var app = apps[lastFocus];
+            if (!app || mode === "grid") return;
+            setBackdrop(app, true);                              // the app's artwork, not a poster
+            startLive(app);                                      // its own shelf, straight away
+        });
+        if (APL.sys.pref("cleanFrameBackdrops") !== true) return;
+        APL.appArt.start(function () {
+            var app = apps[nav.index];
+            if (app && mode !== "grid") setBackdrop(app);
+        });
+    }
+
     function boot() {
         cacheDom();
         dom.hint.querySelector(".hint__text").textContent = APL.t("Press ▲ for full screen");   // index.html only has the English text
@@ -779,6 +1097,7 @@
             setTimeout(function () { if (APL.autoArt) APL.autoArt.run(allApps, render); }, 3500);
             showCcHint();
             render();
+            startBackdrops();
             if (APL.overlay) APL.overlay.start();
             slowKeyRepeat(8);
             setTimeout(function () { bootCleanup(8); }, 25000);

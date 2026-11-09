@@ -4,9 +4,10 @@
    A row of letters at the top, the matching apps below, updated at every
    letter. OK on a letter types it, OK on an app opens it. The remote's
    digits and a keyboard (PC preview) type too. Opened with ▲ from the full
-   screen Top Shelf (▲ from the dock, then ▲ again). A magnifier at the top
-   left of the Home Screen, across from the status pill, shows it's up there;
-   in full screen it reads "▲ Search". Apps only for now: those in folders too, and the hidden ones
+   screen Top Shelf (▲ from the dock, then ▲ again), or from the Control
+   Center. A magnifier at the top left of the Home Screen, across from the
+   status pill, shows it's up there; in full screen it reads "▲ Search".
+   Apps only for now: those in folders too, and the hidden ones
    with Settings › Home Screen › Search Hidden Apps.
    ============================================================ */
 (function (global) {

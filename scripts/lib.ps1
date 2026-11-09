@@ -144,10 +144,17 @@ function Invoke-Native {
 #  copy the package to the screen, check its hash, install it with
 #  Vetro's /install function, then check the list of apps.
 # ------------------------------------------------------------------
+# Vetro's port: 8099, or the one it was built with (VETRO_PORT=…, when another app holds 8099). APL Launcher Setup
+# finds it and passes it in APL_VETRO_PORT (installer/Vetro.cs).
+function Get-VetroPort {
+    if ("$env:APL_VETRO_PORT" -match '^\d{4,5}$') { return [int]$env:APL_VETRO_PORT }
+    return 8099
+}
+
 function Test-Vetro {
     param([string]$Ip)
     try {
-        $st = Invoke-RestMethod -Uri "http://$Ip`:8099/status" -TimeoutSec 8
+        $st = Invoke-RestMethod -Uri "http://$Ip`:$(Get-VetroPort)/status" -TimeoutSec 8
         return [bool]($st.agent -and $st.agent.connected)
     } catch { return $false }
 }
@@ -228,7 +235,7 @@ function Get-WgtCertExpiry {
 
 function Install-ViaVetro {
     param([string]$Ip, [string]$Wgt, [string]$AppId = "APLauncher.Home", [string]$Name = "APL Launcher", [switch]$NoLaunch)
-    $base = "http://$Ip`:8099"
+    $base = "http://$Ip`:$(Get-VetroPort)"
     $tmp = "/tmp/apl-" + (($AppId -split '\.')[0]).ToLower() + ".wgt"
     # What the screen must show afterwards: an older package left in place still has the same id
     Add-Type -AssemblyName System.IO.Compression.FileSystem
