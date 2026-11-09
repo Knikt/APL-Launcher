@@ -261,7 +261,7 @@
 
 .ha-tile.is-wide .ha-tile-state { font-size: 19px; line-height: 24px; font-weight: 600; color: #fff; }
 
-.ha-tile.is-wide.is-on .ha-tile-state { color: #14161a; }
+.ha-tile.is-wide.is-on .ha-tile-state { color: #fff; }
 
 .ha-tile.acc-climate { --acc: 62, 148, 255; }
 
@@ -276,9 +276,9 @@
 .ha-tile.acc-switch { --acc: 138, 176, 200; }
 
 .ha-tile.is-on {
-  background: rgba(250, 248, 242, .95);
-  color: #14161a;
-  box-shadow: 0 12px 30px rgba(0,0,0,.16);
+  background: rgba(126, 134, 145, .42);
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(0,0,0,.14);
 }
 
 .ha-tile.is-away { opacity: .5; }
@@ -286,6 +286,8 @@
 
 .ha-tile.is-focus {
   z-index: 3;
+  background: #fff;
+  color: #14161a;
   box-shadow: inset 0 0 0 3px #fff, 0 0 0 3px rgba(255,255,255,.24), 0 10px 26px rgba(0,0,0,.28);
 }
 
@@ -314,11 +316,17 @@
 
 .ha-tile-state { font-size: 14px; line-height: 19px; color: rgba(255,255,255,.72); }
 
-.ha-tile.is-on .ha-tile-state { color: rgba(20,22,26,.62); }
+.ha-tile.is-on .ha-tile-state { color: rgba(255,255,255,.82); }
 
 .ha-tile-note { font-size: 15px; color: rgba(255,255,255,.6); }
 
-.ha-tile.is-on .ha-tile-note { color: rgba(20,22,26,.55); }
+.ha-tile.is-on .ha-tile-note { color: rgba(255,255,255,.7); }
+
+/* The selected tile is white whichever state it is in. */
+.ha-tile.is-focus .ha-tile-state,
+.ha-tile.is-focus .ha-tile-note,
+.ha-tile.is-focus.is-wide .ha-tile-state { color: rgba(20,22,26,.62); }
+.ha-tile.is-focus .ha-tile-name { color: #14161a; }
 
 .ha-hint {
   margin: 10px 0 0;
