@@ -80,7 +80,10 @@ whatever it is given. Two ways in, and they are not equally easy:
   reading another site's answer.
 - **A username and a password.** The account you already use. This goes through
   Home Assistant's login API, and a browser only lets a page read that answer
-  when the server names the page's origin, so `configuration.yaml` needs:
+  when the server names the page's origin. Name it in the interface, under
+  Settings, System, Network, the HTTP server section, CORS allowed origins
+  (Home Assistant 2026.8 and later), or in `configuration.yaml` on an older
+  install:
 
 ```yaml
 http:
@@ -96,6 +99,11 @@ A wildcard does not work. With `- "*"`, or an empty list, Home Assistant
 accepts the sign-in request but sends no `Access-Control-Allow-Origin` header,
 so the browser refuses to read the answer and the app reports that nothing came
 back. The origin has to be named.
+
+Since 2026.8 the HTTP settings are managed in the interface, so a `http:` block
+left in `configuration.yaml` can be ignored without any message - which looks
+exactly like a list that has no effect. If an entry you added changes nothing,
+check the interface first: the running values are shown there.
 
 On the TV the launcher's origin is not a web address that can be listed, so a
 username and password cannot work there: use a token. It also never expires,
