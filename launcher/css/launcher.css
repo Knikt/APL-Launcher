@@ -530,7 +530,7 @@ html, body {
 /* The power tile is square: two 123 px rows and their 14 px gap are exactly its
    260 px width, and the two tiles beside it fill those rows instead of floating. */
 /* One grid, one rhythm. Every pill is 118 px tall with a 59 px curve, so its
-   ends are半 round like the reference; the power tile is a square with the same
+   ends fully round like the reference; the power tile is a square with the same
    family of curve; every button with one word is a circle, all of one diameter;
    and the columns are 260 px with a 14 px gap everywhere. */
 .cc__body--main { grid-template-rows: repeat(2, 118px); grid-auto-rows: 118px; }
