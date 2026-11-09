@@ -420,6 +420,33 @@
         if (l._stale) setTimeout(function () { if (l !== bgActive && l.parentNode) l.parentNode.removeChild(l); }, FADE_MS + 50);
     }
 
+    /* The panes of the whole dock are baked as soon as the row is known, one at a
+       time so the Home Screen never stutters: by the time a key moves along the
+       row, the slice for the app being shown is already rendered. That is what
+       makes the change instant - reveal() waits for a bake, and a bake that is
+       already in the cache answers in the same frame as the call, so the picture
+       and the glass swap together with no delay at all. A cold picture (the first
+       visit to an app, before this has run) is the only case that waits. */
+    var warmed = {};
+    function warmDock() {
+        if (!APL.glass || !APL.glass.prefetch || !apps || !apps.length) return;
+        var queue = [], i, art;
+        for (i = 0; i < apps.length && i < DOCK_SIZE; i++) {
+            art = artOf(apps[i]);
+            if (art && !warmed[art]) queue.push(art);
+        }
+        (function next() {
+            var src = queue.shift();
+            if (!src) return;
+            warmed[src] = true;
+            APL.glass.prefetch(src);
+            global.setTimeout(next, 70);
+        })();
+    }
+    /* The row arrives with the app list, which can be later than this file runs. */
+    [1200, 3000, 6500, 12000].forEach(function (ms) { global.setTimeout(warmDock, ms); });
+    APL.warmGlass = warmDock;
+
     /* The picture and the glass over it change in the same frame: the pane is
        baked from the very bitmap that is about to be shown, and only then does
        the layer go on screen. Showing the picture first and letting the dock
