@@ -40,6 +40,7 @@
     var TARGETS = [
         ".dock",
         ".status",            /* the clock and avatar pill */
+        ".search-hint",       /* the magnifier at the top left */
         ".cc__t",
         ".cc__headico",       /* the button beside the clock, top right */
         ".scard__art--glass"

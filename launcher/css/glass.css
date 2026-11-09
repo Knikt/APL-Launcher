@@ -98,7 +98,7 @@ body.glass .cc__t.is-focused .cg__glass { opacity: 0; }
 /* The Control Center's tiles are circles and pills: a straight hairline ran past
    their curve and showed as a white line above each round button (an S90F). Their
    light follows the edge instead. */
-body.glass .cc__t .cg__glass::before { display: none; }
+body.glass .cc__t .cg__glass::before { display: block; }   /* the sheen below replaces the line */
 
 /* A pane shows the picture as it is behind the page. The Control Center and Sources
    darken the screen, so their panes carry the same shade (.cc__dim, .sources__dim),
@@ -152,5 +152,38 @@ body.glass.theme-light .cc__headico .cg__glass::after {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.35) 46%, rgba(255, 255, 255, 0.42) 100%),
         linear-gradient(rgba(232, 233, 240, 0.55), rgba(232, 233, 240, 0.55));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+/* A reflection, not a hairline: a broad white sheen across the top half of the
+   pane, fading out before the middle. The tiles' own hairline was suppressed
+   because a straight line crossed their curve; the sheen follows the shape. */
+body.glass .cc__t .cg__glass::before,
+body.glass .cc__headico .cg__glass::before,
+body.glass .search-hint .cg__glass::before {
+    display: block;
+    top: 0; left: 0; right: 0;
+    height: 46%;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(255, 255, 255, 0) 100%);
+}
+/* Clipped to the pill, or the sheen spills past the rounded corners. */
+body.glass .cc__t .cg__glass,
+body.glass .cc__headico .cg__glass,
+body.glass .search-hint .cg__glass { overflow: hidden; }
+
+/* The magnifier sits on the Home Screen itself, so its pane is the picture at a
+   light shade - between the dock and the panel tiles - and its glyph stays above
+   the pane. */
+body.glass .search-hint > :not(.cg__glass) { position: relative; z-index: 1; }
+body.glass .search-hint .cg__glass::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04) 46%, rgba(255, 255, 255, 0.02) 100%),
+        linear-gradient(rgba(26, 28, 36, 0.44), rgba(26, 28, 36, 0.44));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+body.glass.theme-light .search-hint .cg__glass::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.42) 46%, rgba(255, 255, 255, 0.5) 100%),
+        linear-gradient(rgba(236, 238, 244, 0.5), rgba(236, 238, 244, 0.5));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
