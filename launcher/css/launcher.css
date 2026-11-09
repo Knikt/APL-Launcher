@@ -522,18 +522,18 @@ html, body {
     background: radial-gradient(circle at 35% 30%, #7cc4ff, #2f6bdc 55%, #1b2f86 100%);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
 }
-.cc__viewport { max-height: 1000px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the whole grid: never a cut last row */
+.cc__viewport { max-height: 1000px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the grid and its captions: never a cut row */
 /* One grid for every tile, 534 px wide: 260 + 14 + 260. 260 px is the narrowest
    column the French labels fit in on one line ("Économiseur", "Minuterie");
    wider than that only makes every tile a longer rectangle. */
 .cc__body { display: grid; grid-template-columns: repeat(2, 260px); justify-content: center; gap: 14px; transition: transform 260ms var(--ease); }
 /* The power tile is square: two 123 px rows and their 14 px gap are exactly its
    260 px width, and the two tiles beside it fill those rows instead of floating. */
-/* One grid, one rhythm. Every pill is 118 px tall with a 59 px curve, so its
-   ends fully round like the reference; the power tile is a square with the same
-   family of curve; every button with one word is a circle, all of one diameter;
-   and the columns are 260 px with a 14 px gap everywhere. */
-.cc__body--main { grid-template-rows: repeat(2, 118px); grid-auto-rows: 118px; }
+/* Two 260 px columns and a 14 px gap. Every pill is 118 px tall with a 59 px
+   curve; two circles side by side are exactly one pill wide, so four of them
+   fill the row; the names under the circles take a thin row of their own
+   because the rows size to what is in them. */
+.cc__body--main { grid-template-rows: repeat(2, 118px); grid-auto-rows: auto; }
 .cc__body--main > .cc__t--big + .cc__t, .cc__body--main > .cc__t--big + .cc__t + .cc__t { height: 100%; }
 .cc__body--audio, .cc__body--pair, .cc__body--airplay { grid-template-columns: 1fr; gap: 12px; }
 
@@ -552,28 +552,26 @@ html, body {
 .cc__t--big {
     grid-row: span 2;
     width: 260px;
-    height: 100%;           /* the two 118 px rows it spans, plus their gap */
+    height: 100%;           /* the two 121 px rows it spans */
     border-radius: 44px;
     flex-direction: column;
     justify-content: center;
-    gap: 14px;
+    gap: 16px;
 }
-.cc__t--big .cc__title { font-size: 22px; }
+.cc__t--big .cc__title { font-size: 26px; }
 .cc__t--pill { height: 118px; border-radius: 59px; gap: 14px; padding: 0 26px 0 22px; min-width: 0; }
-.cc__t--wide { grid-column: span 2; height: 118px; border-radius: 59px; gap: 14px; padding: 0 26px 0 22px; }   /* Screensaver, Settings */
+.cc__t--wide { height: 118px; border-radius: 59px; gap: 14px; padding: 0 26px 0 22px; }
 /* The device name under Wi-Fi or Audio is a label, not a detail to clip. */
 .cc__t--pill .cc__sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; font-size: 19px; }
-/* Five circles of one diameter: 5 × 95 plus four 14 px gaps is 531 of the 534 px
-   the two columns span. A fixed width, not a share of the row, so no circle can
-   come out smaller than its neighbours. */
-.cc__rounds { grid-column: span 2; display: flex; justify-content: flex-start; align-items: center; gap: 14px; height: 118px; padding: 0; }
-.cc__t--round { flex: none; width: 95px; height: 95px; border-radius: 50%; justify-content: center; }
-.cc__caption { display: block; grid-column: span 2; height: 20px; margin-top: -4px; text-align: center; font-size: 19px; font-weight: 500; line-height: 20px; color: rgba(255,255,255,0.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Four circles, 123 px across: two of them plus their gap are exactly one 260 px
+   pill, so four fill the row. Search keeps the same diameter on its own row - the
+   88 px "solo" size is gone, which is what made it smaller than the others. */
+.cc__rounds { grid-column: span 2; display: flex; justify-content: flex-start; align-items: center; gap: 14px; height: 123px; padding: 0; }
+.cc__t--round { flex: none; width: 123px; height: 123px; border-radius: 50%; justify-content: center; }
+.cc__caption { display: block; grid-column: span 2; height: 20px; margin-top: -4px; text-align: center; font-size: 19px; font-weight: 500; line-height: 20px; color: rgba(255,255,255,0.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }   /* the circles carry no label: this row names the one under the remote */
 /* Spans both columns: 260 + 14 + 260 = 534, the width of the grid. */
 .cc__t--slider { grid-column: span 2; height: 118px; border-radius: 59px; gap: 20px; padding: 0 30px 0 26px; }
-.cc__t--row { min-height: 104px; border-radius: 52px; gap: 18px; padding: 14px 30px 14px 22px; }
-/* a labelled tile whose height grows with its text keeps the pill's curve */
-.cc__t--row { border-radius: 59px; }
+.cc__t--row { min-height: 104px; border-radius: 59px; gap: 18px; padding: 14px 30px 14px 22px; }
 .cc__ico {
     flex: none;
     width: 62px; height: 62px; border-radius: 50%;

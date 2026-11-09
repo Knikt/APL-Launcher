@@ -20,7 +20,7 @@
     "use strict";
 
     var APL = global.APL, sys = APL.sys, K = APL.KEY;
-    var root, panel, timeEl, avatarEl, viewport, body, nav;
+    var root, panel, timeEl, avatarEl, viewport, body, captionEl, nav;
     var items = [], view = "main", lastMainIndex = 1, scrollY = 0;
     var isOpen = false;
 
@@ -311,15 +311,13 @@
             { cls: "round", icon: "access", title: APL.t("Accessibility"), select: openSettings(APL.t("General & Privacy")) },
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
             { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
-            /* Search is the fifth circle, in the same group: on its own it was a
-               second group of one and took the smaller size such a group gets. */
-            { cls: "round", icon: "search", title: APL.t("Search"),
-              select: function () { close(); if (APL.search) APL.search.open(); } },
             { cls: "slider", type: "backlight", icon: "sun", title: APL.t("Brightness") },
-            { cls: "wide", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
+            { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
-            { cls: "wide", icon: "gear", title: "Settings", sub: function () { return APL.t("All settings"); },
-              select: openSettings() }
+            { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
+              select: openSettings() },
+            { cls: "round", icon: "search", title: APL.t("Search"), start: true,
+              select: function () { close(); if (APL.search) APL.search.open(); } }
         ];
     }
 
@@ -430,6 +428,7 @@
         scrollY = 0;
         body.style.transform = "translateY(0)";
         var focusables = [], rounds = null;
+        captionEl = null;
         items.forEach(function (it) {
             if (it.cls === "head") {
                 var h = el("div", "cc__sheethead", APL.icon("chevron", 30, 2.6) + "<span></span>");
@@ -451,11 +450,28 @@
                 if (it.start) rounds.style.justifyContent = "flex-start";      // Search sits at the left edge
                 rounds.appendChild(t);
             } else {
-                if (rounds && it.cls !== "round") rounds = null;
+                if (rounds && it.cls !== "round") {
+                    captionEl = el("div", "cc__caption");
+                    captionEl.__group = rounds;             // the circles this label names
+                    body.appendChild(captionEl);
+                    rounds = null;
+                }
                 body.appendChild(t);
             }
             focusables.push(t);
         });
+        /* A row with one circle (Search sits on its own) does not need the height
+           of a row of four: it stays the small button it was. */
+        [].forEach.call(body.querySelectorAll(".cc__rounds"), function (r) {
+            if (r.children.length === 1) r.classList.add("cc__rounds--solo");
+        });
+        /* A round row can be the last group (Search sits on its own): it needs
+           its caption all the same, since the circles carry no label. */
+        if (rounds) {
+            captionEl = el("div", "cc__caption");
+            captionEl.__group = rounds;
+            body.appendChild(captionEl);
+        }
         focusables.forEach(function (t) {
             if (t._item.type === "backlight") {
                 sys.tvItem("backlight").then(function (m) {
@@ -474,11 +490,29 @@
         if (view === "audio" && !keepFocus) focusables.forEach(function (t, i) { if (t._item.check && t._item.check() && !start) start = i; });
         if (view === "pair" || keepFocus) start = Math.min(keep || 0, focusables.length - 1);
         nav.focus(start);
+        paintCaption(nav.current());
     }
 
+    function captionOf(it) {
+        if (!it || it.cls !== "round") return "";
+        return it.sub ? it.title + " · " + it.sub() : it.title;
+    }
+
+    /* The round buttons carry no label of their own, so the row under them does.
+       There is more than one round row (Game Mode… Sources, then Search), so the
+       label is written on the caption that belongs to the focused circle's row
+       and every other one is left empty. */
+    function paintCaption(t) {
+        var caps = body ? body.querySelectorAll(".cc__caption") : [], i, g;
+        for (i = 0; i < caps.length; i++) {
+            g = caps[i].__group;
+            caps[i].textContent = (t && g && g.contains(t)) ? captionOf(t._item) : "";
+        }
+    }
 
     function refresh() {
         nav.tiles.forEach(function (t) { if (t._item.type !== "backlight") draw(t._item, t); });
+        paintCaption(nav.current());
         var d = new Date(), h = d.getHours(), m = ((d.getMinutes()) < 10 ? "0" : "") + d.getMinutes();
         timeEl.textContent = sys.pref("clock24") ? ((h) < 10 ? "0" : "") + h + ":" + m : ((h % 12) || 12) + ":" + m;
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
@@ -512,6 +546,7 @@
         nav = new APL.Nav({
             onFocus: function (i, t) {
                 ensureVisible(t);
+                paintCaption(t);
             },
             onSelect: function (i, t) {
                 var it = t._item;
