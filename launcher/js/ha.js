@@ -357,7 +357,7 @@
   function asMap(v) { return v && typeof v === 'object' && !asList(v).length ? v : {}; }
 
   function readLayout() {
-    var out = { rooms: [], cats: [], assign: {}, catof: {}, order: {} }, raw, d;
+    var out = { rooms: [], cats: [], assign: {}, catof: {}, order: {}, hidden: [] }, raw, d;
     try { raw = root.localStorage.getItem(LAYOUT_KEY); } catch (e) { return out; }
     if (!raw) return out;
     try { d = JSON.parse(raw); } catch (e) { return out; }
@@ -367,6 +367,7 @@
     out.assign = asMap(d.assign);
     out.catof = asMap(d.catof);
     out.order = asMap(d.order);
+    out.hidden = asList(d.hidden);
     return out;
   }
 
@@ -378,8 +379,12 @@
   /* Rooms made here are appended after the server's, and a move takes the
      accessory out of the room it was given rather than copying it: one
      accessory is in one room at a time, which is what the sidebar promises. */
+  /* Accessories taken off the house are kept aside here so the "Hidden" list
+     can offer them back with their names and types intact. */
+  var hiddenDevs = [];
+
   function applyLayout(list) {
-    var i, j, id, dev, target, room, order, r, rank = {};
+    var i, j, id, dev, target, room, order, r, rank = {}, keep, hide = {};
     for (i = 0; i < list.length; i++) {
       list[i].user = false;
       if (!list[i].devices) list[i].devices = [];
@@ -411,6 +416,17 @@
         var ra = rank[a.id], rb = rank[b.id];
         return (ra == null ? order.length : ra) - (rb == null ? order.length : rb);
       });
+    }
+    hiddenDevs = [];
+    for (i = 0; i < layout.hidden.length; i++) hide[layout.hidden[i]] = true;
+    for (i = 0; i < list.length; i++) {
+      keep = [];
+      for (j = 0; j < list[i].devices.length; j++) {
+        dev = list[i].devices[j];
+        if (dev && hide[dev.id]) { hiddenDevs.push(dev); continue; }
+        keep.push(dev);
+      }
+      list[i].devices = keep;
     }
   }
 
@@ -475,8 +491,27 @@
     saveLayout();
   }
 
+  /* Off the house, not out of the server: Home Assistant still has the
+     accessory, and the layout only says not to draw it. */
+  function hideDevice(id) {
+    if (!id) return;
+    if (layout.hidden.indexOf(id) < 0) layout.hidden.push(id);
+    saveLayout();
+  }
+
+  function showDevice(id) {
+    var at = layout.hidden.indexOf(id);
+    if (at < 0) return;
+    layout.hidden.splice(at, 1);
+    saveLayout();
+  }
+
+  function isHidden(id) { return layout.hidden.indexOf(id) >= 0; }
+
+  function hiddenDevices() { return hiddenDevs.slice(0); }
+
   function resetLayout() {
-    layout = { rooms: [], cats: [], assign: {}, catof: {}, order: {} };
+    layout = { rooms: [], cats: [], assign: {}, catof: {}, order: {}, hidden: [] };
     saveLayout();
   }
 
@@ -498,7 +533,7 @@
   }
 
   function why(st) {
-    if (st === 0) return APL.t('Home Assistant did not answer. Check the address, and that the TV is on the same network.');
+    if (st === 0) return APL.t('Nothing came back. The browser blocks this kind of sign-in when the server does not list this screen (CORS); a token needs nothing set.');
     if (st === 403) return APL.t('Home Assistant refused the request. It may not allow this screen yet (CORS).');
     if (st === 401) return APL.t('Home Assistant refused those details.');
     return APL.t('Home Assistant answered {status}.', { status: st });
@@ -832,8 +867,11 @@
        their own, where each accessory was put, and the order inside a room. */
     userRooms: function () { return layout.rooms.slice(0); },
     userCats: function () { return layout.cats.slice(0); },
-    categoryOf: function (id) { return layout.catof[id] || ''; },
-    createRoom: createRoom,
+    categoryOf: function (id) { return layout.catof[id] || ''; },      createRoom: createRoom,
+      hideDevice: hideDevice,
+      showDevice: showDevice,
+      isHidden: isHidden,
+      hiddenDevices: hiddenDevices,
     createCategory: createCategory,
     moveDevice: moveDevice,
     putInCategory: putInCategory,

@@ -177,6 +177,8 @@
     /* Last row: the door back to the connect screen, so a wrong server or a
        finished test never needs a reinstall to get rid of. */
     out.push({ id: 'edit', name: t(editMode ? 'Done' : 'Edit Layout'), icon: 'plus' });
+    var gone = (ha && ha.hiddenDevices) ? ha.hiddenDevices().length : 0;
+    if (gone) out.push({ id: 'hidden', name: t('Hidden') + ' (' + gone + ')', icon: 'more' });
     out.push({ id: 'haOut', name: t('Sign out'), icon: 'more' });
     return out;
   }
@@ -197,6 +199,11 @@
         devs = devicesOf(list[i]);
         out.push({ name: list[i].name, room: list[i].id, items: devs.map(function (d) { return { dev: d }; }) });
       }
+      return out;
+    }
+    if (zone === 'hidden') {
+      devs = (ha && ha.hiddenDevices) ? ha.hiddenDevices() : [];
+      out.push({ name: t('Hidden'), items: devs.map(function (d) { return { dev: d }; }) });
       return out;
     }
     if (zone.indexOf('cat:') === 0) {
@@ -454,6 +461,11 @@
      the accessory put in it in one go, so nothing is left half done. */
   function editRows(dev) {
     var rows = [], list = rooms(), catsList = cats(), here = roomIdOf(dev), i;
+    /* Opened from the Hidden row: the only thing to do there is put it back. */
+    if (zone === 'hidden') {
+      return [{ id: '', label: t('Off the house'), act: 'head' },
+              { id: '', label: t('Put back on Home'), act: 'show' }];
+    }
     var mine = (ha && ha.categoryOf) ? ha.categoryOf(dev.id) : '';
     rows.push({ id: '', label: t('Move to'), act: 'head' });
     for (i = 0; i < list.length; i++) {
@@ -470,6 +482,7 @@
     }
     if (mine) rows.push({ id: '', label: t('No category'), act: 'uncat' });
     rows.push({ id: '', label: t('New category...'), act: 'newcat' });
+    rows.push({ id: '', label: t('Remove from Home'), act: 'hide' });
     return rows;
   }
 
@@ -486,6 +499,8 @@
     if (row.act === 'move') { if (ha.moveDevice) ha.moveDevice(id, row.id); sheetOpen = false; editDev = null; }
     else if (row.act === 'cat') { if (ha.putInCategory) ha.putInCategory(id, row.id); }
     else if (row.act === 'uncat') { if (ha.putInCategory) ha.putInCategory(id, ''); }
+    else if (row.act === 'hide') { if (ha.hideDevice) ha.hideDevice(id); sheetOpen = false; editDev = null; }
+    else if (row.act === 'show') { if (ha.showDevice) ha.showDevice(id); sheetOpen = false; editDev = null; if (zone === 'hidden' && !(ha.hiddenDevices && ha.hiddenDevices().length)) zone = 'home'; }
     else if (row.act === 'up' || row.act === 'down') { if (ha.moveInRoom) ha.moveInRoom(roomIdOf(editDev), id, row.act === 'up' ? -1 : 1); }
     else if (row.act === 'newroom' || row.act === 'newcat') { startEditName(row.act === 'newroom' ? 'room' : 'cat'); return; }
     paint(true);
@@ -708,7 +723,7 @@
   function openSheetFor(dev) {
     if (!dev) return;
     if (dev.type === 'scene') { if (ha) ha.activateScene(dev.id); return; }
-    if (editMode) {
+    if (editMode || zone === 'hidden') {
       editDev = dev;
       sheetDev = null;
       sheetOpen = true;
@@ -746,6 +761,7 @@
       if (editName) { editName = null; paint(true); return; }
       if (sheetOpen) { sheetOpen = false; sheetDev = null; editDev = null; paint(true); return; }
       if (editMode) { editMode = false; paint(true); return; }
+      if (zone === 'hidden') { zone = 'home'; f.i = 0; paint(true); return; }
       close();
       return;
     }
