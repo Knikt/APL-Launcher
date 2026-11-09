@@ -41,6 +41,7 @@
         ".dock",
         ".status",            /* the clock and avatar pill */
         ".cc__t",
+        ".cc__headico",       /* the button beside the clock, top right */
         ".scard__art--glass"
     ];
 
