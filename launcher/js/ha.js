@@ -286,8 +286,11 @@
     return { rooms: rooms, scenes: scenes.slice(0, 12) };
   }
 
+  /* base(), not the saved connection: while someone is signing in there is no
+     saved connection yet, and reading it here is what sent a token sign-in down
+     the REST path, where a server that does not allow this screen blocks it. */
   function wsBase() {
-    var b = originOf(dashboardUrl());
+    var b = base();
     return b ? b.replace(/^http/i, 'ws') + '/api/websocket' : '';
   }
 
