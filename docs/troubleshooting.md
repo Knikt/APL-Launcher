@@ -26,6 +26,8 @@
 | After a full restart, Home opens Samsung's home | Normal for up to two minutes: Vetro starts and takes over the remote. If it lasts longer, open Vetro once from *Apps*, and check that Developer Mode's *Host PC IP* is `127.0.0.1` (Vetro needs it to restart by itself). Prefer sleep to unplugging. |
 | Samsung's home is empty | Normal after Optimize: its ads and recommendations are turned off. Press Home once Vetro is ready. |
 | TizenTube freezes or opens Samsung's YouTube | Open it from the launcher: it closes Samsung's YouTube first, as TizenTube needs. Then run **Repair TizenBrew** in APL Launcher Setup › Tools. |
+| *Start on APL Launcher* turns itself off again | It needs Samsung's *Autorun Smart Hub* on, and Vetro 0.5's own *Custom launcher* switches that off. Keep Vetro's Custom launcher off and let APL Launcher handle Home (*Settings › Remote and Devices › Set Up the Remote Buttons*). |
+| Without Vetro, Samsung's menus can't be reached | Since 1.0.21, *Return to the Launcher* is off by default when Vetro is not installed, so Home shows Samsung's home. If you turned it on yourself, turn it off in *Settings › Home Screen*. |
 | The screen starts on Smart Hub | Turn *Autorun Smart Hub* off and *Autorun last app* on, then put the screen to sleep from the launcher. |
 | Holding OK opens the app instead of the menu | The launcher handles remotes that repeat a held key as press/release pairs. If it still happens, tell us your remote model. |
 | Brightness, picture settings or Bluetooth show *Indisponible* or *Failed to fetch* | These need Vetro and the launcher's private relay: check that Vetro is running, then install again. |

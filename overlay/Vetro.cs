@@ -60,6 +60,22 @@ namespace APL
             return hosts.Distinct().ToList();
         }
 
+#if TIZEN6
+        /// <summary>
+        /// The Tizen 6 build (.NET Core 3.1) has no ConnectAsync that takes a token: the same connection, and the
+        /// token closes the socket, which ends the attempt. Seen from the caller, a timeout is still an
+        /// OperationCanceledException.
+        /// </summary>
+        internal static async Task ConnectWithin(TcpClient client, string host, int port, CancellationToken token)
+        {
+            using (token.Register(() => client.Dispose()))
+            {
+                try { await client.ConnectAsync(host, port); }
+                catch (Exception) when (token.IsCancellationRequested) { throw new OperationCanceledException(token); }
+            }
+        }
+#endif
+
         /// <summary>
         /// Connects to Vetro, starting with the address that worked last and trying the others in turn: one that
         /// does not let us connect within 5 s moves on to the next. Only a success is remembered, so requests
@@ -78,7 +94,11 @@ namespace APL
                 try
                 {
                     using (var connect = new CancellationTokenSource(ConnectTimeout))
+#if TIZEN6
+                        await ConnectWithin(client, host, Port, connect.Token);
+#else
                         await client.ConnectAsync(host, Port, connect.Token);
+#endif
                     Volatile.Write(ref hostIndex, index);
                     return client;
                 }

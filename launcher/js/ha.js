@@ -311,7 +311,8 @@
         var r;
         try { r = JSON.parse(e2.data); } catch (err) { return; }
         if (!r || r.id == null) return;
-        if (r.id === 1) out.entities = r.result || [];
+        /* list_for_display answers {entities: [...]}, not a bare list. */
+        if (r.id === 1) out.entities = (r.result && r.result.entities) || r.result || [];
         else if (r.id === 2) out.devices = r.result || [];
         else if (r.id === 3) out.areas = r.result || [];
         left--;
@@ -323,8 +324,11 @@
     };
   }
 
-  function deriveHouse() {
-    if (ROOMS.length) return;
+  /* force: build again even though rooms exist. The registries land after the
+     first states, and the house drawn from states alone (everything in
+     "Other") must not outlive them. */
+  function deriveHouse(force) {
+    if (ROOMS.length && !force) return;
     var house = roomsFrom(states, registry);
     if (!house.rooms.length && !house.scenes.length) return;
     ROOMS = house.rooms;
@@ -533,7 +537,9 @@
       loadRegistry(function (reg) {
         if (!reg) return;
         registry = reg;
-        deriveHouse();
+        ROOMS.length = 0;
+        SCENES.length = 0;
+        deriveHouse(true);
         notify();
       });
     }
