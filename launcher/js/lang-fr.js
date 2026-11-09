@@ -707,4 +707,5 @@ window.APL_LANG_FR = {
     "Coast": "Côte",
     "Forest": "Forêt",
     "City": "Ville",
+    "Whole house": "Toute la maison",
 };

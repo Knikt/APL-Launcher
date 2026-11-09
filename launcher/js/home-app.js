@@ -443,7 +443,7 @@
   }
 
   function sheetHeadHtml() {
-    if (backdropSheet) return '<div class="ha-sheet-title">' + t('Backdrops') + '</div>' +
+    if (backdropSheet) return '<div class="ha-sheet-title">' + t('Backdrop') + ' \u00b7 ' + esc(backdropTargetName()) + '</div>' +
       '<span class="ha-sheet-hint">' + t('Back closes') + '</span>';
     if (editDev) {
       return '<div class="ha-sheet-copy"><h2>' + esc(editDev.name) + '</h2><p>' + t('Room, order and category') + '</p></div>' +
@@ -710,6 +710,7 @@
     f.zone = 'grid';
     f.i = 0;
     if (sectionsEl) sectionsEl.scrollTop = 0;
+    applyBackdrop();
   }
 
   /* Forget the server and show the form again. */
@@ -777,12 +778,10 @@
       if (k === 'down') { f.c = Math.min(bdRows.length - 1, f.c + 1); paint(true); return; }
       if (k === 'ok') {
         var bdRow = bdRows[f.c] || bdRows[0];
-        setBackdropId(bdRow.key || '');
+        saveBackdrop(backdropRoomKey(), bdRow.key || '');
         applyBackdrop();
         backdropSheet = false;
         sheetOpen = false;
-        zone = 'home';
-        f.i = 0;
         paint(true);
         return;
       }
@@ -1088,43 +1087,98 @@
   }
 
   /* ---------- Backdrops ----------
-     Four photographs shipped with the package, and the Home tile's own picture
-     as the default. The choice is a small string on the screen, so it survives
-     a restart without the package being rebuilt. */
+     A picture per room, with the whole house as the fallback: the room
+     photographs Apple's Home app uses, in the same spirit. Four are in the
+     package; more can be added on the PC, where the installer copies the files
+     into the widget and lists them in APL_KEYS.ha.backdrops, so the TV is never
+     told where a picture lives and nothing is typed on a remote. */
   var BACKDROP_KEY = 'apl.ha.backdrop';
-  var BACKDROPS = [
+  var BUNDLED = [
     { id: 'dawn', name: 'Dawn' },
     { id: 'coast', name: 'Coast' },
     { id: 'forest', name: 'Forest' },
     { id: 'city', name: 'City' }
-  ], backdropSheet = false;
+  ], backdropSheet = false, bdMap = null, pickedPhoto = '', lastBackdropUrl = '';
 
-  function backdropId() {
-    try { return String(root.localStorage.getItem(BACKDROP_KEY) || ''); } catch (e) { return ''; }
+  function extraBackdrops() {
+    var k = (root.APL_KEYS && root.APL_KEYS.ha) || {}, list = k.backdrops, out = [], i, b;
+    if (!list || typeof list.length !== 'number') return out;
+    for (i = 0; i < list.length; i++) {
+      b = list[i] || {};
+      if (!b.id || !b.file) continue;
+      out.push({ id: String(b.id), name: String(b.name || b.id), file: String(b.file) });
+    }
+    return out;
   }
 
-  function setBackdropId(id) {
-    try {
-      if (id) root.localStorage.setItem(BACKDROP_KEY, id);
-      else root.localStorage.removeItem(BACKDROP_KEY);
-    } catch (e) {}
+  function backdrops() { return BUNDLED.concat(extraBackdrops()); }
+
+  /* Room id to backdrop id, with 'house' for the default. A screen from before
+     per-room pictures stored a bare id; that reads as the whole house's. */
+  function readBackdropMap() {
+    var raw = '', d;
+    try { raw = String(root.localStorage.getItem(BACKDROP_KEY) || ''); } catch (e) { return {}; }
+    if (!raw) return {};
+    if (raw.charAt(0) === '{') {
+      try { d = JSON.parse(raw); } catch (e) { return {}; }
+      return (d && typeof d === 'object') ? d : {};
+    }
+    return { house: raw };
   }
 
-  /* '' hands the stage back to the Home tile's picture, which is what the
-     stylesheet falls back to when the property is not set. */
+  function backdropMap() { if (!bdMap) bdMap = readBackdropMap(); return bdMap; }
+
+  function saveBackdrop(roomKey, id) {
+    var map = backdropMap();
+    if (id) map[roomKey] = id; else delete map[roomKey];
+    bdMap = map;
+    try { root.localStorage.setItem(BACKDROP_KEY, JSON.stringify(map)); } catch (e) {}
+  }
+
+  function backdropById(id) {
+    var list = backdrops(), i;
+    for (i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  /* A room without a picture of its own takes the house's. */
+  function backdropFor(roomKey) {
+    var map = backdropMap();
+    return backdropById(map[roomKey] || '') || backdropById(map.house || '') || null;
+  }
+
+  function backdropUrl(b) {
+    if (!b) return '';
+    var rel = b.file || ('images/backdrops/' + b.id + '.jpg');
+    try { return new URL(rel, document.baseURI).href; } catch (e) { return rel; }
+  }
+
+  function backdropRoomKey() {
+    return (zone === 'home' || zone === 'hidden') ? 'house' : zone;
+  }
+
+  function backdropTargetName() {
+    var key = backdropRoomKey(), list = rooms(), i;
+    if (key !== 'house') {
+      for (i = 0; i < list.length; i++) if (list[i].id === key) return list[i].name;
+    }
+    return t('Whole house');
+  }
+
   function applyBackdrop() {
     if (!box) return;
-    var id = backdropId(), i, file = '';
-    for (i = 0; i < BACKDROPS.length; i++) if (BACKDROPS[i].id === id) file = 'images/backdrops/' + BACKDROPS[i].id + '.jpg';
-    if (!file) { try { box.style.removeProperty('--ha-photo'); } catch (e) {} return; }
-    var url = file;
-    try { url = new URL(file, document.baseURI).href; } catch (e) {}
-    box.style.setProperty('--ha-photo', 'url("' + url + '")');
+    var url = backdropUrl(backdropFor(backdropRoomKey())) || pickedPhoto;
+    if (url === lastBackdropUrl) return;
+    lastBackdropUrl = url;
+    if (url) box.style.setProperty('--ha-photo', 'url("' + url + '")');
+    else { try { box.style.removeProperty('--ha-photo'); } catch (e) {} }
   }
 
   function backdropRows() {
-    var rows = [{ id: '', label: t('Match the Home tile'), act: 'bd', key: '' }], i;
-    for (i = 0; i < BACKDROPS.length; i++) rows.push({ id: BACKDROPS[i].id, label: t(BACKDROPS[i].name), act: 'bd', key: BACKDROPS[i].id });
+    var rows = [{ id: '', label: t('Match the Home tile'), act: 'bd', key: '' }], list = backdrops(), i;
+    for (i = 0; i < list.length; i++) {
+      rows.push({ id: list[i].id, label: list[i].file ? list[i].name : t(list[i].name), act: 'bd', key: list[i].id });
+    }
     return rows;
   }
 
@@ -1150,11 +1204,13 @@
     var pick = root.CleanFrameBackdrops && root.CleanFrameBackdrops.pick ? root.CleanFrameBackdrops.pick('homecontrol') : null;
     /* Absolute, because the stylesheet that reads --ha-photo lives in css/:
        a bare "assets/..." resolved against it and the photograph never loaded. */
+    pickedPhoto = '';
     if (pick && pick.url) {
-      var photo = pick.url;
-      try { photo = new URL(pick.url, document.baseURI).href; } catch (e) {}
-      box.style.setProperty('--ha-photo', 'url("' + photo + '")');
+      pickedPhoto = pick.url;
+      try { pickedPhoto = new URL(pick.url, document.baseURI).href; } catch (e) {}
     }
+    bdMap = null;
+    lastBackdropUrl = 'picked';
     applyBackdrop();
     openFlag = true;
     zone = 'home';
