@@ -4,7 +4,7 @@
    Glass tiles float at the top right, over the Home Screen:
      Sleep (large square) · Wi-Fi · Do Not Disturb
      Audio (sound output: screen, AirPods…) · Sleep Timer
-     Sources (pill) · Game Mode ○  ○ Accessibility  ○ AirPlay and iPhone  ○ Search
+     Game Mode ○  ○ Accessibility  ○ AirPlay and iPhone  ○ Search     (the four circles)
      Brightness (real, through Vetro)
      Screen Saver · Settings
    "Audio" opens the list of outputs: the screen's speakers and paired
@@ -310,14 +310,14 @@
               on: function () { return gameState.on; }, select: gameToggle },
             { cls: "round", icon: "access", title: APL.t("Accessibility"), select: openSettings(APL.t("General & Privacy")) },
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
+            { cls: "round", icon: "search", title: APL.t("Search"),
+              select: function () { close(); if (APL.search) APL.search.open(); } },
             { cls: "pill", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
             { cls: "slider", type: "backlight", icon: "sun", title: APL.t("Brightness") },
             { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
             { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
-              select: openSettings() },
-            { cls: "round", icon: "search", title: APL.t("Search"),
-              select: function () { close(); if (APL.search) APL.search.open(); } }
+              select: openSettings() }
         ];
     }
 
