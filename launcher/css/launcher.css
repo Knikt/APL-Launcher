@@ -522,18 +522,17 @@ html, body {
     background: radial-gradient(circle at 35% 30%, #7cc4ff, #2f6bdc 55%, #1b2f86 100%);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
 }
-.cc__viewport { max-height: 1000px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the whole grid and the caption: never a cut last row */
+.cc__viewport { max-height: 1000px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the whole grid: never a cut last row */
 /* One grid for every tile, 534 px wide: 260 + 14 + 260. 260 px is the narrowest
    column the French labels fit in on one line ("Économiseur", "Minuterie");
    wider than that only makes every tile a longer rectangle. */
 .cc__body { display: grid; grid-template-columns: repeat(2, 260px); justify-content: center; gap: 14px; transition: transform 260ms var(--ease); }
 /* The power tile is square: two 123 px rows and their 14 px gap are exactly its
    260 px width, and the two tiles beside it fill those rows instead of floating. */
-/* One grid, one rhythm. A tile's shape says what it is - a square for the
-   power button, a pill for anything with a label, a circle for a button with
-   one word - and every tile of the same shape is exactly the same size: all
-   pills 260 x 118 with a 30 px curve, all circles 118 across, every glyph 40
-   px in the same 62 px circle. */
+/* One grid, one rhythm. Every pill is 118 px tall with a 59 px curve, so its
+   ends are半 round like the reference; the power tile is a square with the same
+   family of curve; every button with one word is a circle, all of one diameter;
+   and the columns are 260 px with a 14 px gap everywhere. */
 .cc__body--main { grid-template-rows: repeat(2, 118px); grid-auto-rows: 118px; }
 .cc__body--main > .cc__t--big + .cc__t, .cc__body--main > .cc__t--big + .cc__t + .cc__t { height: 100%; }
 .cc__body--audio, .cc__body--pair, .cc__body--airplay { grid-template-columns: 1fr; gap: 12px; }
@@ -554,26 +553,27 @@ html, body {
     grid-row: span 2;
     width: 260px;
     height: 100%;           /* the two 118 px rows it spans, plus their gap */
-    border-radius: 30px;    /* the same curve as a pill */
+    border-radius: 44px;
     flex-direction: column;
     justify-content: center;
     gap: 14px;
 }
 .cc__t--big .cc__title { font-size: 22px; }
-.cc__t--pill { height: 118px; border-radius: 30px; gap: 14px; padding: 0 22px 0 20px; min-width: 0; }
-.cc__t--wide { height: 118px; border-radius: 30px; gap: 14px; padding: 0 22px 0 20px; }
+.cc__t--pill { height: 118px; border-radius: 59px; gap: 14px; padding: 0 26px 0 22px; min-width: 0; }
+.cc__t--wide { grid-column: span 2; height: 118px; border-radius: 59px; gap: 14px; padding: 0 26px 0 22px; }   /* Screensaver, Settings */
 /* The device name under Wi-Fi or Audio is a label, not a detail to clip. */
 .cc__t--pill .cc__sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; font-size: 19px; }
-/* Four circles of one diameter, 118 px, left-aligned on the grid: 4 × 118 plus
-   three 14 px gaps is 514 of the 534 px the columns span. They are a fixed size,
-   not a share of the row, so a circle can never come out smaller than its
-   neighbours - which is what a second group holding only Search used to do. */
+/* Five circles of one diameter: 5 × 95 plus four 14 px gaps is 531 of the 534 px
+   the two columns span. A fixed width, not a share of the row, so no circle can
+   come out smaller than its neighbours. */
 .cc__rounds { grid-column: span 2; display: flex; justify-content: flex-start; align-items: center; gap: 14px; height: 118px; padding: 0; }
-.cc__t--round { flex: none; width: 118px; height: 118px; border-radius: 50%; justify-content: center; }
+.cc__t--round { flex: none; width: 95px; height: 95px; border-radius: 50%; justify-content: center; }
 .cc__caption { display: block; grid-column: span 2; height: 20px; margin-top: -4px; text-align: center; font-size: 19px; font-weight: 500; line-height: 20px; color: rgba(255,255,255,0.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Spans both columns: 260 + 14 + 260 = 534, the width of the grid. */
-.cc__t--slider { height: 118px; border-radius: 30px; gap: 14px; padding: 0 22px 0 20px; }
-.cc__t--row { min-height: 104px; border-radius: 30px; gap: 18px; padding: 14px 30px 14px 22px; }
+.cc__t--slider { grid-column: span 2; height: 118px; border-radius: 59px; gap: 20px; padding: 0 30px 0 26px; }
+.cc__t--row { min-height: 104px; border-radius: 52px; gap: 18px; padding: 14px 30px 14px 22px; }
+/* a labelled tile whose height grows with its text keeps the pill's curve */
+.cc__t--row { border-radius: 59px; }
 .cc__ico {
     flex: none;
     width: 62px; height: 62px; border-radius: 50%;
@@ -583,7 +583,7 @@ html, body {
 .cc__t.is-on .cc__ico { background: var(--tint, #0a84ff); color: #fff; }
 .cc__bigico { display: flex; }
 .cc__txt { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.cc__title { font-size: 25px; font-weight: 600; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* two lines, never "Do Not Di…" */
+.cc__title { font-size: 25px; font-weight: 600; line-height: 1.15; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cc__sub { margin-top: 3px; font-size: 21px; color: rgba(255,255,255,0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cc__t--row .cc__sub { white-space: normal; line-height: 1.2; }
 .cc__check { flex: none; width: 34px; display: flex; justify-content: flex-end; color: #fff; }
