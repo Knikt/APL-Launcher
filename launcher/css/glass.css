@@ -164,7 +164,7 @@ body.glass .search-hint .cg__glass::before {
     top: 0; left: 0; right: 0;
     height: 46%;
     border-radius: inherit;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.08) 55%, rgba(255, 255, 255, 0) 100%);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 55%, rgba(255, 255, 255, 0) 100%);
 }
 /* Clipped to the pill, or the sheen spills past the rounded corners. */
 body.glass .cc__t .cg__glass,
