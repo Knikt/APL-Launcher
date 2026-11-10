@@ -39,3 +39,7 @@ launcher/js/avatars.local.js
 launcher/sounds/*.wav
 launcher/images/avatars/custom/
 launcher/images/avatars/memoji/
+
+# Python byte-code
+__pycache__/
+*.pyc
