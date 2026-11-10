@@ -3,20 +3,13 @@
    The Home app draws the house; this file is the only thing that talks to
    Home Assistant, and the only thing that knows how to get a token.
 
-   Three ways in, in order of what a viewer will actually use:
+   One way in: a long-lived access token (Profile -> Security ->
+   Long-lived access tokens), pasted once on the TV and kept on the
+   screen. It never expires, so nothing has to be renewed, and it is
+   revocable in Home Assistant.
 
-   1. Sign in on the TV with the account they already have. Home Assistant's
-      own auth flow issues the token and this file keeps it: POST
-      /auth/login_flow, then /auth/login_flow/<id> with the password, then
-      /auth/token with the code. The access token lives 30 minutes and is
-      renewed with its refresh token, which Home Assistant extends on every
-      use - so the screen stays signed in until the account says otherwise
-      (Profile -> Security shows the session and can end it).
-   2. Paste a long-lived access token (Profile -> Security -> Long-lived
-      access tokens). Nothing to renew, nothing to expire, revocable there.
-   3. js/keys.local.js, for an installation packaged with its token already
-      in it: ignored by Git, never shipped.
-
+   js/keys.local.js can carry one for an installation packaged with it
+   already: ignored by Git, never shipped.
    The connection is stored on the screen (localStorage, "apl.ha.conn"):
    address, token, refresh token and expiry. No credential is ever written
    into this repository or into a public build.
@@ -536,110 +529,10 @@
   }
 
   function why(st) {
-    if (st === 0) return APL.t('Nothing came back. The browser blocks this kind of sign-in when the server does not list this screen (CORS); a token needs nothing set.');
+    if (st === 0) return APL.t('Nothing came back. The screen could not reach Home Assistant, or its answer was blocked.');
     if (st === 403) return APL.t('Home Assistant refused the request. It may not allow this screen yet (CORS).');
     if (st === 401) return APL.t('Home Assistant refused those details.');
     return APL.t('Home Assistant answered {status}.', { status: st });
-  }
-
-  /* Sign in with the account the viewer already has. Home Assistant issues
-     the token; the password is used once, in this request, and is never
-     stored.
-
-     Two details that decide whether this works at all:
-
-     - /auth/login_flow takes JSON, but /auth/token takes form fields, not
-       JSON: Home Assistant answers 400 to a JSON body there.
-     - The flow can ask for another answer before it issues a code, which is
-       what an account with two-factor enabled does. That step is kept and the
-       code is sent in the same field as the password, so nothing has to be
-       built twice for it. */
-  var pendingFlow = '';
-
-  function postForm(path, fields, cb) {
-    var b = base();
-    if (!b) { cb(0, null); return; }
-    var body = [], k;
-    for (k in fields) {
-      if (fields.hasOwnProperty(k)) body.push(encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]));
-    }
-    var x = new XMLHttpRequest();
-    x.open('POST', b + path, true);
-    x.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    x.onreadystatechange = function () {
-      if (x.readyState !== 4) return;
-      var data = null;
-      try { data = JSON.parse(x.responseText); } catch (e) {}
-      cb(x.status, data);
-    };
-    x.onerror = function () { cb(0, null); };
-    x.send(body.join('&'));
-  }
-
-  function keepTokens(u, d, cb) {
-    pendingBase = '';
-    if (!d || !d.access_token) { cb(why(400)); return; }
-    store({
-      url: u,
-      token: d.access_token,
-      refresh: d.refresh_token || '',
-      expires: Date.now() + (d.expires_in || 1800) * 1000
-    });
-    pendingFlow = '';
-    resetHouse();
-    refresh();
-    cb(null);
-  }
-
-  function submitFlow(flowId, payload, u, cb) {
-    postJson('/auth/login_flow/' + flowId, payload, function (st, d) {
-      if (st !== 200 || !d) { pendingBase = ''; pendingFlow = ''; cb(why(st)); return; }
-      if (d.type === 'create_entry' && d.result) {
-        postForm('/auth/token', {
-          grant_type: 'authorization_code',
-          code: d.result,
-          client_id: CID
-        }, function (st2, d2) { keepTokens(u, d2, cb); });
-        return;
-      }
-      if (d.type === 'form' && d.step_id) {
-        /* An extra answer is needed - two-factor, or a "trust this device"
-           step. Keep the flow open and ask for the code. */
-        pendingFlow = flowId;
-        pendingBase = '';
-        cb(APL.t('Two-factor: enter the code Home Assistant asked for in the Password field, then press Connect.'));
-        return;
-      }
-      pendingBase = '';
-      pendingFlow = '';
-      cb(d.errors ? APL.t('Home Assistant did not accept that username or password.') :
-                    APL.t('That account has to finish its setup in Home Assistant first.'));
-    });
-  }
-
-  function connect(url, user, pass, cb) {
-    var u = String(url || '').replace(/^\s+|\s+$/g, '').replace(/\/+$/, '');
-    var origin = originOf(u);
-    if (!origin) { cb(APL.t('The address should look like http://homeassistant.local:8123')); return; }
-    pendingBase = origin;
-    if (pendingFlow) {
-      if (!pass) { pendingBase = ''; cb(APL.t('Enter the code Home Assistant asked for.')); return; }
-      submitFlow(pendingFlow, { client_id: CID, code: pass }, u, cb);
-      return;
-    }
-    if (!user || !pass) {
-      pendingBase = '';
-      cb(APL.t('Enter the username and password of a Home Assistant account.'));
-      return;
-    }
-    postJson('/auth/login_flow', {
-      client_id: CID,
-      handler: ['homeassistant', null],
-      redirect_uri: CID + '/'
-    }, function (st, d) {
-      if (st !== 200 || !d || !d.flow_id) { pendingBase = ''; cb(why(st)); return; }
-      submitFlow(d.flow_id, { client_id: CID, username: user, password: pass }, u, cb);
-    });
   }
 
   /* The other door: a long-lived token. Checked over the socket first, because
@@ -861,7 +754,6 @@
     connected: function () { return !!(originOf(dashboardUrl()) && token()); },
     dashboardUrl: dashboardUrl,
     dashboard: dashboardUrl(),
-    connect: connect,
     socket: function () { return !!WS.ready; },
     setToken: setToken,
     disconnect: disconnect,

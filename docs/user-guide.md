@@ -78,39 +78,16 @@ whatever it is given. Two ways in, and they are not equally easy:
   Nothing has to be set on the server. The token is checked over a WebSocket,
   and a WebSocket is not subject to the cross-origin rule that stops a page
   reading another site's answer.
-- **A username and a password.** The account you already use. This goes through
-  Home Assistant's login API, and a browser only lets a page read that answer
-  when the server names the page's origin. Name it in the interface, under
-  Settings, System, Network, the HTTP server section, CORS allowed origins
-  (Home Assistant 2026.8 and later), or in `configuration.yaml` on an older
-  install:
+A token is the only way in. Nothing has to be set on the server for it:
+the token is checked over a WebSocket, and a WebSocket is not subject to
+the cross-origin rule that stops a page reading another site's answer.
 
-```yaml
-http:
-  cors_allowed_origins:
-    - http://the-address-the-launcher-runs-from
-```
-
-  The entry has to match the origin exactly, scheme, host and port, with no
-  trailing slash, and Home Assistant has to be restarted afterwards (Developer
-  Tools, Restart; reloading the configuration is not enough for `http:`).
-
-A wildcard does not work. With `- "*"`, or an empty list, Home Assistant
-accepts the sign-in request but sends no `Access-Control-Allow-Origin` header,
-so the browser refuses to read the answer and the app reports that nothing came
-back. The origin has to be named.
-
-Since 2026.8 the HTTP settings are managed in the interface, so a `http:` block
-left in `configuration.yaml` can be ignored without any message - which looks
-exactly like a list that has no effect. If an entry you added changes nothing,
-check the interface first: the running values are shown there.
-
-On the TV the launcher's origin is not a web address that can be listed, so a
-username and password cannot work there: use a token. It also never expires,
-which suits a screen that runs for months. A rule that is easy to miss: after
-the password sign-in the token is renewed every half hour, and that renewal is
-another request the same rule applies to.
-
+The password sign-in this guide used to describe was removed: it needed
+this screen's origin in `http: cors_allowed_origins`, and on the TV the
+launcher's origin is not an address that can be listed. If you do set that
+list for something else, `- "*"` is accepted - an earlier version of this
+page said a wildcard does not work, and that was wrong (checked on a
+Frame).
 Once inside, **Edit Layout** in the sidebar rearranges the house: move an
 accessory to another room, make a room or a category, step an accessory up or
 down inside its room, or take it off the house with **Remove from Home**. What
