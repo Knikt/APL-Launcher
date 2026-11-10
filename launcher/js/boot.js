@@ -18,7 +18,7 @@
     "use strict";
 
     var LOADER = 1;
-    var REPO = "Knikt/APL-Launcher-for-TizenOS";
+    var REPO = "Knikt/APL-Launcher";
     var BRANCH = "main";
     var BUILD = global.APL_BUILD || { version: "0", scripts: [], images: [] };
     var RAW = "https://raw.githubusercontent.com/" + REPO + "/" + BRANCH + "/launcher/";

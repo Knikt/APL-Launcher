@@ -19,7 +19,11 @@
 
     var tz = global.tizen;
     var wa = global.webapis;
-    var PREVIEW = !tz;
+    /* Another TV system is a real screen too: LG (js/webos.js) gives its own sound, network, picture…
+       (P.adaptSys, at the end of this file), and Android TV (android/web/android.js) replaces what follows
+       with Android's calls */
+    var P = global.APL && global.APL.platform;
+    var PREVIEW = !tz && !P && !global.APLAndroid;
     var APL = global.APL;
 
     /* ---------- preferences (stored on the screen) ---------- */
@@ -141,6 +145,7 @@
         if (pref("homeReturn") !== before) (listeners.homeReturn || []).forEach(function (fn) { fn(false); });
     }
     function detectVetro() {
+        if (P) return;                     // not a Samsung screen: no Vetro to look for
         if (PREVIEW) {
             // The PC preview has no Vetro to look for: ?novetro shows the screen without it
             if (global.location && /[?&]novetro\b/.test(global.location.search)) markNoVetro();
@@ -532,7 +537,7 @@
         }
         try { send(); } catch (e) { if (visible) startBridge().then(send).catch(function () {}); }
     }
-    if (!PREVIEW && global.document) {
+    if (!PREVIEW && !P && global.document) {
         document.addEventListener("visibilitychange", function () { bridgeFront(!document.hidden); });
         setTimeout(function () { if (!document.hidden) bridgeFront(true); }, 5000);
     }
@@ -565,7 +570,7 @@
             .then(function (ok) { alive = ok; aliveAt = Date.now(); return ok; });
     }
     // Bridge started early: Control Center and Settings respond right away
-    if (!PREVIEW) setTimeout(function () { vetroAlive(); }, 4000);
+    if (!PREVIEW && !P) setTimeout(function () { vetroAlive(); }, 4000);
 
     /* Settings › Support › About This Screen: how the launcher reaches Vetro. Through the bridge it reads the
        answers; without it orders still go out (Bluetooth connects) but nothing can be read back, so the
@@ -772,7 +777,7 @@
         if (PREVIEW) return Promise.resolve(MOCK_NATIVE[id] || (d.min !== undefined ? Math.round((d.min + d.max) / 2) : 0));
         if (d.home) {
             // On only if both took: with Autorun off the screen still starts on the TV input
-            return homeAppRead().then(function (s) { return s.home === "APLauncher.Home" && s.autostart === 1 ? 1 : 0; });
+            return withTimeout(homeAppRead(), 15000).then(function (s) { return s.home === "APLauncher.Home" && s.autostart === 1 ? 1 : 0; });
         }
         if (d.vconf) {
             return tvExec("vconftool get " + d.vconf + " 2>&1").then(function (r) {
@@ -791,9 +796,10 @@
     function nativeSet(id, value) {
         var d = NATIVE[id];
         if (PREVIEW) { MOCK_NATIVE[id] = value; return Promise.resolve(value); }
+        // Start on APL Launcher first: it has no D-Bus method, and reading d.set below threw before anything was
+        // written, so OK only showed "…" on every screen (an S90F). The timeout covers the read back too.
+        if (d.home) return withTimeout(homeAppSet(value).then(function (r) { return homeAppCheck(value, r); }), 20000);
         var write = d.vconf ? "vconftool set -f -t int " + d.vconf + " " + value + " 2>&1" : AVOC + d.set.replace("V", value) + " 2>&1";
-        // A write the screen never answers would only say so after the bridge's minute: an S90F showed nothing at all
-        if (d.home) return withTimeout(homeAppSet(value), 20000).then(function (r) { return homeAppCheck(value, r); });
         return tvExec(write).then(function () { return nativeGet(id); }).then(function (back) {
             if (back !== value) throw new Error(APL.t("The screen refused this setting for now"));
             return back;
@@ -981,6 +987,7 @@
     global.APL.sys = {
         PREVIEW: PREVIEW,
         pref: pref, setPref: setPref, onPref: onPref, profiles: profiles,
+        setDefault: function (k, v) { DEFAULTS[k] = v; },     // another platform's defaults (android.js)
         audio: audio, network: network, product: product, display: display, storage: storage, hdr: hdr,
         remoteKey: remoteKey, openSamsungSettings: openSamsungSettings, sleepNow: sleepNow,
         switchSource: switchSource, vetroAlive: vetroAlive, vetroLink: vetroLink,
@@ -994,4 +1001,5 @@
         tvSettings: tvSettings, tvItem: tvItem, tvAdjust: tvAdjust, tvValue: tvValue,
         version: (global.APL_UPDATE && global.APL_UPDATE.running) || "1.0.0"
     };
+    if (P && P.adaptSys) P.adaptSys(global.APL.sys, { DEFAULTS: DEFAULTS });
 })(window);

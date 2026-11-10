@@ -11,15 +11,23 @@
 # Personal files (never published) go into res\wgt\: js\keys.local.js, js\avatars.local.js, your
 # avatars and Memoji, the SF Pro fonts and your sounds.
 # -WebOnly: the launcher's own package instead (apl-launcher-v<version>.wgt, its files at the root, a web
-# bridge), for screens where the full package's .NET apps don't run (Tizen 6.x: install.ps1 decides).
+# bridge), for screens where the full package's .NET apps don't run (before Tizen 6, or a Tizen 6 whose
+# version can't be told: install.ps1 decides).
+# -Tizen6 6.0 | 6.5: the two packages made for that Tizen 6 version (tools/make-tizen6.py): the launcher with its
+# .NET bridge and start-up service but without APL Overlay (apl-launcher-tizen6X-v<version>.wgt, filled in like
+# the full package), and APL Overlay alone (apl-overlay-tizen6X-v<version>.tpk, apl.launcher.overlay), signed
+# into -OverlayFile. With no release having them yet (before 1.1.0), the launcher alone, as -WebOnly. If APL
+# Overlay can't be signed, there is no -OverlayFile: the launcher is installed on its own.
 param(
     [string]$ProfileName = "APLauncher",
     [string]$TizenCli,
     [string]$LauncherDir = (Join-Path (Split-Path $PSScriptRoot -Parent) "launcher"),
     [string]$OutFile = (Join-Path (Split-Path $PSScriptRoot -Parent) "dist\APL-Launcher.wgt"),
+    [string]$OverlayFile = (Join-Path (Split-Path $PSScriptRoot -Parent) "dist\APL-Overlay.tpk"),
     [string]$SfProDir,   # optional: copies the SF Pro fonts before building
-    [string]$Repo = "Knikt/APL-Launcher-for-TizenOS",
-    [switch]$WebOnly
+    [string]$Repo = "Knikt/APL-Launcher",
+    [switch]$WebOnly,
+    [string]$Tizen6 = ""   # '6.0' or '6.5'
 )
 . "$PSScriptRoot\lib.ps1"
 $ErrorActionPreference = 'Stop'
@@ -32,6 +40,7 @@ if (-not (Test-Path -LiteralPath $config)) {
 }
 $version = ([regex]::Match((Get-Content -LiteralPath $config -Raw), '<widget[^>]*\sversion="([^"]+)"')).Groups[1].Value
 if (-not $version) { throw (Tr "No version in $config." "Pas de version dans $config.") }
+if ($Tizen6 -and $Tizen6 -notin @('6.0', '6.5')) { throw (Tr "-Tizen6 is 6.0 or 6.5, not '$Tizen6'." "-Tizen6 vaut 6.0 ou 6.5, pas « $Tizen6 ».") }
 
 # Optional copy of the SF Pro fonts (not included in the repository)
 if ($SfProDir) {
@@ -50,64 +59,99 @@ if (-not ($profiles -match [regex]::Escape($ProfileName))) {
     Write-Host (Tr "Warning: '$ProfileName' is not in the list of profiles, trying anyway." "Attention : '$ProfileName' n'apparaît pas dans la liste des profils, on tente quand même.") -ForegroundColor DarkYellow
 }
 
-# ---------- the hybrid package (or the launcher's own, -WebOnly) ----------
+# ---------- the hybrid package (the launcher's own with -WebOnly, Tizen 6's pair with -Tizen6) ----------
 $dist = Split-Path -Parent $OutFile
 if ($dist -and -not (Test-Path -LiteralPath $dist)) { New-Item -ItemType Directory -Force -Path $dist | Out-Null }
-$kind = if ($WebOnly) { "apl-launcher-v" } else { "apl-launcher-full-v" }
-$name = "$kind$version.wgt"
-$source = Join-Path $dist $name
+# An APL Overlay signed by an earlier run must not go with this launcher
+if (Test-Path -LiteralPath $OverlayFile) { Remove-Item -LiteralPath $OverlayFile -Force }
 
-# The release's package and its SHA256SUMS-wgt.txt, or $null when that release (or the asset) does not exist
-function Get-FullRelease([string]$Tag) {
+# The files this install needs: <Prefix><version>.<Ext>, the launcher's package first
+function Get-Wanted {
+    if ($Tizen6) {
+        $t = "tizen" + ($Tizen6 -replace '\.', '')
+        return @([pscustomobject]@{ Prefix = "apl-launcher-$t-v"; Ext = "wgt" }, [pscustomobject]@{ Prefix = "apl-overlay-$t-v"; Ext = "tpk" })
+    }
+    $kind = if ($WebOnly) { "apl-launcher-v" } else { "apl-launcher-full-v" }
+    return @([pscustomobject]@{ Prefix = $kind; Ext = "wgt" })
+}
+
+# The release's files and its SHA256SUMS-wgt.txt, or $null when that release (or one of the files) does not exist
+function Get-Release([string]$Tag, $Wanted) {
     $api = "https://api.github.com/repos/$Repo/releases/" + $(if ($Tag) { "tags/$Tag" } else { "latest" })
     try { $rel = Invoke-RestMethod -UseBasicParsing -Uri $api -Headers @{ 'User-Agent' = 'APL-Launcher-Setup' } -TimeoutSec 60 }
     catch {
         if ($_.Exception.Response -and [int]$_.Exception.Response.StatusCode -eq 404) { return $null }
         throw (Tr "Could not reach GitHub ($api): $($_.Exception.Message)" "GitHub injoignable ($api) : $($_.Exception.Message)")
     }
-    $pkg = @($rel.assets) | Where-Object { $_.name -match ('^' + [regex]::Escape($kind) + '.+[.]wgt$') } | Select-Object -First 1
+    $files = @()
+    foreach ($w in $Wanted) {
+        $asset = @($rel.assets) | Where-Object { $_.name -match ('^' + [regex]::Escape($w.Prefix) + '.+[.]' + $w.Ext + '$') } | Select-Object -First 1
+        if (-not $asset) { return $null }
+        $files += [pscustomobject]@{ Name = $asset.name; Url = $asset.browser_download_url }
+    }
     $sum = @($rel.assets) | Where-Object { $_.name -eq 'SHA256SUMS-wgt.txt' } | Select-Object -First 1
-    if (-not $pkg -or -not $sum) { return $null }
-    [pscustomobject]@{ Tag = $rel.tag_name; Name = $pkg.name; Url = $pkg.browser_download_url; Sums = $sum.browser_download_url }
+    if (-not $sum) { return $null }
+    [pscustomobject]@{ Tag = $rel.tag_name; Files = $files; Sums = $sum.browser_download_url }
 }
 
-if (Test-Path -LiteralPath $source) {
-    Write-Host (Tr "Package: $source (local build)" "Paquet : $source (version locale)")
-} else {
+$sources = $null
+while (-not $sources) {
+    $wanted = @(Get-Wanted)
+    $local = @($wanted | ForEach-Object { Join-Path $dist "$($_.Prefix)$version.$($_.Ext)" })
+    if (-not @($local | Where-Object { -not (Test-Path -LiteralPath $_) }).Count) {
+        foreach ($f in $local) { Write-Host (Tr "Package: $f (local build)" "Paquet : $f (version locale)") }
+        $sources = $local
+        break
+    }
     # Windows PowerShell 5.1 can default to TLS 1.0 on older Windows 10, which GitHub refuses
     try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12 } catch {}
     # Not every version gets a release (some only go out through the automatic update): then the latest
     # release is installed. The automatic update only replaces the web part: APL Overlay, the bridge and
     # the start-up service stay as in that release.
-    $rel = Get-FullRelease "v$version"
+    $rel = Get-Release "v$version" $wanted
     if (-not $rel) {
-        $rel = Get-FullRelease ""
-        if (-not $rel) { throw (Tr "No GitHub release of $Repo has the package ($kind*.wgt)." "Aucune version GitHub de $Repo n'a le paquet ($kind*.wgt).") }
-        Write-Host (Tr "        No release v$version with the full package: installing the latest release, $($rel.Tag). The launcher updates itself afterwards, APL Overlay stays at $($rel.Tag) until the next install." "        Pas de version v$version avec le paquet complet : installation de la dernière version, $($rel.Tag). Le launcher se met à jour ensuite, APL Overlay reste en $($rel.Tag) jusqu'à la prochaine installation.") -ForegroundColor DarkYellow
+        $rel = Get-Release "" $wanted
+        if ($rel) { Write-Host (Tr "        No release v$version with the full package: installing the latest release, $($rel.Tag). The launcher updates itself afterwards, APL Overlay stays at $($rel.Tag) until the next install." "        Pas de version v$version avec le paquet complet : installation de la dernière version, $($rel.Tag). Le launcher se met à jour ensuite, APL Overlay reste en $($rel.Tag) jusqu'à la prochaine installation.") -ForegroundColor DarkYellow }
     }
-    $name = $rel.Name
-    $source = Join-Path $dist $name
-    Write-Title (Tr "Downloading $name (release $($rel.Tag))" "Téléchargement de $name (version $($rel.Tag))")
+    if (-not $rel) {
+        if ($Tizen6) {
+            # The Tizen 6 pair comes with 1.1.0: before it, the launcher alone, as Setup always installed it there
+            Write-Host (Tr "        No release has the packages for Tizen $Tizen6 yet: the launcher is installed on its own." "        Aucune version n'a encore les paquets pour Tizen $Tizen6 : le launcher est installé seul.") -ForegroundColor DarkYellow
+            $Tizen6 = ""; $WebOnly = $true
+            continue
+        }
+        throw (Tr "No GitHub release of $Repo has the package ($($wanted[0].Prefix)*.wgt)." "Aucune version GitHub de $Repo n'a le paquet ($($wanted[0].Prefix)*.wgt).")
+    }
     $ProgressPreference = 'SilentlyContinue'
-    # Under another name until it is checked: a file with the final name counts as a good package
-    $part = "$source.part"
-    try {
-        Invoke-WebRequest -UseBasicParsing -Uri $rel.Url -OutFile $part -TimeoutSec 300
-        $sums = (Invoke-WebRequest -UseBasicParsing -Uri $rel.Sums -TimeoutSec 60).Content
-    } catch {
-        Remove-Item -LiteralPath $part -Force -ErrorAction SilentlyContinue
-        throw (Tr "Could not download $($rel.Url) ($($_.Exception.Message))." "Téléchargement impossible : $($rel.Url) ($($_.Exception.Message)).")
-    }
+    try { $sums = (Invoke-WebRequest -UseBasicParsing -Uri $rel.Sums -TimeoutSec 60).Content }
+    catch { throw (Tr "Could not download $($rel.Sums) ($($_.Exception.Message))." "Téléchargement impossible : $($rel.Sums) ($($_.Exception.Message)).") }
     if ($sums -is [byte[]]) { $sums = [Text.Encoding]::UTF8.GetString($sums) }
-    $want = ([regex]::Match([string]$sums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($name))\s*$")).Groups[1].Value
-    $got = (Get-FileHash -LiteralPath $part -Algorithm SHA256).Hash.ToLowerInvariant()
-    if (-not $want -or $want -ne $got) {
-        Remove-Item -LiteralPath $part -Force -ErrorAction SilentlyContinue
-        throw (Tr "$name does not match the release's SHA256SUMS-wgt.txt. Run the installation again." "$name ne correspond pas au SHA256SUMS-wgt.txt de la version. Relance l'installation.")
+    $got = @()
+    foreach ($file in $rel.Files) {
+        $name = $file.Name
+        $source = Join-Path $dist $name
+        Write-Title (Tr "Downloading $name (release $($rel.Tag))" "Téléchargement de $name (version $($rel.Tag))")
+        # Under another name until it is checked: a file with the final name counts as a good package
+        $part = "$source.part"
+        try { Invoke-WebRequest -UseBasicParsing -Uri $file.Url -OutFile $part -TimeoutSec 300 }
+        catch {
+            Remove-Item -LiteralPath $part -Force -ErrorAction SilentlyContinue
+            throw (Tr "Could not download $($file.Url) ($($_.Exception.Message))." "Téléchargement impossible : $($file.Url) ($($_.Exception.Message)).")
+        }
+        $want = ([regex]::Match([string]$sums, "(?m)^([0-9a-f]{64})\s+\*?$([regex]::Escape($name))\s*$")).Groups[1].Value
+        $hash = (Get-FileHash -LiteralPath $part -Algorithm SHA256).Hash.ToLowerInvariant()
+        if (-not $want -or $want -ne $hash) {
+            Remove-Item -LiteralPath $part -Force -ErrorAction SilentlyContinue
+            throw (Tr "$name does not match the release's SHA256SUMS-wgt.txt. Run the installation again." "$name ne correspond pas au SHA256SUMS-wgt.txt de la version. Relance l'installation.")
+        }
+        Move-Item -LiteralPath $part -Destination $source -Force
+        Write-Host (Tr "        Downloaded and checked." "        Téléchargé et vérifié.") -ForegroundColor Green
+        $got += $source
     }
-    Move-Item -LiteralPath $part -Destination $source -Force
-    Write-Host (Tr "        Downloaded and checked." "        Téléchargé et vérifié.") -ForegroundColor Green
+    $sources = $got
 }
+$source = $sources[0]
+$name = Split-Path -Leaf $source
 
 # ---------- personal files, then a fresh signature ----------
 Write-Title (Tr "Building the .wgt package (profile '$ProfileName')" "Compilation du paquet .wgt (profil '$ProfileName')")
@@ -116,7 +160,7 @@ if (Test-Path -LiteralPath $work) { Remove-Item -LiteralPath $work -Recurse -For
 [IO.Compression.ZipFile]::ExtractToDirectory($source, $work)
 # The CI's signature (Tizen SDK default certificate) goes: the package is signed again with yours
 Get-ChildItem -LiteralPath $work -Filter "*signature*.xml" | Remove-Item -Force
-$web = if ($WebOnly) { $work } else { Join-Path $work "res\wgt" }   # where the launcher's files are
+$web = if ($WebOnly) { $work } else { Join-Path $work "res\wgt" }   # where the launcher's files are (also on Tizen 6)
 if (-not (Test-Path -LiteralPath (Join-Path $web "config.xml"))) { throw (Tr "$name has no launcher in it (no config.xml where expected)." "$name ne contient pas de launcher (pas de config.xml à l'endroit attendu).") }
 $personal = @("js\keys.local.js", "js\avatars.local.js")
 foreach ($p in $personal) {
@@ -167,6 +211,34 @@ if (-not $hasSig) { throw (Tr "The package was not signed (no author-signature.x
 Copy-Item -LiteralPath $wgt.FullName -Destination $OutFile -Force
 Remove-Item -LiteralPath $signed -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item -LiteralPath $unsigned -Force -ErrorAction SilentlyContinue
+
+# ---------- Tizen 6: APL Overlay's own package, signed with the same certificate ----------
+if ($Tizen6) {
+    Write-Title (Tr "Signing APL Overlay for Tizen $Tizen6 (profile '$ProfileName')" "Signature d'APL Overlay pour Tizen $Tizen6 (profil '$ProfileName')")
+    $tpk = Join-Path $dist "apl-overlay-signing.tpk"
+    try {
+        Copy-Item -LiteralPath $sources[1] -Destination $tpk -Force
+        # Any signature in it goes (the release's has none): it is signed for this screen
+        $zip = [IO.Compression.ZipFile]::OpenRead($tpk)
+        try { $hadSig = [bool]($zip.Entries | Where-Object { $_.FullName -match '^(author-)?signature\d*\.xml$' }) } finally { $zip.Dispose() }
+        if ($hadSig) {
+            $zip = [IO.Compression.ZipFile]::Open($tpk, 'Update')
+            try { @($zip.Entries | Where-Object { $_.FullName -match '^(author-)?signature\d*\.xml$' }) | ForEach-Object { $_.Delete() } } finally { $zip.Dispose() }
+        }
+        # Signed in place, as APL Launcher Setup signed APL Overlay's package before 1.0.10
+        $r = Invoke-Native $tizen @('package', '--type', 'tpk', '--sign', $ProfileName, '--', $tpk)
+        Write-Host $r.Output
+        if ($r.ExitCode -ne 0 -or $r.Output -match 'fail|not exist|Invalid') { throw (Tr "Tizen's message: $($r.Output)" "message de Tizen : $($r.Output)") }
+        $zip = [IO.Compression.ZipFile]::OpenRead($tpk)
+        try { $hasSig = [bool]($zip.Entries | Where-Object { $_.FullName -eq "author-signature.xml" }) } finally { $zip.Dispose() }
+        if (-not $hasSig) { throw (Tr "no author-signature.xml in it. Tizen's message: $($r.Output)" "pas d'author-signature.xml dedans. Message de Tizen : $($r.Output)") }
+        Move-Item -LiteralPath $tpk -Destination $OverlayFile -Force
+        Write-Host (Tr "APL Overlay ready: $OverlayFile ($([math]::Round((Get-Item -LiteralPath $OverlayFile).Length/1KB)) KB)" "APL Overlay prêt : $OverlayFile ($([math]::Round((Get-Item -LiteralPath $OverlayFile).Length/1KB)) Ko)") -ForegroundColor Green
+    } catch {
+        Remove-Item -LiteralPath $tpk -Force -ErrorAction SilentlyContinue
+        Write-Host ((Tr "APL Overlay could not be signed, the launcher is installed on its own: " "APL Overlay n'a pas pu être signé, le launcher est installé seul : ") + $_.Exception.Message) -ForegroundColor DarkYellow
+    }
+}
 
 Write-Host ""
 Write-Host (Tr "Package ready: $OutFile ($([math]::Round((Get-Item -LiteralPath $OutFile).Length/1KB)) KB)" "Paquet prêt : $OutFile ($([math]::Round((Get-Item -LiteralPath $OutFile).Length/1KB)) Ko)") -ForegroundColor Green

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="key_service_name">APL Launcher</string>
+    <string name="key_service_description">Lets APL Launcher answer the remote\'s Home and play/pause buttons over every app: hold Home for the Control Center, and on Google TV Home opens APL Launcher. It also tells the launcher which app is in front, for the App Switcher and Close Unused Apps. Nothing you type or see is read or sent anywhere.</string>
+</resources>

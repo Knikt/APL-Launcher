@@ -20,6 +20,10 @@
     "use strict";
 
     var APL = global.APL, sys = APL.sys, K = APL.KEY;
+    var P = APL.platform;             // another TV system (js/webos-settings.js on LG): its own sound outputs and AirPlay
+    /* The slider: the screen's brightness, or what the TV system puts there instead (LG keeps its picture
+       settings from apps: the volume there) */
+    var SLIDER = (P && P.ccSlider) || { id: "backlight", icon: "sun", title: APL.t("Brightness") };
     var root, panel, timeEl, avatarEl, viewport, body, captionEl, nav;
     var items = [], view = "main", lastMainIndex = 1, scrollY = 0;
     var isOpen = false;
@@ -266,7 +270,7 @@
             if (isOpen) refresh();
             // Game Mode has its own brightness: the slider picks up the screen's
             nav.tiles.forEach(function (t) {
-                if (t._item.type === "backlight") sys.tvItem("backlight").then(function (m) { if (m) drawBacklight(t, m.value, m); }, function () {});
+                if (t._item.type === "backlight") sys.tvItem(SLIDER.id).then(function (m) { if (m) drawBacklight(t, m.value, m); }, function () {});
             });
         }, function (e) {
             gameState.busy = false;
@@ -281,12 +285,18 @@
     }
 
     function outputName() {
+        if (P && P.ccOutputName) return P.ccOutputName();
         var on = (bt.list || []).filter(function (d) { return d.connected; })[0];
         return on ? on.name : APL.t("TV Speakers");
     }
 
     /* ---------- views ---------- */
     function mainItems() {
+        var list = samsungItems();
+        // Another platform keeps the tiles it can do (android.js: no Game Mode, AirPlay, Sources or brightness)
+        return APL.platform && APL.platform.ccItems ? APL.platform.ccItems(list) : list;
+    }
+    function samsungItems() {
         return [
             { cls: "big", icon: "power", title: APL.t("Sleep"),
               select: function () { sys.sleepNow().catch(function (e) { APL.toast(e.message); }); } },
@@ -311,7 +321,7 @@
             { cls: "round", icon: "access", title: APL.t("Accessibility"), select: openSettings(APL.t("General & Privacy")) },
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
             { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
-            { cls: "slider", type: "backlight", icon: "sun", title: APL.t("Brightness") },
+            { cls: "slider", type: "backlight", icon: SLIDER.icon, title: SLIDER.title },
             { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
             { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
@@ -322,6 +332,7 @@
     }
 
     function audioItems() {
+        if (P && P.ccAudioItems) return P.ccAudioItems(function () { if (isOpen && view === "audio") render(); });
         var list = bt.list || [], out = [{ cls: "head", title: "Audio" }];
         var phones = list.filter(function (d) { return d.kind === "headphones"; });
         var speakers = list.filter(function (d) { return d.kind === "speaker"; });
@@ -368,6 +379,7 @@
     }
 
     function airplayItems() {
+        if (P && P.ccAirplayItems) return P.ccAirplayItems();
         return [
             { cls: "head", title: APL.t("AirPlay and iPhone") },
             { cls: "section", title: APL.t("From iPhone") },
@@ -396,33 +408,56 @@
     }
 
     /* ---------- rendering ---------- */
+    /* A tile's content is written without touching its glass. innerHTML also wiped
+       the pane glass.js lays in each tile, and the Control Center redraws every
+       tile every 15 s and after each OK: all the buttons showed their plain fill
+       until their panes came back, half a second on the M8. Content that has not
+       changed is not written at all. */
+    function fill(t, html) {
+        if (t.__html === html) return;
+        t.__html = html;
+        var panes = [], i;
+        for (i = 0; i < t.children.length; i++) {
+            if (t.children[i].classList.contains("cg__glass")) panes.push(t.children[i]);
+        }
+        t.innerHTML = html;
+        for (i = panes.length - 1; i >= 0; i--) t.insertBefore(panes[i], t.firstChild);
+    }
+
     function draw(it, t) {
         if (it.cls === "avatar") return;
         var on = it.on && it.on();
         t.classList.toggle("is-on", !!on);
         if (it.tint) t.style.setProperty("--tint", it.tint);
         if (it.cls === "slider") { drawBacklight(t, null, null); return; }
-        if (it.cls === "round") { t.innerHTML = APL.icon(it.icon, 44, 1.9); return; }
+        if (it.cls === "round") { fill(t, APL.icon(it.icon, 44, 1.9)); return; }
         if (it.cls === "big") {
-            t.innerHTML = '<span class="cc__bigico">' + APL.icon(it.icon, 92, 1.7) + '</span><span class="cc__title">' + it.title + '</span>';
+            fill(t, '<span class="cc__bigico">' + APL.icon(it.icon, 92, 1.7) + '</span><span class="cc__title">' + it.title + '</span>');
             return;
         }
         var check = it.check ? '<span class="cc__check">' + (it.check() ? APL.icon("check", 30, 2.6) : "") + '</span>' : "";
-        t.innerHTML = '<span class="cc__ico">' + APL.icon(it.icon, it.cls === "row" ? 32 : 38, 2) + '</span>' +
+        fill(t, '<span class="cc__ico">' + APL.icon(it.icon, it.cls === "row" ? 32 : 38, 2) + '</span>' +
             '<span class="cc__txt"><span class="cc__title">' + it.title + '</span>' +
-            (it.sub ? '<span class="cc__sub">' + it.sub() + '</span>' : '') + '</span>' + check;
+            (it.sub ? '<span class="cc__sub">' + it.sub() + '</span>' : '') + '</span>' + check);
     }
 
     function drawBacklight(t, v, meta) {
         var pct = (v === null || !meta) ? 0 : Math.round(100 * (v - meta.min) / Math.max(1, meta.max - meta.min));
-        t.innerHTML = '<span class="cc__ico">' + APL.icon("sun", 38, 2) + '</span>' +
+        fill(t, '<span class="cc__ico">' + APL.icon(SLIDER.icon, 38, 2) + '</span>' +
             '<span class="cc__bar"><i style="width:' + pct + '%"></i></span>' +
-            '<span class="cc__val">' + (v === null ? "—" : v) + '</span>';
+            '<span class="cc__val">' + (v === null ? "—" : v) + '</span>');
     }
 
+    var renderedKey = "";
     function render() {
         var keep = nav.index;                  // Bluetooth search: the list grows, focus stays in place
         items = view === "main" ? mainItems() : view === "audio" ? audioItems() : view === "pair" ? pairItems() : airplayItems();
+        /* The same tiles as last time (opening the Control Center again): they are kept and only redrawn.
+           Built again, each new tile got a new glass pane to paint, about 100 ms then 2 heavy frames on an LG
+           drawing in 4K. */
+        var key = view + ":" + items.map(function (it) { return it.cls + "|" + (it.title || ""); }).join(",");
+        if (key === renderedKey && view === "main" && body.children.length) { redraw(); return; }
+        renderedKey = key;
         body.innerHTML = "";
         body.className = "cc__body cc__body--" + view;
         scrollY = 0;
@@ -474,7 +509,7 @@
         }
         focusables.forEach(function (t) {
             if (t._item.type === "backlight") {
-                sys.tvItem("backlight").then(function (m) {
+                sys.tvItem(SLIDER.id).then(function (m) {
                     if (m) drawBacklight(t, m.target !== undefined ? m.target : m.value, m);
                 }, function () {});
             }
@@ -491,6 +526,33 @@
         if (view === "pair" || keepFocus) start = Math.min(keep || 0, focusables.length - 1);
         nav.focus(start);
         paintCaption(nav.current());
+        /* The new tiles get their glass in this same frame: waiting for glass.js
+           to notice them showed their plain fill for a moment as the panel opened. */
+        if (APL.glass && APL.glass.paint) APL.glass.paint();
+    }
+    /* render() with the tiles already there: each one gets its fresh item and is drawn again */
+    function redraw() {
+        var tiles = [].slice.call(body.querySelectorAll(".cc__t")), focusables = [], k = 0;
+        items.forEach(function (it) {
+            if (it.cls === "head" || it.cls === "section") return;
+            var t = tiles[k++];
+            if (!t) return;
+            t._item = it;
+            draw(it, t);
+            focusables.push(t);
+            if (it.type === "backlight") {
+                sys.tvItem(SLIDER.id).then(function (m) {
+                    if (m) drawBacklight(t, m.target !== undefined ? m.target : m.value, m);
+                }, function () {});
+            }
+        });
+        focusables.unshift(avatarEl);
+        scrollY = 0;
+        body.style.transform = "translateY(0)";
+        nav.setTiles(focusables);
+        nav.focus(Math.min(lastMainIndex, focusables.length - 1));
+        paintCaption(nav.current());
+        if (APL.glass && APL.glass.paint) APL.glass.paint();
     }
 
     function captionOf(it) {
@@ -551,7 +613,7 @@
             onSelect: function (i, t) {
                 var it = t._item;
                 if (it.type === "backlight") {
-                    sys.tvItem("backlight").then(function (m) { if (!m || !m.writable) APL.toast(APL.t("Brightness unavailable right now")); },
+                    sys.tvItem(SLIDER.id).then(function (m) { if (!m || !m.writable) APL.toast(APL.t("Brightness unavailable right now")); },
                                                  function (e) { APL.toast(e.message); });
                     return;
                 }
@@ -564,11 +626,12 @@
                 if (view === "pair") { scanStop(); show("audio"); return; }
                 if (view !== "main") { view = "main"; render(); return; }
                 close();
+                if (P && P.ccBack) P.ccBack();          // LG: back to the app it was opened over (webos.js)
             },
             onKey: function (code) {
                 var t = nav.current(), it = t && t._item;
                 if (it && it.type === "backlight" && (code === K.LEFT || code === K.RIGHT)) {
-                    sys.tvAdjust("backlight", code === K.RIGHT ? 2 : -2, function (v, meta) { drawBacklight(t, v, meta); })
+                    sys.tvAdjust(SLIDER.id, code === K.RIGHT ? 2 : -2, function (v, meta) { drawBacklight(t, v, meta); })
                         .catch(function (e) { APL.toast(e.message); });
                     return true;
                 }

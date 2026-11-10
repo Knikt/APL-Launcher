@@ -150,6 +150,9 @@
 
     var TMDB = "https://api.themoviedb.org/3";
     var IMG = "https://image.tmdb.org/t/p/";
+    /* The full-screen pictures' size: TMDB's own on a page drawn in 4K (LG, js/webos.js sets APL_HIRES),
+       where a 780 or 1280 px wide picture showed its title logo blurred; Samsung keeps its sizes. */
+    function big(size) { return global.APL_HIRES ? "original" : size; }
 
     /* Fanart.tv (free key): textless HD background and title logo, when available. */
     var FANART = "https://webservice.fanart.tv/v3/";
@@ -201,7 +204,7 @@
             return Promise.all([fanart(r), noteFor(r)]).then(function (both) {
                 var fa = both[0] || {};
                 return {
-                    bg: fa.bg || IMG + "w1280" + r.backdrop_path,
+                    bg: fa.bg || IMG + big("w1280") + r.backdrop_path,
                     bgSmall: fa.bg ? fa.bg.replace("/fanart/", "/preview/") : IMG + "w300" + r.backdrop_path,   // enlarged = blurred, for the grid
                     card: IMG + "w780" + r.backdrop_path,
                     title: r.title || r.name || "",
@@ -552,16 +555,16 @@
     /* Like on Apple TV, the picture with the title already drawn on it: TMDB tags it with a language, the
        interface's language first. Else the textless background, with the title logo laid over it (widgets.js). */
     function keyArt(hit) {
-        var plain = { image: IMG + "w780" + hit.backdrop_path };
+        var plain = { image: IMG + big("w780") + hit.backdrop_path };
         return getJson(TMDB + "/" + hit._kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
             function best(list, lang) {
                 return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
                     .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
             }
             var titled = best(im.backdrops, APL.lang) || best(im.backdrops, "en");
-            if (titled) return { image: IMG + "w780" + titled.file_path, titled: true };
+            if (titled) return { image: IMG + big("w780") + titled.file_path, titled: true };
             var logo = best(im.logos, APL.lang) || best(im.logos, "en");
-            return { image: plain.image, logo: logo ? IMG + "w500" + logo.file_path : "" };
+            return { image: plain.image, logo: logo ? IMG + big("w500") + logo.file_path : "" };
         }).catch(function () { return plain; });
     }
     function artOf(hit, imdbId) {

@@ -98,8 +98,10 @@
                 // The other screen settings of the menu too: one switch can change another (Start on APL Launcher, Autorun)
                 var slot = row.querySelector(".srow__value");
                 if (slot) slot.textContent = "…";                         // the screen is being asked: shown at once
-                sys.native.set(item.id, next[0]).then(function () { refreshNativeRows(row); },
-                                                      function (e) { APL.toast(e.message); refreshNativeRows(row); });
+                // Any failure says so, even one thrown before the write starts: "…" must never stay on its own
+                Promise.resolve().then(function () { return sys.native.set(item.id, next[0]); })
+                    .then(function () { refreshNativeRows(row); },
+                          function (e) { APL.toast((e && e.message) || APL.t("The screen refused this setting for now")); refreshNativeRows(row); });
                 return;
             }
             var at = 0;
@@ -341,7 +343,15 @@
                 APL.services.toggle(item.group).then(function () { refreshRow(row); });
                 break;
             case "action":
-                item.run();
+                // done(): the rows of this page show their new values (Android: the keys removed)
+                item.run(function () {
+                    var rows = row.parentNode ? row.parentNode.children : [];
+                    for (var r = 0; r < rows.length; r++) if (rows[r]._item) refreshRow(rows[r]);
+                });
+                break;
+            case "info":
+                // A value row that can be changed on some platforms (Android: the API keys, typed on the TV)
+                if (item.run) item.run(function () { refreshRow(row); });
                 break;
             default: break;
         }
