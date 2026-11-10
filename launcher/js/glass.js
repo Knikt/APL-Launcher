@@ -588,6 +588,9 @@
                     global.setTimeout(function () {
                         if (old && old.parentNode) old.parentNode.removeChild(old);
                         n.style.transition = "";
+          /* Hand the opacity back to the stylesheet once the fade is over, so a
+             rule can still hide a pane (Control Center hides the focused tile's). */
+          n.style.opacity = "";
                     }, PANE_FADE_MS + 40);
                 })(l);
                 continue;
