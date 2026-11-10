@@ -52,6 +52,7 @@
     }
     function readPorts() {
         if (sys.PREVIEW) return Promise.resolve(null);
+        if (APL.platform && APL.platform.readPorts) return APL.platform.readPorts();     // LG: the TV lists its inputs
         var cmd = [1, 2, 3, 4].map(function (n) {
             return "vconftool get memory/sysman/hdmi" + n + "; vconftool get db/Canalysis-service/hdmi" + n + "/manufacturer_name; " +
                    "vconftool get db/Canalysis-service/hdmi" + n + "/model_name";

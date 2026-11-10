@@ -343,7 +343,15 @@
                 APL.services.toggle(item.group).then(function () { refreshRow(row); });
                 break;
             case "action":
-                item.run();
+                // done(): the rows of this page show their new values (Android: the keys removed)
+                item.run(function () {
+                    var rows = row.parentNode ? row.parentNode.children : [];
+                    for (var r = 0; r < rows.length; r++) if (rows[r]._item) refreshRow(rows[r]);
+                });
+                break;
+            case "info":
+                // A value row that can be changed on some platforms (Android: the API keys, typed on the TV)
+                if (item.run) item.run(function () { refreshRow(row); });
                 break;
             default: break;
         }

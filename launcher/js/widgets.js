@@ -16,7 +16,8 @@
      Nuvio       keeps its progress (watchProgressItems), most recent first: the
                  same, from the IMDb ID
      APL TV      writes its own Top Shelf (/tmp/apltv-shelf.json): what you were
-                 watching at its minute, and the last channel; OK opens it there
+                 watching at its minute, and the last channel; OK opens it there.
+                 On LG too (com.knikt.apltv), read by the launcher's service
      Hot Player  keeps only the episode and the progress, without the name of the
                  series or of the channel: a "Continue" card with the app's
                  artwork, no "Last Channel" card
@@ -408,29 +409,60 @@
     /* APL TV writes its Top Shelf itself, in /tmp/apltv-shelf.json (APL TV's helper service, js/app.js
        pushShelf): titles, pictures, progress and the data to open each one in APL TV. No addresses and no
        account in it. Read as it is; OK on a card opens APL TV at that title or channel (app control
-       "resume" / "channel"). */
-    var APLTV = "APLTVMedia.TV";
-    function apltvCards() {
+       "resume" / "channel"). On Android, APL TV keeps it for APL Launcher only (its ShelfProvider), read
+       through sys.appShelf (android/web/android.js). */
+    var APLTV = "APLTVMedia.TV", APLTV_LG = "com.knikt.apltv";
+    function apltvShelf() {
+        // LG: no shell there, the launcher's own service hands the file over (webos/service, "shelf"); Android: APL TV's ShelfProvider
+        if (sys.appShelf) return sys.appShelf();
         return sys.exec("head -c 60000 /tmp/apltv-shelf.json 2>/dev/null").then(function (r) {
-            var shelf;
-            try { shelf = JSON.parse(String(r.output || "")); } catch (e) { throw new Error("nothing to read"); }
-            if (!shelf || shelf.app !== APLTV) throw new Error("nothing to read");
-            var cards = [];
-            (shelf.continueWatching || []).slice(0, 1).forEach(function (c) {
-                if (!c || !c.title) return;
-                cards.push({ kind: "video", label: APL.t("Continue Watching"), title: String(c.title), image: safeUrl(c.image) || safeUrl(c.poster),
-                             sub: String(c.sub || ""), progress: c.progress > 0 ? Math.min(1, Number(c.progress)) : undefined, launch: pick(c.data, "resume") });
+            try { return JSON.parse(String(r.output || "")); } catch (e) { throw new Error("nothing to read"); }
+        });
+    }
+    function apltvCards() {
+        return apltvShelf().then(function (shelf) {
+            if (!shelf || (shelf.app !== APLTV && shelf.app !== APLTV_LG)) throw new Error("nothing to read");
+            var c = (shelf.continueWatching || [])[0], last = shelf.lastChannel;
+            return (c && c.title ? apltvArt(c) : Promise.resolve(null)).then(function (a) {
+                var cards = [];
+                if (a) cards.push({ kind: "video", label: APL.t("Continue Watching"), title: String(c.title), image: a.image, images: a.images, titled: !!a.titled, logo: a.logo || "",
+                                    sub: String(c.sub || ""), progress: c.progress > 0 ? Math.min(1, Number(c.progress)) : undefined, launch: pick(c.data, "resume") });
+                if (last && last.name) cards.push({ kind: "channel", label: APL.t("Last Channel"), title: String(last.name), image: safeUrl(last.logo),
+                                                    sub: String(last.now || ""), progress: last.progress > 0 ? Math.min(1, Number(last.progress)) : undefined, launch: pick(last.data, "channel") });
+                return cards;
             });
-            var last = shelf.lastChannel;
-            if (last && last.name) cards.push({ kind: "channel", label: APL.t("Last Channel"), title: String(last.name), image: safeUrl(last.logo),
-                                                sub: String(last.now || ""), progress: last.progress > 0 ? Math.min(1, Number(last.progress)) : undefined, launch: pick(last.data, "channel") });
-            return cards;
+        });
+    }
+    /* The picture of what you were watching. APL TV gives a wide picture when its provider has one: shown
+       as it is. Many titles only come with their poster, a tall picture that a wide card cuts through the
+       middle: then the title's wide artwork from TMDB, with its title on it, like the other apps' cards
+       (found once from the title and the year, then kept). The poster stays the last resort. */
+    function apltvArt(c) {
+        var own = safeUrl(c.image), poster = safeUrl(c.poster);
+        function file(u) { return u.split("?")[0].split("/").pop(); }
+        if (own && (!poster || file(own) !== file(poster))) return Promise.resolve({ image: own });
+        var title = String(c.title), year = /^(19|20)[0-9]{2}$/.test(String(c.sub || "")) ? String(c.sub) : "";
+        var key = "apltv:" + title + (year ? " " + year : "");
+        var found = art[key] ? Promise.resolve(art[key])
+            : APL.live && APL.live.searchArt ? APL.live.searchArt(title, year).then(function (a) { return a ? saveArt(key, a) : null; }, function () { return null; })
+            : Promise.resolve(null);
+        return found.then(function (a) {
+            var tall = own || poster;
+            return a && a.image ? { image: a.image, images: [a.image, tall].filter(Boolean), titled: !!a.titled, logo: a.logo || "" } : { image: tall };
         });
     }
     function safeUrl(u) { return /^https?:\/\/[^\s'"<>]+$/.test(String(u || "")) ? String(u) : ""; }
     function pick(data, key) { var v = data && data[key]; return v && /^[A-Za-z0-9_.:|-]{1,80}$/.test(String(v)) ? { key: key, value: String(v) } : null; }
     /* Opens the app with one piece of app control data (APL TV: resume=<title>, channel=<channel>) */
     function launchWith(app, launch) {
+        // LG: the same data as launch parameters ({"resume": "…"}, {"channel": "…"}); Android: as an Intent extra
+        if ((sys.platform === "webos" || sys.platform === "android") && APL.platform && APL.platform.launch) {
+            var params = {};
+            params[launch.key] = launch.value;
+            if (APL.sys.profiles) APL.sys.profiles.noteLaunch(app.id);
+            APL.platform.launch(app.id, params).catch(function () { APL.openApp(app); });
+            return;
+        }
         try {
             var T = global.tizen;
             var ctl = new T.ApplicationControl("http://tizen.org/appcontrol/operation/default", null, null, null,
@@ -443,6 +475,7 @@
     /* ---------- cards ---------- */
     var READERS = {};
     READERS[APLTV] = apltvCards;
+    READERS[APLTV_LG] = apltvCards;
     READERS[AQUA] = aquaCards;
     READERS[HOT] = hotCards;
     READERS[STREMIO] = stremioCards;

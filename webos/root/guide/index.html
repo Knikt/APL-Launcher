@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Guide</title>
+<!-- LG's Guide (com.webos.app.livemenu) on a rooted TV, mounted in RAM by apl-home.sh: a blank, transparent page.
+     When the TV opens it, the launcher's service (as root) closes it at once and opens APL Launcher's Control
+     Center over the app in front. If the service is not there to do it (it lost root, it isn't running), this
+     page opens the Control Center itself after a moment, then closes: never a black screen. -->
+<style>html, body { margin: 0; height: 100%; background: transparent; }</style>
+</head>
+<body>
+<script>
+(function () {
+    "use strict";
+    var live = [], timer = null;
+    function call(uri, params) {
+        try {
+            var b = new window.PalmServiceBridge();
+            live.push(b);
+            b.onservicecallback = function () { var i = live.indexOf(b); if (i !== -1) live.splice(i, 1); };
+            b.call(uri, JSON.stringify(params || {}));
+        } catch (e) {}
+    }
+    function soon() {
+        clearTimeout(timer);
+        // The service closes this page within a few hundred ms; still here, it isn't coming
+        timer = setTimeout(function () {
+            call("luna://com.webos.applicationManager/launch", { id: "com.knikt.apllauncher", params: { apl_action: "controlcenter" } });
+            setTimeout(function () { window.close(); }, 400);
+        }, 900);
+    }
+    soon();
+    document.addEventListener("webOSRelaunch", soon);
+})();
+</script>
+</body>
+</html>

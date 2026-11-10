@@ -28,6 +28,10 @@
 
     var APL = global.APL = global.APL || {};
 
+    /* These canvases are read back (getImageData, toDataURL) and never shown: kept in ordinary memory.
+       On the GPU each read waited for it, 90 ms at a time on an LG G5, in the middle of an animation. */
+    var READ = { willReadFrequently: true };
+
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
     var ZOOM = 1.25;                     /* the backdrop is enlarged behind the glass */
@@ -40,11 +44,18 @@
     var TARGETS = [
         ".dock",
         ".status",            /* the clock and avatar pill */
-        ".search-hint",       /* the magnifier at the top left */
+        ".search-hint",       /* the magnifier across from it: the same pill */
         ".cc__t",
-        ".cc__headico",       /* the button beside the clock, top right */
         ".scard__art--glass"
     ];
+
+    /* LG (APL.platform.directGlass): a pane is kept for good, and what changes with the picture changes
+       without anything being painted again. The slice is an <img> the screen composites straight from its
+       480 x 270 bitmap (a layer made of one image is rastered at the image's own size, then scaled by the
+       GPU), and the shade over it is a plain layer whose opacity is the shade. A pane made again for each
+       picture had the whole surface repainted with it: on a G5 drawing in 4K the clock pill alone took
+       25 ms of GPU each time (blurred shadows, masked rim), the dock 12. */
+    var DIRECT = !!(APL.platform && APL.platform.directGlass);
 
     var baked = "";          /* data URL of the frozen backdrop */
     var bakedFrom = "";      /* the artwork it was made from */
@@ -117,11 +128,109 @@
        on a slice that is already made: nothing is drawn on the frame that
        changes the backdrop. */
     var cache = {}, order = [], CACHE_MAX = 12;
+    /* The direct panes show the pane's picture from a blob: URL, loaded and decoded once here. Each <img>
+       given the data: URL itself read it again, 2.7 ms a pane on a G5, fifteen panes with the Control
+       Center built; one already loaded in the page is taken as it is (0.3 ms). */
+    var quickUrl = {}, quickN = 0;
+    function quick(data) {
+        if (data in quickUrl || !global.fetch || !global.URL) return;
+        quickUrl[data] = "";                              // on its way
+        global.fetch(data).then(function (r) { return r.blob(); }).then(function (b) {
+            var u = global.URL.createObjectURL(b), im = new global.Image();
+            im.onload = function () { quickUrl[data] = u; };
+            im.src = u;
+            if (im.decode) im.decode().catch(function () {});
+            if (++quickN > 40) {                          // the pictures gone from the cache give their blob back
+                Object.keys(quickUrl).forEach(function (d) {
+                    if (d === baked || order.some(function (k) { return cache[k] === d; })) return;
+                    if (quickUrl[d]) global.URL.revokeObjectURL(quickUrl[d]);
+                    delete quickUrl[d];
+                });
+                quickN = Object.keys(quickUrl).length;
+            }
+        }).catch(function () { delete quickUrl[data]; });
+    }
     function remember(src, data) {
         if (!src || !data) return;
         if (!cache[src]) order.push(src);
         cache[src] = data;
-        while (order.length > CACHE_MAX) delete cache[order.shift()];
+        if (DIRECT) quick(data);
+        while (order.length > CACHE_MAX) {
+            var old = order.shift();
+            if (cache[old] !== baked) delete lums[cache[old]];      // the pane on screen keeps its measure
+            delete cache[old];
+        }
+    }
+
+    /* How bright the picture is under each surface. The pane is an opaque slice of
+       the picture laid over the surface's own tint, so on a white poster the dock
+       and the clock pill were white glass with white text on it, and the Control
+       Center's labels barely read. The 48x27 sample the pane is made from is kept as
+       a grid of luminances (one cell = 40x40 px of the stage), and each pane is then
+       darkened - or, in the light theme, veiled - just enough for its own text. */
+    var lums = {};           /* luminance grid of each pane, by its data URL */
+    function chan(c) {
+        c = Math.min(1, c / 255 * LIGHT);
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    }
+    function grid(canvas) {
+        try {
+            var d = canvas.getContext("2d", READ).getImageData(0, 0, TINY_W, TINY_H).data, g = [], i;
+            for (i = 0; i < d.length; i += 4) g.push(0.2126 * chan(d[i]) + 0.7152 * chan(d[i + 1]) + 0.0722 * chan(d[i + 2]));
+            return g;
+        } catch (e) { return null; }
+    }
+
+    /* For each kind of surface: the luminance its pane must stay under for white
+       text (dark theme), the shade it never goes below, and in the light theme the
+       luminance it must stay above for dark text, with its least veil. A pill and a
+       tile carry text; the dock carries only icons, so it is only kept from turning
+       into a white plate. Sources stays dark in both themes (white text). */
+    var TUNE = {
+        pill: { y: 0.09, shade: 0.30, ly: 0.55, veil: 0.45 },
+        dock: { y: 0.22, shade: 0.10, ly: 0.42, veil: 0.30 },
+        tile: { y: 0.07, shade: 0.55, ly: 0.60, veil: 0.55 },
+        card: { y: 0.06, shade: 0.70, dark: true }
+    };
+    function kindOf(el) {
+        var c = el.classList;
+        if (c.contains("cc__t")) return "tile";
+        if (c.contains("dock")) return "dock";
+        if (c.contains("scard__art--glass")) return "card";
+        return "pill";
+    }
+    /* Mean, brightest and darkest cell under a stage rectangle. */
+    function under(g, r) {
+        var x0 = Math.max(0, Math.floor(r.x / 40)), x1 = Math.min(TINY_W - 1, Math.floor((r.x + r.w - 1) / 40));
+        var y0 = Math.max(0, Math.floor(r.y / 40)), y1 = Math.min(TINY_H - 1, Math.floor((r.y + r.h - 1) / 40));
+        var sum = 0, n = 0, hi = 0, lo = 1, x, y, v;
+        for (y = y0; y <= y1; y++) {
+            for (x = x0; x <= x1; x++) {
+                v = g[y * TINY_W + x];
+                sum += v; n++;
+                if (v > hi) hi = v;
+                if (v < lo) lo = v;
+            }
+        }
+        return n ? { mean: sum / n, hi: hi, lo: lo } : null;
+    }
+    function tint(layer, el, r) {
+        var t = TUNE[kindOf(el)], g = lums[baked], s = g ? under(g, r) : null;
+        var light = !t.dark && body.classList.contains("theme-light");
+        if (!light) {
+            /* Black over the slice: in the screen's sRGB blend the luminance falls as
+               (1 - shade) ^ 2.2. Half the mean, half the brightest cell, so a bright
+               spot under the label counts. */
+            var min = t.shade, y = s ? 0.5 * s.mean + 0.5 * s.hi : 1, a = 0;
+            if (t.dark && body.classList.contains("perf")) min = 0.9;
+            if (y > t.y) a = 1 - Math.pow(t.y / y, 1 / 2.2);
+            layer.style.setProperty("--glass-shade", Math.max(min, Math.min(0.92, a)).toFixed(3));
+        } else {
+            /* A pale veil: it lifts a dark picture to the luminance dark text needs. */
+            var yl = s ? 0.5 * s.mean + 0.5 * s.lo : 0, vt = Math.pow(t.ly, 1 / 2.2), v = Math.pow(yl, 1 / 2.2), w = 0;
+            if (v < vt) w = (vt - v) / (1 - v);
+            layer.style.setProperty("--glass-veil", Math.max(t.veil, Math.min(0.95, w)).toFixed(3));
+        }
     }
 
     /* Two canvases, both off the animation path. The second is the only
@@ -138,19 +247,21 @@
         var tiny = document.createElement("canvas");
         tiny.width = TINY_W;
         tiny.height = TINY_H;
-        tiny.getContext("2d").drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, TINY_W, TINY_H);
+        tiny.getContext("2d", READ).drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, TINY_W, TINY_H);
 
         var out = document.createElement("canvas");
         out.width = BAKE_W;
         out.height = BAKE_H;
-        var c = out.getContext("2d");
+        var c = out.getContext("2d", READ);
         c.imageSmoothingEnabled = true;
         if ("imageSmoothingQuality" in c) c.imageSmoothingQuality = "high";
         /* Brightness is baked once here: no filter, no redraw, on the TV's
            animation path. */
         if ("filter" in c) c.filter = "brightness(" + LIGHT + ")";
         c.drawImage(tiny, 0, 0, BAKE_W, BAKE_H);
-        return out.toDataURL("image/jpeg", 0.72);
+        var data = out.toDataURL("image/jpeg", 0.72), g = grid(tiny);
+        if (g) lums[data] = g;
+        return data;
     }
 
     var rendering = {};
@@ -313,12 +424,35 @@
         var l = el.__cgLayer;
         if (l && l.parentNode === el) return l;
         l = document.createElement("i");
-        l.className = "cg__glass";
+        l.className = "cg__glass" + (DIRECT ? " cg__glass--direct" : "");
         l.setAttribute("aria-hidden", "true");
+        if (DIRECT) {
+            var pic = document.createElement("img"), shade = document.createElement("i");
+            pic.className = "cg__pic"; pic.alt = ""; pic.decoding = "sync";
+            shade.className = "cg__shade";
+            l.appendChild(pic); l.appendChild(shade);
+            l.__pic = pic;
+        }
         el.insertBefore(l, el.firstChild);
         el.__cgLayer = l;
         el.__cgKey = "";
         return l;
+    }
+    /* The direct pane: the picture's place and the shade are two style writes, the picture one src. */
+    function paintDirect(l, el, r) {
+        var pic = l.__pic, pos = r.x + "," + r.y;
+        if (!pic || pic.parentNode !== l) {            // the tile's content was rebuilt around the pane
+            pic = l.__pic = l.querySelector(".cg__pic");
+            if (!pic) return;
+        }
+        if (l.__pos !== pos) { l.__pos = pos; pic.style.left = (-r.x) + "px"; pic.style.top = (-r.y) + "px"; }
+        tint(l, el, r);
+        if (l.__src !== baked) {
+            l.__src = baked;
+            if (!quickUrl[baked]) quick(baked);           // a gradient's pane, made without remember()
+            pic.src = quickUrl[baked] || baked;
+        }
+        l.classList.add("is-on");
     }
 
     /* Stage rectangle from layout offsets. A focused tile is scaled and a
@@ -372,7 +506,7 @@
         var out = document.createElement("canvas");
         out.width = BAKE_W;
         out.height = BAKE_H;
-        var c = out.getContext("2d");
+        var c = out.getContext("2d", READ);
         var g = c.createLinearGradient(0, 0, 0, BAKE_H), i;
         for (i = 0; i < stops.length; i++) {
             g.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), stops[i].trim());
@@ -382,24 +516,41 @@
         /* The same brightness the baked pictures carry. */
         c.fillStyle = "rgba(255, 255, 255, " + (LIGHT - 1) + ")";
         c.fillRect(0, 0, BAKE_W, BAKE_H);
-        return out.toDataURL("image/jpeg", 0.72);
+        var data = out.toDataURL("image/jpeg", 0.72);
+        var tiny = document.createElement("canvas");
+        tiny.width = TINY_W;
+        tiny.height = TINY_H;
+        tiny.getContext("2d", READ).drawImage(out, 0, 0, TINY_W, TINY_H);
+        var g = grid(tiny);
+        if (g) lums[data] = g;
+        return data;
     }
 
     function paint() {
         if (!ensure()) return;
         if (!baked) return;
         var list = document.querySelectorAll(TARGETS.join(",")), i, el, r, key, l;
+        var theme = body.className.indexOf("theme-light") > -1 ? "l" : "d";
+        if (body.classList.contains("perf")) theme += "p";
+        /* Every measure first, then every write: a write between two reads had the page laid out again
+           for each surface (offset() and paintDirect() were 40 ms a move in a profile on a G5). */
+        var jobs = [];
         for (i = 0; i < list.length; i++) {
             el = list[i];
             if (!el.offsetWidth || el.offsetHeight < 4) continue;
-            r = offset(el);
+            jobs.push(el, offset(el));
+        }
+        for (i = 0; i < jobs.length; i += 2) {
+            el = jobs[i];
+            r = jobs[i + 1];
             /* The artwork is part of the key, so a new picture re-slices even when
-               the surface has not moved. */
-            key = r.x + "," + r.y + "," + r.w + "," + r.h + ":" + baked.length + ":" + baked.slice(-24);
+               the surface has not moved; the theme too, which decides the tint. */
+            key = r.x + "," + r.y + "," + r.w + "," + r.h + ":" + baked.length + ":" + baked.slice(-24) + ":" + theme;
             l = el.__cgLayer;
             if (el.__cgKey === key && l && l.parentNode === el && l.classList.contains("is-on")) continue;
             el.__cgKey = key;
             l = layerFor(el);
+            if (DIRECT) { paintDirect(l, el, r); continue; }
             if (l.__src !== baked) {
                 /* The pane is already rendered (see the cache above): one style
                    write, laid over the old pane, which leaves on the next frame.
@@ -412,6 +563,7 @@
                 n.style.backgroundImage = 'url("' + baked + '")';
                 n.style.setProperty("--gx", (-r.x) + "px");
                 n.style.setProperty("--gy", (-r.y) + "px");
+                tint(n, el, r);
                 el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
                 el.__cgLayer = n;
                 (function (old) {
@@ -421,6 +573,7 @@
             }
             l.style.setProperty("--gx", (-r.x) + "px");
             l.style.setProperty("--gy", (-r.y) + "px");
+            tint(l, el, r);
             l.classList.add("is-on");
         }
     }
@@ -547,14 +700,28 @@
         [0, 250, 600, 1000, 1600, 2400, 3600].forEach(function (ms) {
             global.setTimeout(function () { refresh(); sync(); }, ms);
         });
-        /* A key only moves things: re-slice the geometry, never look at the
-           backdrop again. Doing both here was a second, later swap of the pane
-           on every step along the row - the throb on a change of focus. */
-        document.addEventListener("keydown", paint, true);
-        /* A redrawn tile gets its layer back, and a backdrop that has just
-           finished fading gets sliced in place of the one before it. */
-        document.addEventListener("keyup", function () { paint(); sync(); }, true);
-        document.addEventListener("transitionend", function () { paint(); sync(); }, true);
+        /* One look after a key, once its move has started, instead of one on the
+           key down, one on the key up and one at the end of every transition
+           (the scale, the colour and the background of both tiles, in the
+           Control Center and along the dock): each of those read the layout of
+           every surface while the focus was still animating, about thirty style
+           passes per move, which the TV's slower processor showed as a Control
+           Center that did not follow the remote. */
+        var later = 0;
+        function soon() {
+            if (later) return;
+            later = global.setTimeout(function () { later = 0; paint(); sync(); }, 90);
+        }
+        document.addEventListener("keyup", soon, true);
+        /* A transition matters only when it can move a surface or change the
+           picture: a backdrop that has finished fading, or a panel, the Home
+           Screen or a sheet that carries glass. A tile scaling on focus moves
+           nothing the panes are cut from (they ignore transforms). */
+        document.addEventListener("transitionend", function (e) {
+            var t = e.target;
+            if (!t || !t.classList) return;
+            if (t.classList.contains("bg") || (t.querySelector && t.querySelector(TARGETS.join(",")))) soon();
+        }, true);
         /* Surfaces rebuilt while the glass is on (Control Center redraws its
            tiles on every move) get their lens back within a frame: no flash of
            the plain fill, no glass that appears and is gone again. */
@@ -569,8 +736,17 @@
                cold start no .bg is active for the first second or two, so every
                timer fired into an empty scene and the glass only appeared after
                the first key press. */
+            /* Only a backdrop layer (or the body, which names the live app) is
+               a reason to look: every class change in the page used to count,
+               so each move of the focus asked for the picture again. */
             var boom = 0;
-            var layers = new global.MutationObserver(function () {
+            var layers = new global.MutationObserver(function (records) {
+                var i, t, hit = false;
+                for (i = 0; i < records.length && !hit; i++) {
+                    t = records[i].target;
+                    hit = t === body || !!(t.classList && t.classList.contains("bg"));
+                }
+                if (!hit) return;
                 global.clearTimeout(boom);
                 boom = global.setTimeout(function () { refresh(); sync(); }, 60);
             });

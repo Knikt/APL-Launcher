@@ -11,7 +11,8 @@
       ],
       "ids": [
         "3201907018807",
-        "11101200001"
+        "11101200001",
+        "netflix"
       ],
       "logo": {
         "src": "di:netflix"
@@ -31,7 +32,8 @@
         "amazon prime"
       ],
       "ids": [
-        "3201910019365"
+        "3201910019365",
+        "amazon"
       ],
       "logo": {
         "src": "di:prime-video-light"
@@ -50,7 +52,8 @@
         "^youtube$"
       ],
       "ids": [
-        "111299001912"
+        "111299001912",
+        "youtube.leanback.v4"
       ],
       "logo": {
         "src": "di:youtube"
@@ -70,7 +73,8 @@
         "disney(?!.*hotstar)"
       ],
       "ids": [
-        "3201901017640"
+        "3201901017640",
+        "com.disney.disneyplus-prod"
       ],
       "logo": {
         "src": "di:disney-plus",
@@ -91,7 +95,8 @@
         "^apple tv"
       ],
       "ids": [
-        "3201807016597"
+        "3201807016597",
+        "com.apple.appletv"
       ],
       "logo": {
         "src": "di:apple-tv-plus-light"
@@ -166,7 +171,8 @@
       ],
       "ids": [
         "kIciSQlYEM.plex",
-        "3201512006963"
+        "3201512006963",
+        "cdp-30"
       ],
       "logo": {
         "src": "di:plex",
@@ -188,7 +194,8 @@
         "^stremio"
       ],
       "ids": [
-        "IkWsFHtOY9.Stremio"
+        "IkWsFHtOY9.Stremio",
+        "io.strem.tv"
       ],
       "logo": {
         "src": "di:stremio"
@@ -208,7 +215,8 @@
         "^apl tv"
       ],
       "ids": [
-        "APLTVMedia.TV"
+        "APLTVMedia.TV",
+        "com.knikt.apltv"
       ],
       "logo": {
         "src": "file:apltv.png"
@@ -247,7 +255,9 @@
       "match": [
         "crunchyroll"
       ],
-      "ids": [],
+      "ids": [
+        "com.crunchyroll.webapp"
+      ],
       "logo": {
         "src": "di:crunchyroll",
         "white": true
@@ -347,7 +357,9 @@
       "match": [
         "pluto"
       ],
-      "ids": [],
+      "ids": [
+        "com.plutotv.app"
+      ],
       "logo": {
         "src": "di:pluto-tv",
         "crop": true
@@ -383,7 +395,9 @@
       "match": [
         "^jellyfin"
       ],
-      "ids": [],
+      "ids": [
+        "org.jellyfin.webos"
+      ],
       "logo": {
         "src": "di:jellyfin"
       },
@@ -420,7 +434,9 @@
       "match": [
         "rakuten"
       ],
-      "ids": [],
+      "ids": [
+        "ui30"
+      ],
       "logo": {
         "src": "si:rakuten",
         "white": true
@@ -476,7 +492,9 @@
         "^apps$",
         "^galaxy store$"
       ],
-      "ids": [],
+      "ids": [
+        "com.webos.app.discovery"
+      ],
       "logo": {
         "src": "di:app-store",
         "icon": true
@@ -532,7 +550,9 @@
         "^mycanal",
         "^canal plus"
       ],
-      "ids": [],
+      "ids": [
+        "canalplus"
+      ],
       "logo": {
         "src": "tv:france/canal-plus-fr"
       },
@@ -551,7 +571,9 @@
         "^tf1 ?\\+",
         "^mytf1"
       ],
-      "ids": [],
+      "ids": [
+        "fr.tf1.mytf1"
+      ],
       "logo": {
         "src": "tv:france/tf1-fr",
         "suffix": "+"
@@ -571,7 +593,9 @@
         "^m6 ?\\+",
         "^6play"
       ],
-      "ids": [],
+      "ids": [
+        "6play"
+      ],
       "logo": {
         "src": "tv:france/m6-fr",
         "suffix": "+"
@@ -589,7 +613,9 @@
       "match": [
         "^arte"
       ],
-      "ids": [],
+      "ids": [
+        "com.3827031.168353"
+      ],
       "logo": {
         "src": "tv:france/arte-fr",
         "rotate": 90
@@ -680,7 +706,9 @@
       "match": [
         "^l.?[ée]quipe"
       ],
-      "ids": [],
+      "ids": [
+        "app.lequipe.fr"
+      ],
       "logo": {
         "src": "si:lequipe",
         "white": true,
@@ -738,7 +766,9 @@
       "match": [
         "^(amazon )?luna$"
       ],
-      "ids": [],
+      "ids": [
+        "com.amazon.luna"
+      ],
       "logo": {
         "src": "di:amazon-luna"
       },

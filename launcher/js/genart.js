@@ -20,6 +20,10 @@
 (function (global) {
     "use strict";
 
+    /* These canvases are read back (getImageData, toDataURL) and never shown: kept in ordinary memory.
+       On the GPU each read waited for it, 90 ms at a time on an LG G5, in the middle of an animation. */
+    var READ = { willReadFrequently: true };
+
     var APL = global.APL, sys = APL.sys;
     var VERSION = 3, PREFIX = "apl.gen.";        // 3: sheets in the logo's own colors, made again
     var TILE_W = 500, TILE_H = 300, BG_W = 1920, BG_H = 1080;
@@ -90,7 +94,7 @@
         var w = 96, h = Math.round(96 * img.naturalHeight / img.naturalWidth);
         if (h > 96) { w = Math.round(96 * 96 / h); h = 96; }
         h = Math.max(h, 8); w = Math.max(w, 8);
-        var c = canvas(w, h), x = c.getContext("2d");
+        var c = canvas(w, h), x = c.getContext("2d", READ);
         x.drawImage(img, 0, 0, w, h);
         var d = x.getImageData(0, 0, w, h).data, ring = [], px, py, i;
         for (py = 0; py < h; py++) {
@@ -159,7 +163,7 @@
         var mx = Math.max(1, Math.round(nw * 0.012)), my = Math.max(1, Math.round(nh * 0.012));
         var sx = Math.max(0, Math.floor(s.box.x * nw) - mx), sy = Math.max(0, Math.floor(s.box.y * nh) - my);
         var sw = Math.min(nw - sx, Math.ceil(s.box.w * nw) + 2 * mx), sh = Math.min(nh - sy, Math.ceil(s.box.h * nh) + 2 * my);
-        var c = canvas(sw, sh), x = c.getContext("2d");
+        var c = canvas(sw, sh), x = c.getContext("2d", READ);
         x.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
         if (!s.transparent) {
             var im = x.getImageData(0, 0, sw, sh), p = im.data, i;
@@ -237,7 +241,7 @@
 
     /* ---------- tile ---------- */
     function paintTile(base, logo) {
-        var c = canvas(TILE_W, TILE_H), x = c.getContext("2d"), g = x.createLinearGradient(0, 0, TILE_W, TILE_H), up = lum(base) > 200 ? 0 : 10;
+        var c = canvas(TILE_W, TILE_H), x = c.getContext("2d", READ), g = x.createLinearGradient(0, 0, TILE_W, TILE_H), up = lum(base) > 200 ? 0 : 10;
         g.addColorStop(0, rgb({ r: base.r + up, g: base.g + up, b: base.b + up }));
         g.addColorStop(1, rgb({ r: base.r - 6, g: base.g - 6, b: base.b - 6 }));
         x.fillStyle = g;
@@ -250,7 +254,7 @@
     /* Large Logo: dark, with a soft halo in the app's color behind the logo, the style of the old
        catalog cards, now drawn here for every app. */
     function paintBg(logo, hue, sat) {
-        var c = canvas(BG_W, BG_H), x = c.getContext("2d"), a = hslToRgb(hue, sat, 50), cy = BG_H * 0.44;
+        var c = canvas(BG_W, BG_H), x = c.getContext("2d", READ), a = hslToRgb(hue, sat, 50), cy = BG_H * 0.44;
         var o = "rgba(" + Math.round(a.r) + "," + Math.round(a.g) + "," + Math.round(a.b) + ",";
         x.fillStyle = "#07080c";
         x.fillRect(0, 0, BG_W, BG_H);
@@ -321,7 +325,7 @@
         return { pts: pts, close: close };
     }
     function covered(list) {
-        var c = canvas(SW / 8, SH / 8), x = c.getContext("2d"), on = 0, i;
+        var c = canvas(SW / 8, SH / 8), x = c.getContext("2d", READ), on = 0, i;
         x.scale(1 / 8, 1 / 8);
         list.forEach(function (s) { sheetPath(x, s); x.fill(); });
         var d = x.getImageData(0, 0, c.width, c.height).data;
@@ -329,7 +333,7 @@
         return on / (d.length / 4);
     }
     function pointIn(s, r) {
-        var x = canvas(1, 1).getContext("2d"), i;
+        var x = canvas(1, 1).getContext("2d", READ), i;
         sheetPath(x, s);
         for (i = 0; i < 30; i++) { var p = [0.1 + r() * 0.8, 0.1 + r() * 0.8]; if (x.isPointInPath(p[0] * SW, p[1] * SH)) return p; }
         return null;
@@ -370,7 +374,7 @@
        Wide ones at a quarter size: canvas caps the blur radius (and it is cheaper). */
     function falloff(s, blur, times, k) {
         k = k || 1;
-        var o = canvas(SW * k, SH * k), x = o.getContext("2d"), i;
+        var o = canvas(SW * k, SH * k), x = o.getContext("2d", READ), i;
         x.scale(k, k);
         x.save();
         x.translate(-SW * 4, 0);
@@ -381,7 +385,7 @@
         x.restore();
         x.globalCompositeOperation = "destination-in"; sheetPath(x, s); x.fill();
         if (k === 1) return o;
-        var big = canvas(SW, SH), g = big.getContext("2d");
+        var big = canvas(SW, SH), g = big.getContext("2d", READ);
         if ("imageSmoothingQuality" in g) g.imageSmoothingQuality = "high";
         g.drawImage(o, 0, 0, SW, SH);
         g.globalCompositeOperation = "destination-in"; sheetPath(g, s); g.fill();   // the edge stays crisp
@@ -399,20 +403,20 @@
        turned yellow olive, orange brown and cyan teal. */
     function sheetLight(l) { return l === undefined || l === null ? 38 : clamp(l, 34, 52); }
     function paintSheets(list, sat, light, lit) {
-        var c = canvas(SW, SH), x = c.getContext("2d");
+        var c = canvas(SW, SH), x = c.getContext("2d", READ);
         x.fillStyle = light ? hsl(warm(list[0].h, true), Math.min(sat, 45) * 0.6, 84) : "#000";
         x.fillRect(0, 0, SW, SH);
         list.forEach(function (s) {
             if (light) {
                 // Light theme: a soft shadow just outside the sheet, on what lies below
-                var sh = canvas(SW, SH), y = sh.getContext("2d");
+                var sh = canvas(SW, SH), y = sh.getContext("2d", READ);
                 y.save(); y.translate(-SW * 4, 0); sheetPath(y, s); y.translate(SW * 4, 0);
                 y.shadowOffsetX = SW * 4 + SW * 0.004; y.shadowOffsetY = SW * 0.006; y.shadowBlur = SW * 0.035;
                 y.shadowColor = hsl(s.h, (s.sat === undefined ? sat : clamp(s.sat, 55, 92)) * 0.6, 28, 0.38); y.fill(); y.restore();
                 y.globalCompositeOperation = "destination-out"; sheetPath(y, s); y.fill();
                 x.drawImage(sh, 0, 0);
             }
-            var body = canvas(SW, SH), b = body.getContext("2d");
+            var body = canvas(SW, SH), b = body.getContext("2d", READ);
             var ss = s.sat === undefined ? sat : clamp(s.sat, 55, 92), sl = s.lit === undefined ? lit : sheetLight(s.lit);
             b.drawImage(falloff(s, SW * 0.012, 1), 0, 0);
             b.drawImage(falloff(s, SW * 0.32, 2, 0.25), 0, 0);
@@ -429,7 +433,7 @@
                 pg.addColorStop(1, "rgba(0,0,0,0)");
                 b.fillStyle = pg; b.fillRect(0, 0, SW, SH);
             });
-            var rim = canvas(SW, SH), q = rim.getContext("2d");                      // the pale rim where the light falls
+            var rim = canvas(SW, SH), q = rim.getContext("2d", READ);                      // the pale rim where the light falls
             q.drawImage(falloff(s, SW * 0.008, 1), 0, 0);
             q.drawImage(falloff(s, SW * 0.05, 2), 0, 0);
             lightMask(q, s.l, [[0, 1], [0.45, 0.25], [0.8, 0]]);
@@ -445,7 +449,7 @@
     }
     /* Blur by a share of the width: canvas filter at half size, else smooth down- and up-scaling. */
     function blurred(src, share) {
-        var w = SW / 2, h = SH / 2, half = canvas(w, h), x = half.getContext("2d"), out = canvas(SW, SH), o = out.getContext("2d");
+        var w = SW / 2, h = SH / 2, half = canvas(w, h), x = half.getContext("2d", READ), out = canvas(SW, SH), o = out.getContext("2d", READ);
         if ("imageSmoothingQuality" in o) o.imageSmoothingQuality = "high";
         if ("filter" in x) {
             var m = w * share * 2;
@@ -457,7 +461,7 @@
         var cur = src, size = [SW, SH];
         while (size[0] > SW * share * 2) {
             size = [Math.max(2, Math.round(size[0] / 2)), Math.max(2, Math.round(size[1] / 2))];
-            var next = canvas(size[0], size[1]), n = next.getContext("2d");
+            var next = canvas(size[0], size[1]), n = next.getContext("2d", READ);
             if ("imageSmoothingQuality" in n) n.imageSmoothingQuality = "high";
             n.drawImage(cur, 0, 0, size[0], size[1]);
             cur = next;
