@@ -1228,8 +1228,9 @@ html, body {
 .cc__t--pill .cc__label { padding: 0 12px; }
 .cc__t--pill .cc__title { font-size: 25px; letter-spacing: -0.01em; }
 
-/* A step smaller all round, and the power glyph on the Sleep tile one step larger:
-   it is the only tile with the room, and at the scaled size it read as a dot. */
-.cc__panel { --cc-scale: 0.80; }
-@media (min-height: 900px) { .cc__panel { --cc-scale: 0.82; } }
-.cc__t--wide .cc__ico, .cc__t--wide .cc__ico svg { width: 64px; height: 64px; }
+/* A step smaller all round - zoom scales the panel and its layout together - and
+   the power glyph on the Sleep tile one step larger, since at that size it read
+   as a dot. The tile class is cc__t--big. */
+.cc__panel { zoom: 0.80; }
+@media (min-height: 900px) { .cc__panel { zoom: 0.82; } }
+.cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
