@@ -1232,6 +1232,9 @@ html, body {
    backdrop from layout coordinates while zoom changes only what is drawn, so the
    panes cover part of the tiles. A smaller panel has to come from smaller tile
    numbers, not from a scale factor. Only the Sleep glyph stays larger. */
+/* The Sleep tile draws its glyph in .cc__bigico, not .cc__ico, which is why the
+   first version of this rule matched nothing. 64, up from 56. */
+.cc__t--big .cc__bigico, .cc__t--big .cc__bigico svg,
 .cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
 
 /* A step smaller by the numbers rather than a scale factor: the pills, the Sleep
