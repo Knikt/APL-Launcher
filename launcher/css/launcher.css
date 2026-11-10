@@ -1228,9 +1228,8 @@ html, body {
 .cc__t--pill .cc__label { padding: 0 12px; }
 .cc__t--pill .cc__title { font-size: 25px; letter-spacing: -0.01em; }
 
-/* A step smaller all round - zoom scales the panel and its layout together - and
-   the power glyph on the Sleep tile one step larger, since at that size it read
-   as a dot. The tile class is cc__t--big. */
-.cc__panel { zoom: 0.80; }
-@media (min-height: 900px) { .cc__panel { zoom: 0.82; } }
+/* No scaling of the panel: zoom breaks the glass, because glass.js slices the
+   backdrop from layout coordinates while zoom changes only what is drawn, so the
+   panes cover part of the tiles. A smaller panel has to come from smaller tile
+   numbers, not from a scale factor. Only the Sleep glyph stays larger. */
 .cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
