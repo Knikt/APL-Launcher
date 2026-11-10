@@ -88,6 +88,7 @@ launcher's origin is not an address that can be listed. If you do set that
 list for something else, `- "*"` is accepted - an earlier version of this
 page said a wildcard does not work, and that was wrong (checked on a
 Frame).
+
 Once inside, **Edit Layout** in the sidebar rearranges the house: move an
 accessory to another room, make a room or a category, step an accessory up or
 down inside its room, or take it off the house with **Remove from Home**. What
