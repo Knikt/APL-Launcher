@@ -1237,8 +1237,7 @@ html, body {
 .cc__t--big .cc__bigico, .cc__t--big .cc__bigico svg,
 .cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
 
-/* A step smaller by the numbers rather than a scale factor: the pills, the Sleep
-   tile and the slider row lose 12 px, so the panel is shorter without the glass
-   having to reason about a transform. */
-.cc__body--main { grid-template-rows: repeat(2, 106px); }
-.cc__t--wide { height: 106px; border-radius: 53px; }
+/* Everything shifted up a little, by margin rather than a transform: the glass
+   slices from layout coordinates, so a transform on the panel would move the
+   tiles without moving their panes. The tiles keep one height between them. */
+.cc__panel { margin-top: -14px; }
