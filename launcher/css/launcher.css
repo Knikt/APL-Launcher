@@ -1227,3 +1227,9 @@ html, body {
    being clipped: the label shrinks a little and the padding gives some back. */
 .cc__t--pill .cc__label { padding: 0 12px; }
 .cc__t--pill .cc__title { font-size: 25px; letter-spacing: -0.01em; }
+
+/* A step smaller all round, and the power glyph on the Sleep tile one step larger:
+   it is the only tile with the room, and at the scaled size it read as a dot. */
+.cc__panel { --cc-scale: 0.80; }
+@media (min-height: 900px) { .cc__panel { --cc-scale: 0.82; } }
+.cc__t--wide .cc__ico, .cc__t--wide .cc__ico svg { width: 64px; height: 64px; }
