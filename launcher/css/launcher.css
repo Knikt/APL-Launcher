@@ -500,7 +500,7 @@ html, body {
 .cc.is-open .cc__dim { opacity: 1; }
 .cc__panel {
     position: absolute;
-    top: 52px;
+    top: 38px;          /* 14 px higher than 52: the panel clears the screen edge */
     right: 60px;
     width: 582px;          /* the 534 px grid plus its 24 px insets */
     opacity: 0;
@@ -1236,8 +1236,3 @@ html, body {
    first version of this rule matched nothing. 64, up from 56. */
 .cc__t--big .cc__bigico, .cc__t--big .cc__bigico svg,
 .cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
-
-/* Everything shifted up a little, by margin rather than a transform: the glass
-   slices from layout coordinates, so a transform on the panel would move the
-   tiles without moving their panes. The tiles keep one height between them. */
-.cc__panel { margin-top: -14px; }
