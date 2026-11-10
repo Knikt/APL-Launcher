@@ -1233,3 +1233,9 @@ html, body {
    panes cover part of the tiles. A smaller panel has to come from smaller tile
    numbers, not from a scale factor. Only the Sleep glyph stays larger. */
 .cc__t--big .cc__ico, .cc__t--big .cc__ico svg { width: 64px; height: 64px; }
+
+/* A step smaller by the numbers rather than a scale factor: the pills, the Sleep
+   tile and the slider row lose 12 px, so the panel is shorter without the glass
+   having to reason about a transform. */
+.cc__body--main { grid-template-rows: repeat(2, 106px); }
+.cc__t--wide { height: 106px; border-radius: 53px; }
