@@ -419,11 +419,13 @@
         var app = ((APL.allApps && APL.allApps()) || []).filter(function (a) { return a.id === id; })[0] || {};
         return (watchNext()[id] || []).slice(0, 2).map(function (r) {
             var ep = r.season && r.number ? "S" + r.season + " E" + r.number : r.number ? "E" + r.number : "";
-            var left = r.duration > 0 && r.position > 0 ? T("{n} min left", { n: Math.max(1, Math.round((r.duration - r.position) / 60000)) }) : "";
-            return { kind: "video", label: r.kind === 1 ? T("Up Next") : T("Continue Watching"), title: String(r.title),
+            var started = r.duration > 0 && r.position > 0;
+            var left = started ? T("{n} min left", { n: Math.max(1, Math.round((r.duration - r.position) / 60000)) }) : "";
+            // Not started yet: the next episode (Nuvio writes it as "continue" too, at 0)
+            return { kind: "video", label: r.kind === 1 || !started ? T("Up Next") : T("Continue Watching"), title: String(r.title),
                      sub: [ep, r.episode, left].filter(Boolean).join(" · "),
                      image: r.image || app.bg || app.tile || "", appArt: !r.image,
-                     progress: r.duration > 0 && r.position > 0 ? Math.min(1, r.position / r.duration) : undefined,
+                     progress: started ? Math.min(1, r.position / r.duration) : undefined,
                      launch: { key: "watchNext", value: String(r.id) } };
         });
     }
