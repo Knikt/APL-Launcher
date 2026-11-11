@@ -532,16 +532,16 @@ html, body {
 .cc.is-open .cc__dim { opacity: 1; }
 .cc__panel {
     position: absolute;
-    top: 52px;
+    top: 32px;
     right: 60px;
-    width: 582px;          /* the 534 px grid plus its 24 px insets */
+    width: 542px;          /* the 494 px grid plus its 24 px insets */
     opacity: 0;
     transform: translateY(-14px) scale(0.97);
     transform-origin: 100% 0;
     transition: opacity 200ms ease, transform 260ms var(--spring, ease);
 }
 .cc.is-open .cc__panel { opacity: 1; transform: none; }
-.cc__head { display: flex; justify-content: space-between; align-items: center; height: 64px; margin-bottom: 18px; padding: 0 6px; }
+.cc__head { display: flex; justify-content: space-between; align-items: center; height: 60px; margin-bottom: 12px; padding: 0 6px; }
 .cc__time { font-size: 34px; font-weight: 600; letter-spacing: -0.5px; }
 .cc__heads { display: flex; gap: 14px; }
 .cc__headico, .cc__avatar {
@@ -554,14 +554,14 @@ html, body {
     background: radial-gradient(circle at 35% 30%, #7cc4ff, #2f6bdc 55%, #1b2f86 100%);
     box-shadow: inset 0 0 0 2px rgba(255,255,255,0.22);
 }
-.cc__viewport { max-height: 920px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* 24 px: room for an enlarged row (1.06 × 586 px) */
+.cc__viewport { max-height: 960px; overflow: hidden; padding: 8px 24px 12px; margin: -12px -24px 0; }   /* the grid and its two captions: 955 px, and 32 + 72 + 960 still clears 1080 */
 /* One grid for every tile, 534 px wide: 260 + 14 + 260. 260 px is the narrowest
    column the French labels fit in on one line ("Économiseur", "Minuterie");
    wider than that only makes every tile a longer rectangle. */
-.cc__body { display: grid; grid-template-columns: repeat(2, 260px); justify-content: center; gap: 14px; transition: transform 260ms var(--ease); }
+.cc__body { display: grid; grid-template-columns: repeat(2, 240px); justify-content: center; gap: 14px; transition: transform 260ms var(--ease); }
 /* The power tile is square: two 123 px rows and their 14 px gap are exactly its
    260 px width, and the two tiles beside it fill those rows instead of floating. */
-.cc__body--main { grid-template-rows: 123px 123px; }
+.cc__body--main { grid-template-rows: 113px 113px; }
 .cc__body--main > .cc__t--big + .cc__t, .cc__body--main > .cc__t--big + .cc__t + .cc__t { height: 100%; }
 .cc__body--audio, .cc__body--pair, .cc__body--airplay { grid-template-columns: 1fr; gap: 12px; }
 
@@ -579,7 +579,7 @@ html, body {
 }
 .cc__t--big {
     grid-row: span 2;
-    width: 260px;
+    width: 240px;
     height: 100%;           /* the two 121 px rows it spans */
     border-radius: 44px;
     flex-direction: column;
@@ -587,21 +587,25 @@ html, body {
     gap: 16px;
 }
 .cc__t--big .cc__title { font-size: 26px; }
-.cc__t--pill { height: 96px; border-radius: 48px; gap: 14px; padding: 0 22px 0 20px; min-width: 0; }
-.cc__t--wide { grid-column: span 2; height: 96px; border-radius: 48px; gap: 14px; padding: 0 22px 0 20px; }   /* Screensaver, Settings */
-.cc__t--pill .cc__ico { width: 56px; height: 56px; }
+/* One cell is 123 px: the two rows under the power tile are 123 + 14 + 123, so a
+   pill is exactly one cell tall and two wide, and a circle is one cell square.
+   Every tile in the grid then follows the same measure, and each step is half
+   the area of the one before it. */
+.cc__t--pill { height: 113px; border-radius: 56.5px; gap: 12px; padding: 0 16px; min-width: 0; }
+.cc__t--wide { grid-column: span 2; height: 113px; border-radius: 56.5px; gap: 12px; padding: 0 16px; }   /* Screensaver, Settings */
+.cc__t--pill .cc__ico { width: 48px; height: 48px; }
 .cc__t--pill .cc__title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; font-size: 24px; }
 /* The device name under Wi-Fi or Audio is a label, not a detail to clip. */
 .cc__t--pill .cc__sub { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; font-size: 19px; }
 /* The circles take an equal share of the row, so four of them fill the 534 px
    grid exactly (4 × 120 + 3 × 18); a row of one (Search) is marked solo by
    controlcenter.js and stays a small button. */
-.cc__rounds { grid-column: span 2; display: flex; justify-content: center; align-items: center; gap: 18px; height: 120px; padding: 0; }
-.cc__t--round { flex: 1 1 0; max-width: 120px; height: 120px; border-radius: 50%; justify-content: center; }
-.cc__rounds--solo, .cc__rounds--solo .cc__t--round { height: 88px; max-width: 88px; }
+.cc__rounds { grid-column: span 2; display: flex; justify-content: center; align-items: center; gap: 14px; height: 113px; padding: 0; }
+.cc__t--round { flex: none; width: 113px; height: 113px; border-radius: 50%; justify-content: center; }
+.cc__rounds--solo, .cc__rounds--solo .cc__t--round { height: 113px; max-width: 113px; }
 .cc__caption { display: block; grid-column: span 2; height: 20px; margin-top: -4px; text-align: center; font-size: 19px; font-weight: 500; line-height: 20px; color: rgba(255,255,255,0.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Spans both columns: 260 + 14 + 260 = 534, the width of the grid. */
-.cc__t--slider { grid-column: span 2; height: 96px; border-radius: 48px; gap: 20px; padding: 0 26px 0 24px; }
+.cc__t--slider { grid-column: span 2; height: 113px; border-radius: 56.5px; gap: 20px; padding: 0 26px 0 24px; }
 .cc__t--row { min-height: 104px; border-radius: 52px; gap: 18px; padding: 14px 30px 14px 22px; }
 .cc__ico {
     flex: none;
