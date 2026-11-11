@@ -1499,6 +1499,12 @@
        Returns false if already on the Home Screen (2nd press = Control Center). */
     APL.goHome = function () {
         var closed = false;
+        /* The Home app is a screen of its own, not a package: it has to go too,
+           or Home (sent as blue on screens whose overlay maps it that way)
+           leaves the house drawn over the Home Screen, still taking keys. */
+        if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.isOpen && global.CleanFrameHomeApp.isOpen()) {
+            global.CleanFrameHomeApp.close(); closed = true;
+        }
         if (APL.screensaver && APL.screensaver.isActive()) { APL.screensaver.stop(); closed = true; }
         if (APL.alert && APL.alert.isOpen && APL.alert.isOpen()) { APL.alert.close(); closed = true; }
         if (APL.contextMenu && APL.contextMenu.isOpen()) { APL.contextMenu.close(); closed = true; }
