@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- **Android TV: Continue Watching from your apps in the Top Shelf** (Nuvio, and every app that fills Android TV's *Play Next* row): on the app's tile, its cards with the episode, the time left and the progress, and OK opens it right there. Android 11+: Android asks once to let APL Launcher read the TV listings (APL Launcher Setup gives it). *Settings › Appearance › Top Shelf › What You're Watching* turns it off. Asked on Reddit for Nuvio.
+
 ## 1.1.4
 - **Malay (Bahasa Melayu)**, by 9M2PJU (#44): the whole interface, chosen on its own on a screen set to Malay, or in *Settings › General & Privacy › Language*.
 - **Android TV: the launcher installs without a Play Protect warning.** Google Play Protect blocked APL Launcher on a Nvidia Shield (*App blocked to protect your device*, only an OK button): it blocks any app installed outside the Play Store that declares an accessibility service. The service for the remote's Home and ⏯ is now in a small second app, **APL Launcher Home Button** (`apl-launcher-home-button-vX.Y.Z-android.apk`, under 1 MB, also under the fixed name `apl-launcher-home-button.apk` for Downloader): only who wants the Home button installs it, with Play Protect's scan turned off for a moment or with adb. The two talk only to each other (a permission Android gives only to apps signed with APL Launcher's key). *Settings › Android TV* and the first starts explain it; APL Launcher Setup installs both. Updated from 1.1.3, Home keeps the TV's own launcher until the module is installed: the launcher says so once.
