@@ -539,6 +539,9 @@
         if (!ensure()) return;
         if (!baked) return;
         var list = document.querySelectorAll(TARGETS.join(",")), i, el, r, key, l;
+        /* Panes set to 0 in the write pass below and to 1 after it: one layout
+           read for all of them, not one per surface. */
+        var fades = [];
         var theme = body.className.indexOf("theme-light") > -1 ? "l" : "d";
         if (body.classList.contains("perf")) theme += "p";
         /* Every measure first, then every write: a write between two reads had the page laid out again
@@ -582,23 +585,31 @@
                    so neither surface is ever empty. */
                 n.style.transition = "opacity " + PANE_FADE_MS + "ms var(--glass-ease, ease)";
                 n.style.opacity = "0";
-                void n.offsetWidth;
-                n.style.opacity = "1";
-                (function (old) {
+                fades.push(n);
+                /* The pane is passed in: `n` is paint()'s variable and by the time
+                   this runs it points at the last pane the loop made. */
+                (function (old, pane) {
                     global.setTimeout(function () {
                         if (old && old.parentNode) old.parentNode.removeChild(old);
-                        n.style.transition = "";
+                        pane.style.transition = "";
           /* Hand the opacity back to the stylesheet once the fade is over, so a
              rule can still hide a pane (Control Center hides the focused tile's). */
-          n.style.opacity = "";
+          pane.style.opacity = "";
                     }, PANE_FADE_MS + 40);
-                })(l);
+                })(l, n);
                 continue;
             }
             l.style.setProperty("--gx", (-r.x) + "px");
             l.style.setProperty("--gy", (-r.y) + "px");
             tint(l, el, r);
             l.classList.add("is-on");
+        }
+        if (fades.length) {
+            /* One read for every pane made in this pass: a read between two writes
+               laid the page out again per surface, and a Control Center build
+               makes about fifteen of them. */
+            void body.offsetWidth;
+            for (i = 0; i < fades.length; i++) fades[i].style.opacity = "1";
         }
     }
 
