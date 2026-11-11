@@ -594,10 +594,26 @@
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
     }
 
+    /* Keep the focused tile and the caption under it inside the panel. The panel's
+       own viewport is the only measure that matters: 900 was a guess, and offsetTop
+       is a page coordinate, so the row scrolled up for a tile that was already on
+       screen (Search sits at y 898 in a 1080 screen). Rects carry the panel's scale,
+       so divide by it before moving the body. */
     function ensureVisible(t) {
-        var view = 900, top = t.offsetTop, h = t.offsetHeight;
-        if (top + scrollY < 0) scrollY = -top + 10;
-        else if (top + h + scrollY > view) scrollY = view - top - h;
+        if (!viewport || !body) return;
+        var vr = viewport.getBoundingClientRect();
+        var scale = (viewport.clientHeight ? vr.height / viewport.clientHeight : 1) || 1;
+        var tr = t.getBoundingClientRect();
+        var pad = 8;
+        var holder = t.parentNode, next = holder && holder.nextElementSibling;
+        var cap = (next && next.classList && next.classList.contains("cc__caption")) ? next.offsetHeight : 0;
+        var top = tr.top, bottom = tr.bottom + cap * scale;
+        var viewTop = vr.top + pad * scale, viewBottom = vr.bottom - pad * scale;
+        if (bottom > viewBottom) scrollY -= (bottom - viewBottom) / scale;
+        else if (top < viewTop) scrollY += (viewTop - top) / scale;
+        var least = Math.min(0, viewport.clientHeight - body.scrollHeight);
+        if (scrollY > 0) scrollY = 0;
+        if (scrollY < least) scrollY = least;
         body.style.transform = "translateY(" + scrollY + "px)";
     }
 
