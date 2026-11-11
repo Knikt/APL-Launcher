@@ -26,13 +26,13 @@
   'use strict';
 
   var STORE = 'apl.ha.conn';
+  /* Set by Sign out, so a token shipped in js/keys.local.js does not come
+     straight back: that file is a fallback, not a decision the viewer cannot
+     undo. Cleared again by the next successful sign-in. */
+  var OFF_KEY = 'apl.ha.signedout';
   var APL = root.APL || {};
   var K = (root.APL_KEYS && root.APL_KEYS.ha) || {};
   var PREVIEW = !!(root.APL && root.APL.sys && root.APL.sys.PREVIEW);
-  /* Home Assistant ties the code it issues to the client that asked for it,
-     so this string has to be the same in both requests. It is a name, not a
-     URL the TV has to be reachable at. */
-  var CID = 'http://apl-launcher.local';
   var POLL = 10000;
 
   var conn = load();
@@ -51,6 +51,15 @@
       var c = JSON.parse(raw);
       return c && c.url ? c : null;
     } catch (e) { return null; }
+  }
+  function signedOut() {
+    try { return root.localStorage.getItem(OFF_KEY) === '1'; } catch (e) { return false; }
+  }
+  function setSignedOut(on) {
+    try {
+      if (on) root.localStorage.setItem(OFF_KEY, '1');
+      else root.localStorage.removeItem(OFF_KEY);
+    } catch (e) {}
   }
   function store(c) {
     conn = c;
@@ -74,9 +83,11 @@
     return originOf(dashboardUrl());
   }
   function dashboardUrl() {
+    if (signedOut()) return '';
     return String((conn && conn.url) || K.url || '');
   }
   function token() {
+    if (signedOut()) return '';
     return String((conn && conn.token) || K.token || '');
   }
 
@@ -126,10 +137,21 @@
       }
     };
     sock.onclose = function () {
-      WS.ready = 0; WS.sock = 0;
+      /* Only the socket this handler belongs to may clear the shared state. A
+         refresh that replaced this one has already installed a newer socket,
+         and clearing WS.sock here left it open but unreachable: ready stayed
+         1, and every wsCall then failed on WS.sock.send. */
+      if (WS.sock === sock) {
+        WS.sock = 0; WS.ready = 0; WS.token = ''; WS.waiting = {};
+      }
       once(false);
     };
-    setTimeout(function () { if (!answered) { wsClose(); once(false); } }, 6000);
+    setTimeout(function () {
+      if (answered) return;
+      /* Same rule as onclose: never close a socket that replaced this one. */
+      if (WS.sock === sock) wsClose();
+      once(false);
+    }, 6000);
   }
 
   /* A house built from another connection - the demo one included - must not
@@ -271,10 +293,10 @@
     function byName(x, y) { return x.name < y.name ? -1 : x.name > y.name ? 1 : 0; }
     for (aid in byArea) {
       if (!byArea.hasOwnProperty(aid)) continue;
-      rooms.push({ id: aid, name: names[aid] || 'Home', devices: byArea[aid].sort(byName).slice(0, 30) });
+      rooms.push({ id: aid, name: names[aid] || APL.t('Home'), devices: byArea[aid].sort(byName).slice(0, 30) });
     }
     rooms.sort(byName);
-    if (loose.length) rooms.push({ id: 'other', name: 'Other', devices: loose.sort(byName).slice(0, 30) });
+    if (loose.length) rooms.push({ id: 'other', name: APL.t('Other'), devices: loose.sort(byName).slice(0, 30) });
     scenes.sort(byName);
     return { rooms: rooms, scenes: scenes.slice(0, 12) };
   }
@@ -512,26 +534,10 @@
   }
 
   /* ---------- auth ---------- */
-  function postJson(path, body, cb) {
-    var b = base();
-    if (!b) { cb(0, null); return; }
-    var x = new XMLHttpRequest();
-    x.open('POST', b + path, true);
-    x.setRequestHeader('Content-Type', 'application/json');
-    x.onreadystatechange = function () {
-      if (x.readyState !== 4) return;
-      var data = null;
-      try { data = JSON.parse(x.responseText); } catch (e) {}
-      cb(x.status, data);
-    };
-    x.onerror = function () { cb(0, null); };
-    x.send(JSON.stringify(body || {}));
-  }
-
   function why(st) {
     if (st === 0) return APL.t('Nothing came back. The screen could not reach Home Assistant, or its answer was blocked.');
     if (st === 403) return APL.t('Home Assistant refused the request. It may not allow this screen yet (CORS).');
-    if (st === 401) return APL.t('Home Assistant refused those details.');
+    if (st === 401) return APL.t('Home Assistant refused that token.');
     return APL.t('Home Assistant answered {status}.', { status: st });
   }
 
@@ -540,7 +546,8 @@
      this screen listed in cors_allowed_origins. */
   function keepToken(u, tok) {
     pendingBase = '';
-    store({ url: u, token: tok, refresh: '', expires: 0 });
+    setSignedOut(false);
+    store({ url: u, token: tok });
     resetHouse();
     refresh();
   }
@@ -568,6 +575,7 @@
   }
 
   function disconnect() {
+    setSignedOut(true);
     wsClose();
     store(null);
     states = {};
@@ -577,27 +585,6 @@
   }
 
   /* ---------- REST ---------- */
-  function renew(cb) {
-    if (!conn || !conn.refresh) { cb(); return; }
-    if (conn.expires && Date.now() < conn.expires - 60000) { cb(); return; }
-    pendingBase = originOf(conn.url);
-    postForm('/auth/token', {
-      grant_type: 'refresh_token',
-      refresh_token: conn.refresh,
-      client_id: CID
-    }, function (st, d) {
-      pendingBase = '';
-      if (st === 200 && d && d.access_token) {
-        store({
-          url: conn.url,
-          token: d.access_token,
-          refresh: d.refresh_token || conn.refresh,
-          expires: Date.now() + (d.expires_in || 1800) * 1000
-        });
-      }
-      cb();
-    });
-  }
 
   function applyStates(list) {
     var i, id, map = {};
@@ -620,17 +607,14 @@
   }
 
   function refresh() {
-    var b = originOf(dashboardUrl());
-    if (!b || !token()) { if (PREVIEW && !conn) notify(); return; }
-    renew(function () {
-      var tok = token();
-      wsOpen(tok, function (ok) {
-        if (!ok) { refreshRest(b, tok); return; }
-        wsCall({ type: 'get_states' }, function (good, list) {
-          online = !!good && !!list;
-          if (online) applyStates(list);
-          notify();
-        });
+    var b = originOf(dashboardUrl()), tok = token();
+    if (!b || !tok) { if (PREVIEW && !conn) notify(); return; }
+    wsOpen(tok, function (ok) {
+      if (!ok) { refreshRest(b, tok); return; }
+      wsCall({ type: 'get_states' }, function (good, list) {
+        online = !!good && !!list;
+        if (online) applyStates(list);
+        notify();
       });
     });
   }
@@ -740,9 +724,10 @@
     if (on) {
       refresh();
       if (!timer) timer = setInterval(refresh, POLL);
-    } else if (timer) {
-      clearInterval(timer);
-      timer = 0;
+    } else {
+      if (timer) { clearInterval(timer); timer = 0; }
+      /* The socket goes with the poll: a closed app leaves nothing open. */
+      wsClose();
     }
   }
 

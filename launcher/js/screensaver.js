@@ -254,5 +254,9 @@
     });
     global.addEventListener("appcontrol", back);
 
-    APL.screensaver = { start: start, stop: stop, isActive: function () { return active; } };
+    /* touch: a screen that draws its own keys (the Home app) consumes them
+       before the launcher's hotkey above, so it has to say the viewer is
+       there, or the saver comes up over it. */
+    APL.screensaver = { start: start, stop: stop, isActive: function () { return active; },
+        touch: function () { lastInput = now(); } };
 })(window);

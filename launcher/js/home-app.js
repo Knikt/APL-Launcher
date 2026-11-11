@@ -194,7 +194,7 @@
   function sections() {
     var out = [], list, i, j, room, devs, dev;
     if (zone === 'home') {
-      out.push({ name: 'Scenes', items: scenes().map(function (s) { return { dev: s }; }) });
+      out.push({ name: t('Scenes'), items: scenes().map(function (s) { return { dev: s }; }) });
       list = rooms();
       for (i = 0; i < list.length; i++) {
         devs = devicesOf(list[i]);
@@ -221,31 +221,31 @@
       return out;
     }
     room = roomById(zone);
-    out.push({ name: (room || {}).name || 'Home', items: devicesOf(room).map(function (d) { return { dev: d }; }) });
+    out.push({ name: (room || {}).name || t('Home'), items: devicesOf(room).map(function (d) { return { dev: d }; }) });
     return out;
   }
 
   /* ---------- Tiles ---------- */
   function tileValue(dev) {
     var st = stateOf(dev), a = st.attributes || {}, on = isOn(dev);
-    if (!available(dev)) return { main: 'Unavailable', sub: '' };
+    if (!available(dev)) return { main: t('Unavailable'), sub: '' };
     if (dev.type === 'climate') {
       return {
-        main: on && typeof a.temperature === 'number' ? a.temperature + '\u00b0' : 'Off',
-        sub: typeof a.current_temperature === 'number' ? 'Room ' + a.current_temperature + '\u00b0' : on ? haText(st.state) : 'Off'
+        main: on && typeof a.temperature === 'number' ? a.temperature + '\u00b0' : t('Off'),
+        sub: typeof a.current_temperature === 'number' ? t('Room') + ' ' + a.current_temperature + '\u00b0' : on ? haText(st.state) : t('Off')
       };
     }
     if (dev.type === 'fan') {
       var pct = on ? Math.round(a.percentage || 0) : 0;
-      return { main: on ? fanStep(pct) + ' of 6' : 'Off', sub: on ? pct + '%' : 'Off' };
+      return { main: on ? fanStep(pct) + ' ' + t('of 6') : t('Off'), sub: on ? pct + '%' : t('Off') };
     }
-    if (dev.type === 'light') return { main: on ? brightnessOf(dev) + '%' : 'Off', sub: on ? 'On' : 'Off' };
+    if (dev.type === 'light') return { main: on ? brightnessOf(dev) + '%' : t('Off'), sub: on ? t('On') : t('Off') };
     if (dev.type === 'media') {
       var title = a.media_title || a.app_name || '';
-      return { main: on ? (title || 'Playing') : 'Paused', sub: on ? 'Playing' : 'Not Playing' };
+      return { main: on ? (title || t('Playing')) : t('Paused'), sub: on ? t('Playing') : t('Not Playing') };
     }
-    if (dev.type === 'scene') return { main: 'Scene', sub: 'Run' };
-    return { main: available(dev) ? haText(st.state) : 'Unavailable', sub: '' };
+    if (dev.type === 'scene') return { main: t('Scene'), sub: t('Run') };
+    return { main: available(dev) ? haText(st.state) : t('Unavailable'), sub: '' };
   }
   function tileSize(dev) {
     /* One height for every tile, so the grid reads as rows rather than a
@@ -269,7 +269,7 @@
       ' aria-label="' + esc(dev.name + '. OK runs the scene') + '">' +
       '<span class="ha-chip">' + ico('scene') + '</span>' +
       '<span class="ha-tile-copy"><span class="ha-tile-name">' + esc(dev.name) + '</span>' +
-        '<span class="ha-tile-state">Scene</span></span>' +
+        '<span class="ha-tile-state">' + t('Scene') + '</span></span>' +
     '</div>';
   }
 
@@ -286,12 +286,12 @@
       if (d.type === 'fan' && isOn(d)) fans++;
     }
     var climateText = climates.length ?
-      Math.min.apply(null, climates) + '\u00b0\u2013' + Math.max.apply(null, climates) + '\u00b0' : 'All Off';
+      Math.min.apply(null, climates) + '\u00b0\u2013' + Math.max.apply(null, climates) + '\u00b0' : t('All Off');
     return [
-      { icon: 'climate', name: 'Climate', value: climateText },
-      { icon: 'light', name: 'Lights', value: lights ? lights + ' On' : 'All Off' },
-      { icon: 'media', name: 'Speakers & TVs', value: media ? media + ' Playing' : 'None Playing' },
-      { icon: 'fan', name: 'Fans', value: fans ? fans + ' On' : 'All Off' }
+      { icon: 'climate', name: t('Climate'), value: climateText },
+      { icon: 'light', name: t('Lights'), value: lights ? lights + ' ' + t('On') : t('All Off') },
+      { icon: 'media', name: t('Speakers & TVs'), value: media ? media + ' ' + t('Playing') : t('None Playing') },
+      { icon: 'fan', name: t('Fans'), value: fans ? fans + ' ' + t('On') : t('All Off') }
     ].map(function (c) {
       return '<div class="ha-pill acc-' + c.icon + '"><span class="ha-pill-mark">' + ico(c.icon) + '</span>' +
         '<span class="ha-pill-copy"><span>' + esc(c.name) + '</span><i>' + esc(c.value) + '</i></span></div>';
@@ -401,10 +401,10 @@
       if (typeof a.current_temperature === 'number') rows.push({ id: 'room', label: t('Room Temperature'), value: a.current_temperature + '\u00b0C', act: 'info' });
     } else if (dev.type === 'fan') {
       var pct = on ? Math.round(a.percentage || 0) : 0;
-      rows.push({ id: 'power', label: 'Power', value: on ? t('On') : t('Off'), act: 'toggle' });
-      rows.push({ id: 'speed', label: t('Speed'), value: on ? fanStep(pct) + ' of 6' : 'Off', act: 'step' });
+      rows.push({ id: 'power', label: t('Power'), value: on ? t('On') : t('Off'), act: 'toggle' });
+      rows.push({ id: 'speed', label: t('Speed'), value: on ? fanStep(pct) + ' ' + t('of 6') : t('Off'), act: 'step' });
     } else if (dev.type === 'light') {
-      rows.push({ id: 'power', label: 'Power', value: on ? 'On' : 'Off', act: 'toggle' });
+      rows.push({ id: 'power', label: t('Power'), value: on ? t('On') : t('Off'), act: 'toggle' });
       rows.push({ id: 'brightness', label: t('Brightness'), value: brightnessOf(dev) + '%', act: 'step' });
     } else if (dev.type === 'media') {
       rows.push({ id: 'play', label: t('Playback'), value: on ? t('Playing') : t('Paused'), act: 'toggle' });
@@ -413,7 +413,7 @@
     } else if (dev.type === 'scene') {
       rows.push({ id: 'run', label: t('Run Scene'), value: dev.name, act: 'toggle' });
     } else {
-      rows.push({ id: 'power', label: 'Power', value: on ? 'On' : 'Off', act: 'toggle' });
+      rows.push({ id: 'power', label: t('Power'), value: on ? t('On') : t('Off'), act: 'toggle' });
     }
     rows.forEach(function (r) { r.focusable = r.act !== 'info'; });
     return rows;
@@ -566,7 +566,7 @@
     clockEl.textContent = h + ':' + (m < 10 ? '0' : '') + m;
     if (dayEl) {
       var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      dayEl.textContent = days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()];
+      dayEl.textContent = t(days[d.getDay()]) + ' ' + d.getDate() + ' ' + t(months[d.getMonth()]);
     }
   }
 
@@ -1250,8 +1250,10 @@
     }
     box.classList.remove('is-setup');
     paintSetup();
+    /* setPanelActive(true) refreshes and starts the poll. A second refresh()
+       here opened a second socket, which closed the first while it was still
+       connecting; setPanelActive owns the connection now. */
     if (ha && ha.setPanelActive) ha.setPanelActive(true);
-    if (ha && ha.refresh) ha.refresh();
     tick();
     clearInterval(clockTimer);
     clockTimer = setInterval(tick, 20000);
@@ -1284,12 +1286,21 @@
   /* Captured at the document, before the launcher's own handler. */
   root.document.addEventListener('keydown', function (ev) {
     if (!openFlag) return;
+    /* Every key here is the viewer being there, so the screen saver's idle
+       time starts again even though the keys below are consumed before the
+       launcher sees them. Without this the saver came up over the app after
+       five minutes and the arrows could not close it. */
+    if (root.APL && root.APL.screensaver && root.APL.screensaver.touch) root.APL.screensaver.touch();
+    /* The saver is in front: the key belongs to the launcher, which closes it. */
+    if (root.APL && root.APL.screensaver && root.APL.screensaver.isActive && root.APL.screensaver.isActive()) return;
     var map = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 8: 'back', 27: 'back', 461: 'back', 10009: 'back' };
-    var k = map[ev.keyCode];
+    var typing = !!(ev.target && ev.target.tagName === 'INPUT');
+    /* Backspace deletes a character in a field; it is Back only outside one. */
+    var k = (ev.keyCode === 8 && typing) ? '' : map[ev.keyCode];
     if (!k) return;
     /* Typing in the connect form: the caret belongs to the field, not to the
        d-pad, so the horizontal keys are left to it. */
-    if (setupMode && ev.target && ev.target.tagName === 'INPUT' &&
+    if (setupMode && typing &&
         (ev.keyCode === 37 || ev.keyCode === 39)) return;
     /* A name being typed belongs to the field: OK confirms it, and every other
        key, the d-pad included, is left to the text caret. */

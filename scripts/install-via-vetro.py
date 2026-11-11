@@ -92,7 +92,7 @@ def ask_home_assistant(keys):
     parsed = urlsplit(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("Home Assistant address must be an http(s) URL without credentials")
-    token = getpass.getpass("Long-lived access token (Profile -> Security): ").strip()
+    token = getpass("Long-lived access token (Profile -> Security): ").strip()
     if not token:
         raise ValueError("A token is required: this package cannot sign in with a password")
     keys["ha"] = {"url": url.rstrip("/"), "name": "Home", "token": token}

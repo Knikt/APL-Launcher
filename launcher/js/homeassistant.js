@@ -14,7 +14,7 @@
    Without it there is no tile at all: nothing to configure, nothing
    left over for the people who don't run Home Assistant.
 
-   APL.ha.available()   the address is set
+   APL.ha.available()   a token is stored, so the app has somewhere to go
    APL.ha.name()        the tile's name ("Home" unless set)
    APL.ha.open()        our own Home app when the build carries it
                         (window.CleanFrameHomeApp), otherwise the
@@ -77,11 +77,16 @@
     }
 
     APL.ha = {
-        /* The tile exists when the app can either open a dashboard or ask for
-           a sign-in: a build carrying the Home app always has somewhere to go,
-           and a build without it still needs an address in the keys. */
+        /* A tile with nothing behind it is worse than no tile: it is there once
+           a token is stored, on the screen or in the keys file, because that is
+           the door the app opens on. Settings reads this too, so "Configured"
+           means the same thing as the tile being there. A build without the
+           Home app only needs an address, since it hands off to Internet. */
         available: function () {
-            if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.open) return true;
+            var ha = global.CleanFrameHA;
+            if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.open) {
+                return !!(ha && ha.connected && ha.connected());
+            }
             return !!url();
         },
         url: url,
