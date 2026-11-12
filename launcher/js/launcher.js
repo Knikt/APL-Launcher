@@ -971,6 +971,11 @@
        it launches anyway. */
     var TUBE = /^(TizenTube|TizenBrew)$/;
     var SAMSUNG_YOUTUBE = ["com.samsung.tv.cobalt-yt", "111299001912"];
+    /* TizenTube's own app (TizenTube Cobalt, the way its makers now ship it), not TizenBrew's module.
+       Installed, it is the TizenTube tile: in the place of the one that goes through TizenBrew
+       (buildList, applySavedOrder), and what the remote's TizenTube button opens (openById). */
+    var TUBE_APP = /^xvvl3S1TT1\./;
+    function ownTube(list) { return list.filter(function (a) { return TUBE_APP.test(a.id); })[0] || null; }
     function launchTube(id) {
         var done = false;
         function go() {
@@ -990,7 +995,7 @@
 
     /* Settings › Apps: closes the apps left open behind the launcher. Only Home Screen apps
        and the big video apps: never a screen service. TizenTube stays ready (20 s from cold). */
-    var KEEP_OPEN = /^(APLauncher\.|apl\.launcher\.|xvvl3S1bvH\.|vetrotvapp)/;
+    var KEEP_OPEN = /^(APLauncher\.|apl\.launcher\.|xvvl3S1bvH\.|xvvl3S1TT1\.|vetrotvapp)/;
     var VIDEO_APPS = ["org.tizen.netflix-app", "org.tizen.primevideo", "HEPsqFNie0.tvplusstandalone"];   // their tile carries a different id
     function memoryLeft() {
         if (APL.sys.memoryLeft) return APL.sys.memoryLeft();        // LG (webos-system.js)
@@ -1293,8 +1298,11 @@
         });
         // Another platform keeps the tiles it can open (android.js: no Sources, its own home for Smart Hub)
         virtuals = virtuals || (APL.platform && APL.platform.virtualApps ? APL.platform.virtualApps(virtualApps()) : virtualApps());
-        var usable = virtuals.filter(function (v) { return !v.needs || list.some(function (a) { return a.id === v.needs; }); })
-            .concat(APL.sources ? APL.sources.homeTiles() : []);              // inputs pinned to the Home Screen
+        var own = ownTube(list);       // TizenTube's own app: the TizenTube tile (it is first among favs)
+        var usable = virtuals.filter(function (v) {
+            if (own && v.id === "apl.tizentube") return false;
+            return !v.needs || list.some(function (a) { return a.id === v.needs; });
+        }).concat(APL.sources ? APL.sources.homeTiles() : []);              // inputs pinned to the Home Screen
         var tube = usable.filter(function (v) { return v.id === "apl.tizentube"; });
         defaultOrder = tube.concat(favs, usable.filter(function (v) { return tube.indexOf(v) === -1; }), rest, APL.folders.all().map(APL.folders.asApp));
         allApps = applySavedOrder(defaultOrder);
@@ -1332,6 +1340,9 @@
         saved.forEach(function (id, i) { pos[id] = i; });
         // A layout from before these tiles: TizenTube first, Overscan in place of Internet
         if (!("apl.tizentube" in pos)) pos["apl.tizentube"] = -1;
+        // TizenTube's own app, newly installed: in the TizenTube tile's place, not at the end
+        var own = ownTube(list);
+        if (own && !(own.id in pos)) pos[own.id] = pos["apl.tizentube"];
         var browser = saved.indexOf("org.tizen.browser");
         if (browser !== -1 && !("org.apps2samsung.overscan" in pos)) pos["org.apps2samsung.overscan"] = browser;
         // Only once: AquaPlay moves up into the dock (its widgets show there) in place of TizenBrew,
@@ -1663,6 +1674,9 @@
         });
     }
     function openById(id) {
+        // The remote's TizenTube button (APL Overlay asks for apl.tizentube): TizenTube's own app when installed
+        var own = id === "apl.tizentube" && ownTube(allApps);
+        if (own) id = own.id;
         for (var i = 0; i < allApps.length; i++) if (allApps[i].id === id) { APL.goHome(); APL.openApp(allApps[i]); return; }
     }
     global.addEventListener("appcontrol", function () {

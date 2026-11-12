@@ -13,7 +13,7 @@ The interface is in French, so labels are given here in French with their Englis
 | **Home** (Vetro) | opens the launcher; pressed twice: open apps; held: Control Center | |
 | **⏯** or red key | Control Center, over any app (⏯ no longer pauses videos, unless *Settings › Remote and Devices › Play/Pause Button* is set to *Play and Pause*) | |
 | **Samsung TV Plus** | AquaPlay | |
-| **Prime Video** | TizenTube | |
+| **Prime Video** | TizenTube (its own app, TizenTube Cobalt, when it is installed; else through TizenBrew) | |
 
 ## Home screen
 
