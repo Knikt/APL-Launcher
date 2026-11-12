@@ -178,7 +178,10 @@
         var slot = row.querySelector(".srow__value");
         if (v && typeof v.then === "function") {
             slot.textContent = "…";
-            v.then(function (txt) { slot.innerHTML = txt; });
+            v.then(function (txt) {
+                slot.innerHTML = txt;
+                if (nav && nav.current() === row) describe(row);      // arrived while the row is selected
+            });
         } else {
             slot.innerHTML = v === undefined || v === null ? "" : v;
         }
@@ -262,9 +265,20 @@
         cur().index = i;
         ensureVisible(row);
         placePlate(row);
-        var item = row._item;
-        descEl.textContent = item.desc || (item.type === "menu" ? "" : "");
+        describe(row);
         pathEl.style.display = "none";
+    }
+
+    /* The row's description, under the big icon. An information row whose value the column cuts
+       (Link to Vetro and its reason, a long model name) also shows the whole value there: the column
+       stops at 380 px, and "Bridge: Vetro refused (450 ms, …" hid the reason (Reddit, S95C). */
+    function describe(row) {
+        var item = row._item, slot = row.querySelector(".srow__value");
+        descEl.textContent = item.desc || "";
+        if (item.type !== "info" || !slot || slot.scrollWidth <= slot.clientWidth + 1) return;
+        var full = el("span", "settings__full");
+        full.textContent = slot.textContent;
+        descEl.appendChild(full);
     }
 
     function refreshRow(row) { fillValue(row); row.querySelector(".srow__acc").innerHTML = accessory(row._item); }

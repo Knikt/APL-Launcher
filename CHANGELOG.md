@@ -1,5 +1,8 @@
 # Changelog
 
+## Next version (not released yet)
+- **Settings: a value too long for its column shows in full.** *Settings › Support › About This Screen › Link to Vetro* gives the reason Vetro refused (for example *no root agent connected*), but the column stops at 380 px and cut it off (*Bridge: Vetro refused (450 ms*, an S95C, Reddit). An information row whose value is cut now shows the whole value under its description while it is selected, and the text that arrives late (Link to Vetro takes a moment) shows there too.
+
 ## 1.1.4
 - **Malay (Bahasa Melayu)**, by 9M2PJU (#44): the whole interface, chosen on its own on a screen set to Malay, or in *Settings › General & Privacy › Language*.
 - **Android TV: the launcher installs without a Play Protect warning.** Google Play Protect blocked APL Launcher on a Nvidia Shield (*App blocked to protect your device*, only an OK button): it blocks any app installed outside the Play Store that declares an accessibility service. The service for the remote's Home and ⏯ is now in a small second app, **APL Launcher Home Button** (`apl-launcher-home-button-vX.Y.Z-android.apk`, under 1 MB, also under the fixed name `apl-launcher-home-button.apk` for Downloader): only who wants the Home button installs it, with Play Protect's scan turned off for a moment or with adb. The two talk only to each other (a permission Android gives only to apps signed with APL Launcher's key). *Settings › Android TV* and the first starts explain it; APL Launcher Setup installs both. Updated from 1.1.3, Home keeps the TV's own launcher until the module is installed: the launcher says so once.
