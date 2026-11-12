@@ -1331,7 +1331,17 @@
     /* Red and ⏯ open the Control Center, green the App Switcher, blue Home:
        none of them belongs over the house, which is left with Back. C is the
        preview's red key. */
-    var SHORTCUTS = { 403: 1, 404: 1, 405: 1, 406: 1, 415: 1, 10252: 1, 67: 1 };
+    /* Blue is Home on a screen that passes Home through the colour keys:
+       there it leaves the house, as Back does. The rest belong to the
+       launcher, not to a screen that is in front. */
+    if (ev.keyCode === 406) {
+      ev.preventDefault();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      ev.stopPropagation();
+      key('back');
+      return;
+    }
+    var SHORTCUTS = { 403: 1, 404: 1, 405: 1, 415: 1, 10252: 1, 67: 1 };
     if (SHORTCUTS[ev.keyCode]) {
       ev.preventDefault();
       if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
