@@ -21,7 +21,7 @@
   var box = null, sideEl = null, mainEl = null, sectionsEl = null, chipsEl = null;
   var titleEl = null, clockEl = null, dayEl = null;
   var sheetEl = null, sheetHeadEl = null, sheetRowsEl = null;
-  var built = false, openFlag = false, clockTimer = 0, wiredHa = false;
+  var built = false, openFlag = false, clockTimer = 0, wiredHa = false, wiredClock = false;
 
   /* What the main pane is showing: 'home', 'cat:<type>' or a room id. */
   var zone = 'home';
@@ -61,9 +61,19 @@
     return '<svg class="ico ha-ico ' + (cls || '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[name] || ICON.switch) + '</svg>';
   }
   function clamp(n, lo, hi) { return n < lo ? lo : n > hi ? hi : n; }
+  /* Home Assistant's states are English ('on', 'cool', 'fan_only'): the screen
+     says them in its own language, through lang-fr.js. */
+  var STATE_WORDS = {
+    'on': 'On', 'off': 'Off', 'cool': 'Cooling', 'heat': 'Heating', 'dry': 'Drying',
+    'fan_only': 'Fan only', 'auto': 'Auto', 'heat_cool': 'Heat / Cool',
+    'playing': 'Playing', 'paused': 'Paused', 'idle': 'Idle'
+  };
   function haText(s) {
-    s = String(s || '').replace(/_/g, ' ');
-    return s.charAt(0).toUpperCase() + s.slice(1);
+    var raw = String(s || '').toLowerCase();
+    if (!raw) return '';
+    if (STATE_WORDS[raw]) return t(STATE_WORDS[raw]);
+    var words = String(s).replace(/_/g, ' ');
+    return words.charAt(0).toUpperCase() + words.slice(1);
   }
   function typeIcon(type) { return ICON[type] ? type : 'switch'; }
 
@@ -395,7 +405,7 @@
   function controlsFor(dev) {
     var st = stateOf(dev), a = st.attributes || {}, on = isOn(dev), rows = [];
     if (dev.type === 'climate') {
-      rows.push({ id: 'power', label: t('Power'), value: on ? haText(st.state) : 'Off', act: 'toggle' });
+      rows.push({ id: 'power', label: t('Power'), value: on ? haText(st.state) : t('Off'), act: 'toggle' });
       rows.push({ id: 'temp', label: t('Temperature'), value: (typeof a.temperature === 'number' ? a.temperature : '--') + '\u00b0C', act: 'step' });
       rows.push({ id: 'mode', label: t('Mode'), value: haText(st.state || 'off'), act: 'cycle' });
       if (typeof a.current_temperature === 'number') rows.push({ id: 'room', label: t('Room Temperature'), value: a.current_temperature + '\u00b0C', act: 'info' });
@@ -562,8 +572,10 @@
 
   function tick() {
     if (!clockEl) return;
-    var d = new Date(), h = d.getHours() % 12 || 12, m = d.getMinutes();
-    clockEl.textContent = h + ':' + (m < 10 ? '0' : '') + m;
+    var d = new Date(), h = d.getHours(), m = d.getMinutes(), mm = (m < 10 ? '0' : '') + m;
+    /* Settings › 24-Hour Time, as the Home Screen and Control Center do. */
+    clockEl.textContent = (root.APL && root.APL.sys && root.APL.sys.pref('clock24')) ?
+      (h < 10 ? '0' : '') + h + ':' + mm : ((h % 12) || 12) + ':' + mm;
     if (dayEl) {
       var days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'], months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       dayEl.textContent = t(days[d.getDay()]) + ' ' + d.getDate() + ' ' + t(months[d.getMonth()]);
@@ -963,6 +975,23 @@
     paintSetup();
     lastSig = '';
     paint(true);
+    /* The connect screen returned before setPanelActive(true), so the house
+       kept drawing what it had until the app was reopened. */
+    if (ha && ha.setPanelActive) ha.setPanelActive(true);
+    /* The tile is there once a token is saved: redraw the Home Screen behind
+       instead of waiting for the next start. */
+    if (root.APL && root.APL.reloadApps) root.APL.reloadApps();
+  }
+
+  function openSetup() {
+    /* Already open behind Settings: show the connect screen over the house
+       rather than doing nothing. */
+    if (openFlag) {
+      setupMode = true;
+      if (box) { box.classList.add('is-setup'); paintSetup(); focusSetup(); }
+      return;
+    }
+    open(true);
   }
 
   function focusSetup() {
@@ -1196,11 +1225,13 @@
   }
 
   /* ---------- Open / close ---------- */
-  function open() {
+  function open(forceSetup) {
     if (openFlag) return;
     build();
     if (!box) return;
-    setupMode = !previewHouse && !(ha && ha.connected && ha.connected());
+    /* Settings' way in: the tile only exists once a token is saved, so the
+       connect screen has to open without it. */
+    setupMode = !!forceSetup || (!previewHouse && !(ha && ha.connected && ha.connected()));
     /* The same picture as the Home tile's backdrop: the private package's
        photograph when it has one, the drawn mark otherwise. Read once per open
        so a backdrop change from elsewhere is picked up without a rebuild. */
@@ -1225,6 +1256,10 @@
     if (sectionsEl) sectionsEl.scrollTop = 0;
     if (sheetEl) sheetEl.hidden = true;
     box.hidden = false;
+    if (!wiredClock && root.APL && root.APL.sys && root.APL.sys.onPref) {
+      wiredClock = true;
+      root.APL.sys.onPref('clock24', tick);
+    }
     box.classList.remove('is-open');
     void box.offsetWidth;
     box.classList.add('is-open');
@@ -1293,6 +1328,16 @@
     if (root.APL && root.APL.screensaver && root.APL.screensaver.touch) root.APL.screensaver.touch();
     /* The saver is in front: the key belongs to the launcher, which closes it. */
     if (root.APL && root.APL.screensaver && root.APL.screensaver.isActive && root.APL.screensaver.isActive()) return;
+    /* Red and ⏯ open the Control Center, green the App Switcher, blue Home:
+       none of them belongs over the house, which is left with Back. C is the
+       preview's red key. */
+    var SHORTCUTS = { 403: 1, 404: 1, 405: 1, 406: 1, 415: 1, 10252: 1, 67: 1 };
+    if (SHORTCUTS[ev.keyCode]) {
+      ev.preventDefault();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      ev.stopPropagation();
+      return;
+    }
     var map = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 13: 'ok', 8: 'back', 27: 'back', 461: 'back', 10009: 'back' };
     var typing = !!(ev.target && ev.target.tagName === 'INPUT');
     /* Backspace deletes a character in a field; it is Back only outside one. */
@@ -1316,6 +1361,7 @@
 
   root.CleanFrameHomeApp = {
     open: open,
+    openSetup: openSetup,
     close: close,
     isOpen: function () { return openFlag; },
     state: function () {

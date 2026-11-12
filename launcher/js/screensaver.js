@@ -200,6 +200,10 @@
     function start() {
         if (active) return;
         if (!root) buildDom();
+        /* The connect form leaves the focus in a text field, and the launcher
+           ignores keys while one is focused: the saver could not be closed. */
+        var ae = document.activeElement;
+        if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && ae.blur) ae.blur();
         active = true;
         root.classList.toggle("no-motion", !!sys.pref("reduceMotion"));
         root.classList.add("is-active");

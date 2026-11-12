@@ -91,6 +91,14 @@
         },
         url: url,
         name: name,
-        open: open
+        open: open,
+        /* The connect screen, tile or no tile: Settings uses this. */
+        connect: function () {
+            if (global.CleanFrameHomeApp && global.CleanFrameHomeApp.openSetup) {
+                global.CleanFrameHomeApp.openSetup();
+                return;
+            }
+            open();
+        }
     };
 })(window);

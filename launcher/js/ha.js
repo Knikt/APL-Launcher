@@ -606,7 +606,12 @@
     }
   }
 
+  /* Set by setPanelActive: a closed app asks Home Assistant nothing, not even
+     from a timer that a toggle had already scheduled. */
+  var panelActive = false;
+
   function refresh() {
+    if (!panelActive) return;
     var b = originOf(dashboardUrl()), tok = token();
     if (!b || !tok) { if (PREVIEW && !conn) notify(); return; }
     wsOpen(tok, function (ok) {
@@ -620,6 +625,7 @@
   }
 
   function refreshRest(b, tok) {
+    if (!panelActive) return;
     var x = new XMLHttpRequest();
     x.open('GET', b + '/api/states', true);
     x.setRequestHeader('Authorization', 'Bearer ' + tok);
@@ -721,6 +727,7 @@
   /* Polling runs only while the panel is open: a closed app asks Home
      Assistant nothing, which is the point of an app on a set-top box. */
   function setPanelActive(on) {
+    panelActive = !!on;
     if (on) {
       refresh();
       if (!timer) timer = setInterval(refresh, POLL);
