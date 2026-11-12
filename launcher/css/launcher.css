@@ -1019,6 +1019,22 @@ html, body {
 .status__avatar .pavatar--memoji, .cc__avatar .pavatar--memoji { margin-top: 14%; }
 .apicker__item.is-focused { transform: scale(1.18); box-shadow: 0 0 0 5px #fff, 0 18px 36px rgba(0,0,0,0.5); }
 .pitem__avatar { overflow: hidden; }
+/* Change Icon (hold OK on an app, launcher.js chooseIcon): the launcher's tiles, Original first.
+   A row is 132 + 12 + 30 + 30 = 204 px, launcher.js ROW. */
+.ipicker { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 47; background: rgba(6, 8, 14, 0.92); display: flex; flex-direction: column; align-items: center; }
+.ipicker__title { margin: 70px 0 34px; max-width: 1600px; font-size: 48px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipicker__scroll { flex: 1; overflow: hidden; padding: 24px 40px 0; margin-top: -24px;
+    -webkit-mask-image: linear-gradient(#000 88%, transparent); mask-image: linear-gradient(#000 88%, transparent); }
+.ipicker__grid { display: grid; grid-template-columns: repeat(6, 220px); gap: 30px 40px; transition: transform 320ms var(--spring, ease); }
+.ipicker__item { transition: transform 220ms var(--spring, ease); }
+.ipicker__art { position: relative; width: 220px; height: 132px; border-radius: 22px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+    background: #111 center / cover no-repeat; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4); transition: box-shadow 220ms ease; }
+.ipicker__art img { width: 70px; height: 70px; object-fit: contain; }
+.ipicker__name { height: 30px; margin-top: 12px; font-size: 22px; font-weight: 500; line-height: 30px; text-align: center; color: rgba(255, 255, 255, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ipicker__item.is-current .ipicker__name { color: rgba(255, 255, 255, 0.9); }
+.ipicker__item.is-focused { transform: scale(1.12); }
+.ipicker__item.is-focused .ipicker__art { box-shadow: 0 0 0 5px #fff, 0 18px 36px rgba(0, 0, 0, 0.5); }
+.ipicker__item.is-focused .ipicker__name { color: #fff; }
 
 
 /* ===================== FOLDERS ===================== */
