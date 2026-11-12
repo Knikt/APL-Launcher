@@ -318,7 +318,7 @@
               sub: function () { return sys.pref("dnd") ? APL.t("On") : APL.t("Off"); },
               on: function () { return sys.pref("dnd"); },
               select: function () { sys.setPref("dnd", !sys.pref("dnd")); if (P && P.ccChanged) P.ccChanged(); } },
-            { cls: "pill", icon: "airplayAudio", title: "Audio", sub: outputName, select: function () { show("audio"); } },
+            { cls: "pill", icon: "airplayAudio", title: APL.t("Audio"), sub: outputName, select: function () { show("audio"); } },
             { cls: "pill", icon: "timer", title: APL.t("Sleep Timer"), tint: "#ff9f0a", sub: remaining,
               on: function () { return !!sys.pref("sleepAt"); },
               select: function () {
@@ -333,7 +333,7 @@
               on: function () { return gameState.on; }, select: gameToggle },
             { cls: "round", icon: "access", title: APL.t("Accessibility"), select: openSettings(APL.t("General & Privacy")) },
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
-            { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
+            { cls: "round", icon: "source", title: APL.t("Sources"), select: function () { close(); APL.openSources(); } },
             { cls: "slider", type: "backlight", icon: SLIDER.icon, title: SLIDER.title },
             { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
               select: inLauncher("screensaver", function () { if (APL.screensaver) APL.screensaver.start(); }) },
@@ -346,7 +346,7 @@
 
     function audioItems() {
         if (P && P.ccAudioItems) return P.ccAudioItems(function () { if (isOpen && view === "audio") render(); });
-        var list = bt.list || [], out = [{ cls: "head", title: "Audio" }];
+        var list = bt.list || [], out = [{ cls: "head", title: APL.t("Audio") }];
         var phones = list.filter(function (d) { return d.kind === "headphones"; });
         var speakers = list.filter(function (d) { return d.kind === "speaker"; });
         var any = list.some(function (d) { return d.connected; });

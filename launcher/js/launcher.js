@@ -1176,7 +1176,7 @@
             { id: "apl.settings", name: APL.t("Settings"), virtual: true, accent: "#8e8e93", eyebrow: "SYSTÈME",
               tile: asset("images/apps/settings-tile.png"),
               run: function () { APL.settings.open(); } },
-            { id: "apl.sources", name: "Sources", virtual: true, accent: "#2c5cc5", eyebrow: "SYSTÈME",
+            { id: "apl.sources", name: APL.t("Sources"), virtual: true, accent: "#2c5cc5", eyebrow: "SYSTÈME",
               tileHtml: '<div class="vtile vtile--sources">' + APL.icon("source", 92, 1.6) + '</div>',
               shelfHtml: '<div class="brandcard__glyph vtile--sources">' + APL.icon("source", 180, 1.3) + '</div>',
               run: function () { APL.openSources(); } },

@@ -170,7 +170,7 @@
 
     function render(focus) {
         cards = inputs().concat(extras());
-        titleEl.textContent = "Sources";
+        titleEl.textContent = APL.t("Sources");
         hintEl.textContent = APL.t("OK: switch to the input · Hold OK: choose the device, or add it to the Home Screen · Back: Home");
         fill(cards, focus);
     }
