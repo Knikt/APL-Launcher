@@ -399,7 +399,6 @@ window.APL_LANG_MS = {
     "Apps per Row": "Aplikasi sebaris",
     "In the dock and in every row below. 5: bigger tiles, 7: more apps with a Top Shelf.": "Dalam dok dan setiap baris di bawah. 5: jubin lebih besar, 7: lebih banyak aplikasi dengan Top Shelf.",
     "Search": "Cari",
-    "Space": "Ruang",
     "Recently Used": "Baru Digunakan",
     "No apps found for “{q}”": "Tiada aplikasi dijumpai untuk “{q}”",
     "Search Hidden Apps": "Cari Aplikasi Tersembunyi",
