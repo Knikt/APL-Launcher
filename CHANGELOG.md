@@ -2,6 +2,7 @@
 
 ## Next version (not released yet)
 - **Change Icon.** Hold OK on an app, then *Change Icon*, and pick another tile among the launcher's own: every logo it knows, plus TizenTube, TizenBrew, Internet and Hot IPTV. TizenTube can wear YouTube's own logo (asked for on Reddit). *Original* gives the app its own tile back. The choice is kept for the whole screen, in folders and Recently Opened too; the Top Shelf stays the app's. Tried in the PC preview: TizenTube took YouTube's logo, kept it after a reload, and got its own back with *Original*. Not tried on a screen yet.
+- **TizenTube's own app.** TizenTube's makers now ship it as an app of its own, *TizenTube Cobalt* (`TizenTubeCobalt.wgt`, installed with Partner signing), instead of TizenBrew's module. When it is installed, it is the TizenTube tile, in the same place on the Home Screen (no second TizenTube tile at the end), and the remote's TizenTube button (Prime Video) opens it, or brings it back as it was when it is already open. Samsung's own YouTube, which the screen keeps loaded in the background, is closed first, as for TizenTube through TizenBrew: on the M8 it kept TizenTube Cobalt from showing. Without it, nothing changes. *Free Up Memory* leaves it open, like TizenBrew.
 
 ## 1.1.4
 - **Malay (Bahasa Melayu)**, by 9M2PJU (#44): the whole interface, chosen on its own on a screen set to Malay, or in *Settings › General & Privacy › Language*.
