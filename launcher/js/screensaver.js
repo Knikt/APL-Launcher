@@ -200,6 +200,10 @@
     function start() {
         if (active) return;
         if (!root) buildDom();
+        /* The connect form leaves the focus in a text field, and the launcher
+           ignores keys while one is focused: the saver could not be closed. */
+        var ae = document.activeElement;
+        if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA") && ae.blur) ae.blur();
         active = true;
         root.classList.toggle("no-motion", !!sys.pref("reduceMotion"));
         root.classList.add("is-active");
@@ -255,5 +259,9 @@
     });
     global.addEventListener("appcontrol", back);
 
-    APL.screensaver = { start: start, stop: stop, isActive: function () { return active; } };
+    /* touch: a screen that draws its own keys (the Home app) consumes them
+       before the launcher's hotkey above, so it has to say the viewer is
+       there, or the saver comes up over it. */
+    APL.screensaver = { start: start, stop: stop, isActive: function () { return active; },
+        touch: function () { lastInput = now(); } };
 })(window);

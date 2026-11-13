@@ -249,6 +249,12 @@
                     APL.toast(APL.t("Searching for artwork in the background…"), true);
                 }, APL.t("Clears the artwork found and searches again for all apps."), "reset"),
                 info(APL.t("Installed Apps"), function () { return String(apps.length); }),
+                action(APL.t("Home Assistant"), function () {
+                    APL.settings.close();
+                    if (APL.ha && APL.ha.connect) APL.ha.connect();
+                    else if (APL.ha) APL.ha.open();
+                },
+                    APL.t("Adds a Home app. Paste a long-lived access token into the connect screen once, on the TV (Profile, Security, Long-lived access tokens), and the tile opens it from then on. Nothing to set on the PC.")),
                 vetro(toggle(APL.t("Close Unused Apps"), "idleClose",
                     APL.t("An app left in the background for more than 10 minutes closes on its own, TizenTube included: the screen keeps its memory and stays smooth. The app in front is never closed, nor are the Home Screen, the TV inputs and AirPlay."))),
                 vetro(action(APL.t("Free Up Memory"), function () { APL.freeMemory(); },
