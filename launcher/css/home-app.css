@@ -398,21 +398,13 @@
 
 
 
-.ctrl-tile,
-.home-tile,
-.ha-tile,
-.tvos-row,
-.setting-choice,
-.plate,
-.search-key,
-.search-scope,
-.search-tile {
+/* Only the Home app's own tiles: CleanFrame's other names (.plate, .tile...) are the launcher's
+   classes too, and these rules would reach its Settings plate and its Home Screen tiles. */
+.ha-tile {
   transition: transform 340ms var(--ease-apple), box-shadow 260ms var(--ease-apple-out),
     background-color 180ms linear, color 180ms linear, opacity 200ms linear;
 }
 
-.ctrl-tile.is-focus,
-.home-tile.is-focus,
 .ha-tile.is-focus {
   transition: transform 340ms var(--ease-apple), box-shadow 260ms var(--ease-apple-out),
     background-color 180ms linear;
@@ -421,10 +413,9 @@
 
 
 
-.ctrl-glass::after,
-.pill-glass::after,
-.ha-tile::after,
-.tile::after {
+/* .ha-tile only: on the launcher's .tile (no radius) this rim drew a square frame around every
+   Home Screen tile. */
+.ha-tile::after {
   content: "";
   position: absolute;
   left: 0;
@@ -446,8 +437,6 @@
 
 
 
-.ctrl-tile,
-.home-tile,
 .ha-tile {
   transform: translateZ(0);
   backface-visibility: hidden;
