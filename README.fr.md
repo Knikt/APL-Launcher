@@ -106,8 +106,8 @@ Pour le bouton Home (Home, l'appui long sur Home et ⏯ par-dessus les apps), aj
 
 ```sh
 adb connect <ip-de-la-tv>
-adb install -r apl-launcher-v1.1.4-android.apk
-adb install -r apl-launcher-home-button-v1.1.4-android.apk
+adb install -r apl-launcher-v1.2.0-android.apk
+adb install -r apl-launcher-home-button-v1.2.0-android.apk
 ```
 
 Puis ouvre APL Launcher une fois. Plus de détails, dont la touche Home : [docs/android.md](docs/android.md).
