@@ -597,8 +597,7 @@
     /* Keep the focused tile and the caption under it inside the panel. The panel's
        own viewport is the only measure that matters: 900 was a guess, and offsetTop
        is a page coordinate, so the row scrolled up for a tile that was already on
-       screen (Search sits at y 898 in a 1080 screen). Rects carry the panel's scale,
-       so divide by it before moving the body. */
+       screen (Search sits at y 898 in a 1080 screen). */
     /* Measured in layout space, not with getBoundingClientRect: the body slides
        on a 260 ms transform, and a rect taken halfway through it reports a
        place the tile never was — two quick presses read the tile mid-slide and
