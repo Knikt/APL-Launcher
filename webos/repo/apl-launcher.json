@@ -1,15 +1,15 @@
 {
   "id": "com.knikt.apllauncher",
-  "version": "1.1.4",
+  "version": "1.2.0",
   "type": "web",
   "title": "APL Launcher",
   "appDescription": "An Apple TV style Home Screen",
   "iconUri": "https://raw.githubusercontent.com/Knikt/APL-Launcher/main/launcher/icon.png",
   "sourceUrl": "https://github.com/Knikt/APL-Launcher",
   "rootRequired": false,
-  "ipkUrl": "https://github.com/Knikt/APL-Launcher/releases/download/v1.1.4/apl-launcher-v1.1.4-lg-webos.ipk",
+  "ipkUrl": "https://github.com/Knikt/APL-Launcher/releases/download/v1.2.0/apl-launcher-v1.2.0-lg-webos.ipk",
   "ipkHash": {
-    "sha256": "929643761e602e40276a4705673bfa02a17160c73a3a87aff3c4f4a02b12b07f"
+    "sha256": "dd7aa6eff05593420612265747ca5c40457675ae309b450567c4b0143948be23"
   },
-  "ipkSize": 5481260
+  "ipkSize": 5621654
 }
