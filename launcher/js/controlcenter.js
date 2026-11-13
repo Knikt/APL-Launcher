@@ -594,10 +594,35 @@
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
     }
 
+    /* Keep the focused tile and the caption under it inside the panel. The panel's
+       own viewport is the only measure that matters: 900 was a guess, and offsetTop
+       is a page coordinate, so the row scrolled up for a tile that was already on
+       screen (Search sits at y 898 in a 1080 screen). Rects carry the panel's scale,
+       so divide by it before moving the body. */
+    /* Measured in layout space, not with getBoundingClientRect: the body slides
+       on a 260 ms transform, and a rect taken halfway through it reports a
+       place the tile never was — two quick presses read the tile mid-slide and
+       the panel scrolled past it. offsetTop and clientHeight ignore transforms,
+       so the two compare directly, with no scale to divide by. */
     function ensureVisible(t) {
-        var view = 900, top = t.offsetTop, h = t.offsetHeight;
-        if (top + scrollY < 0) scrollY = -top + 10;
-        else if (top + h + scrollY > view) scrollY = view - top - h;
+        if (!viewport || !body) return;
+        function layoutTop(node) {
+            var y = 0;
+            while (node) { y += node.offsetTop; node = node.offsetParent; }
+            return y;
+        }
+        var pad = 8;
+        var top = layoutTop(t) - layoutTop(body);
+        var holder = t.parentNode, next = holder && holder.nextElementSibling;
+        var cap = (next && next.classList && next.classList.contains("cc__caption")) ? next.offsetHeight : 0;
+        /* Both cases are in screen space: the tile sits at top + scrollY, and the
+           scroll has to move it there, not by the distance it is off by. */
+        var view = viewport.clientHeight, bottom = top + scrollY + t.offsetHeight + cap;
+        if (bottom > view - pad) scrollY -= bottom - (view - pad);
+        else if (top + scrollY < pad) scrollY = pad - top;
+        var least = Math.min(0, view - body.scrollHeight);
+        if (scrollY > 0) scrollY = 0;
+        if (scrollY < least) scrollY = least;
         body.style.transform = "translateY(" + scrollY + "px)";
     }
 
