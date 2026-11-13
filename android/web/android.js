@@ -103,6 +103,9 @@
             "Opens the device's own home screen ({name}). Press Home to come back.": "Ouvre l'écran d'accueil de l'appareil ({name}). Appuyez sur Accueil pour revenir.",
             "Home Screen of the device": "Accueil de l'appareil",
             "Ethernet": "Ethernet",
+            "Up Next": "À suivre",
+            "Continue Watching from the apps that fill Android TV's Play Next row (Nuvio, YouTube, Plex…), as cards over the Top Shelf. Android asks once to let APL Launcher read it.":
+                "Le « Continuer de regarder » des apps qui remplissent la rangée « À suivre » d'Android TV (Nuvio, YouTube, Plex…), en cartes au-dessus du Top Shelf. Android demande une fois d'autoriser APL Launcher à la lire.",
             "Make APL Launcher Your Home Screen?": "Faire d'APL Launcher votre écran d'accueil ?",
             "So that the remote's Home button and the device's start-up open APL Launcher. Android then asks which app to use: choose APL Launcher, then Set as default.":
                 "Pour que le bouton Accueil de la télécommande et le démarrage de l'appareil ouvrent APL Launcher. Android demande ensuite quelle app utiliser : choisissez APL Launcher, puis Définir par défaut.",
@@ -506,6 +509,35 @@
         toast(r.freed > 0 ? T("{mb} MB freed", { mb: r.freed }) : T("Nothing to free: the apps in the background were already closed."), true);
     }
 
+    /* ---------- Android TV's Watch Next row: each app's own cards (WatchNext.kt, widgets.js) ----------
+       Nuvio's Continue Watching, the next episode…, read once per focus change at most (20 s), and again for
+       the cards themselves. What You're Watching (Settings › Appearance › Top Shelf) turns it off. */
+    var wn = null, wnAt = 0;
+    function watchNext() {
+        if (!B.watchNext || !sys.pref("hubShelf") || !B.watchNextAllowed()) return {};
+        if (wn && Date.now() - wnAt < 20000) return wn;
+        wn = {}; wnAt = Date.now();
+        json(B.watchNext(), []).forEach(function (r) {
+            if (r.kind === 0 || r.kind === 1) (wn[r.pkg] = wn[r.pkg] || []).push(r);     // Continue, Next (not New, Watchlist)
+        });
+        return wn;
+    }
+    function watchNextCards(id) {
+        var app = ((APL.allApps && APL.allApps()) || []).filter(function (a) { return a.id === id; })[0] || {};
+        return (watchNext()[id] || []).slice(0, 2).map(function (r) {
+            var ep = r.season && r.number ? "S" + r.season + " E" + r.number : r.number ? "E" + r.number : "";
+            var started = r.duration > 0 && r.position > 0;
+            var left = started ? T("{n} min left", { n: Math.max(1, Math.round((r.duration - r.position) / 60000)) }) : "";
+            // Not started yet: the next episode (Nuvio writes it as "continue" too, at 0)
+            return { kind: "video", label: r.kind === 1 || !started ? T("Up Next") : T("Continue Watching"), title: String(r.title),
+                     sub: [ep, r.episode, left].filter(Boolean).join(" · "),
+                     image: r.image || app.bg || app.tile || "", appArt: !r.image,
+                     progress: started ? Math.min(1, r.position / r.duration) : undefined,
+                     launch: { key: "watchNext", value: String(r.id) } };
+        });
+    }
+    listen("listings", function () { wnAt = 0; });          // Android's answer: read again at the next focus
+
     /* ---------- APL.platform: the few places where launcher.js and controlcenter.js ask ---------- */
     var homeName = String(B.systemHomeName() || "") || T("Home Screen of the device");
     APL.platform = {
@@ -513,10 +545,16 @@
         /* An app opened with one piece of data (APL TV from the Top Shelf: resume / channel), as an Intent extra */
         launch: function (id, params) {
             var key = Object.keys(params || {})[0];
+            // A Watch Next card: the program's own link, inside its app (WatchNext.open)
+            if (key === "watchNext") return B.openWatchNext && B.openWatchNext(String(id), String(params[key])) ? Promise.resolve() : fail(T("Can't launch the app"));
             if (!key || !B.launchWith) return fail(T("Can't launch the app"));
             return B.launchWith(String(id), key, String(params[key])) ? Promise.resolve() : fail(T("Can't launch the app"));
         },
         packages: { setPackageInfoEventListener: function (l) { pkgListener = l; } },
+        /* widgets.js: the cards of an app that has rows in Android TV's Watch Next */
+        cardsReader: function (id) {
+            return watchNext()[id] ? function () { wnAt = 0; return Promise.resolve(watchNextCards(id)); } : null;
+        },
         /* A new version is out (updater.js, once per version): how to get it on Android */
         updateNotice: function (v) {
             APL.alert({
@@ -681,7 +719,10 @@
         top = without(top, ["Gaming", "Sources"]);
 
         var appearance = find(top, "Appearance"), shelf = appearance && find(appearance.children, "Top Shelf");
-        if (shelf) shelf.children = without(shelf.children, ["What You're Watching"]);   // Samsung's home rows
+        // Samsung's home rows there; on Android 11+, the apps' Watch Next row instead (WatchNext.kt)
+        var watching = shelf && find(shelf.children, "What You're Watching");
+        if (watching && B.watchNextSupported && B.watchNextSupported()) watching.desc = T("Continue Watching from the apps that fill Android TV's Play Next row (Nuvio, YouTube, Plex…), as cards over the Top Shelf. Android asks once to let APL Launcher read it.");
+        else if (shelf) shelf.children = without(shelf.children, ["What You're Watching"]);
         var online = shelf && find(shelf.children, "Online Services");
         if (online && B.setKey) {
             online.desc = T("The keys are kept on this device. Type them here, or APL Launcher Setup sends them from the PC.");
@@ -897,6 +938,16 @@
         // Android's Home settings and Accessibility say nothing when they close: the launcher showing again is the answer
         if (!document.hidden && setupWait) setTimeout(function () { if (setupWait && !document.hidden) backFromAndroid(); }, 600);
     });
+    var listingsTries = 0;
+    function askListings() {
+        if (!B.requestWatchNext || !B.watchNextSupported() || B.watchNextAllowed() || !sys.pref("hubShelf") || sys.pref("listingsAsked")) return;
+        var busy = document.hidden || (APL.settings && APL.settings.isOpen()) || (APL.alert && APL.alert.isOpen && APL.alert.isOpen()) || setupWait;
+        if (busy) { if (++listingsTries < 40) setTimeout(askListings, 15000); return; }
+        sys.setPref("listingsAsked", true);
+        B.requestWatchNext();
+    }
+    // Turned on again in Settings: Android asks again if it was refused
+    sys.onPref("hubShelf", function (v) { wnAt = 0; if (v && B.requestWatchNext && B.watchNextSupported() && !B.watchNextAllowed()) B.requestWatchNext(); });
     function firstStarts() {
         var i = fresh(), n = sys.pref("androidSetupAsked") || 0;
         // Updated from 1.1.3 or before, where the launcher had the Home button itself: once, why it's gone and where it is
@@ -916,5 +967,6 @@
         if (!global.APL_BOOT_OK) { setTimeout(wait, 300); return; }
         var a = String(B.takeAction() || "");
         if (a) runAction(a); else setTimeout(firstStarts, 1500);
+        setTimeout(askListings, 6000);
     }, 300);
 })(window);

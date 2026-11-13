@@ -480,6 +480,8 @@
     READERS[HOT] = hotCards;
     READERS[STREMIO] = stremioCards;
     Object.keys(NUVIO_APPS).forEach(function (id) { READERS[id] = nuvioReader(NUVIO_APPS[id]); });
+    /* Another platform's cards for any app (android.js: what the app put in Android TV's Watch Next row) */
+    function readerOf(id) { return READERS[id] || (APL.platform && APL.platform.cardsReader ? APL.platform.cardsReader(id) : null); }
 
     /* The cards show at once, in their last known version. Reading the data takes only
        10 to 30 ms, but goes through the relay (bridge/service.js): stopped after 15 min without requests,
@@ -516,7 +518,7 @@
         var c = cache[id];
         if (c && Date.now() - c.at < CACHE_MS) return Promise.resolve(c.cards);
         if (pending[id]) return pending[id];
-        pending[id] = READERS[id]().then(function (cards) {
+        pending[id] = readerOf(id)().then(function (cards) {
             cache[id] = { cards: cards, at: Date.now() };
             delete pending[id];
             remember(id, cards);
@@ -526,7 +528,7 @@
     }
 
     function cardsFor(id) {
-        if (!READERS[id] || sys.PREVIEW) return Promise.resolve([]);
+        if (!readerOf(id) || sys.PREVIEW) return Promise.resolve([]);
         var read = readCards(id), last = lastKnown(id);
         return last ? Promise.resolve(last) : read.then(function (cards) { return cards || []; });
     }
@@ -666,7 +668,7 @@
         clearTimeout(showTimer);
         clearTimeout(readTimer);
         if (!same) setShown(false);
-        if (!READERS[id] || sys.PREVIEW) return;
+        if (!readerOf(id) || sys.PREVIEW) return;
         showTimer = setTimeout(function () {
             var last = lastKnown(id);
             if (last) paint(id, last);
@@ -698,7 +700,7 @@
 
     /* Back from an app: what was just watched counts right away. */
     document.addEventListener("visibilitychange", function () {
-        if (document.hidden || APL.ccOverlay || !READERS[shownFor]) return;
+        if (document.hidden || APL.ccOverlay || !readerOf(shownFor)) return;
         delete cache[shownFor];
         trendN++;
         painted = "";
