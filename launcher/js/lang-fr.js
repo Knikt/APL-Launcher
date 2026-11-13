@@ -420,7 +420,6 @@ window.APL_LANG_FR = {
     "Apps per Row": "Apps par rangée",
     "In the dock and in every row below. 5: bigger tiles, 7: more apps with a Top Shelf.": "Dans le dock et dans chaque rangée en dessous. 5 : des tuiles plus grandes, 7 : plus d'apps avec un Top Shelf.",
     "Search": "Rechercher",
-    "Space": "Espace",
     "Recently Used": "Utilisées récemment",
     "No apps found for “{q}”": "Aucune app trouvée pour « {q} »",
     "Search Hidden Apps": "Rechercher les apps masquées",
