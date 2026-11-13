@@ -288,8 +288,8 @@
     for (i = 0; i < list.length; i++) {
       d = list[i];
       if (d.type === 'climate' && isOn(d)) {
-        var t = attrsOf(d).temperature;
-        if (typeof t === 'number') climates.push(t);
+        var temp = attrsOf(d).temperature;
+        if (typeof temp === 'number') climates.push(temp);
       }
       if (d.type === 'light' && isOn(d)) lights++;
       if (d.type === 'media' && isOn(d)) media++;
@@ -729,6 +729,8 @@
   function signOut() {
     if (ha && ha.disconnect) ha.disconnect();
     previewHouse = false;
+    /* The tile leaves with the token: the Home Screen builds its list again. */
+    if (root.APL && root.APL.refreshHome) root.APL.refreshHome();
     close();
     setTimeout(open, 40);
   }
@@ -920,8 +922,16 @@
 
   function paintSetup() {
     /* A token saved on the screen connects by itself; without this the form
-       sits over a house that is already there until something repaints. */
-    if (setupMode && ha && ha.connected && ha.connected()) setupMode = false;
+       sits over a house that is already there until something repaints. The
+       class goes too, or home-app.css keeps the house hidden behind it. */
+    if (setupMode && ha && ha.connected && ha.connected()) {
+      setupMode = false;
+      if (box) {
+        box.classList.remove('is-setup');
+        box.classList.remove('is-typing');
+        resetSetupLift();
+      }
+    }
     if (!box) return;
     var setup = box.querySelector('#haSetup');
     if (setup) {
@@ -972,18 +982,36 @@
       var tok = box.querySelector('#haToken');
       if (tok) tok.value = '';
     }
+    /* The tile is there once a token is saved. The list has to be built again,
+       not only drawn: a tile's when() is read there. Signing out uses this
+       too, for the tile to leave with the token. */
+    if (root.APL && root.APL.refreshHome) root.APL.refreshHome();
+    /* Back during the token check: the app is closed, and a closed app opens
+       no socket and starts no poll. */
+    if (!openFlag) return;
     paintSetup();
     lastSig = '';
     paint(true);
     /* The connect screen returned before setPanelActive(true), so the house
        kept drawing what it had until the app was reopened. */
     if (ha && ha.setPanelActive) ha.setPanelActive(true);
-    /* The tile is there once a token is saved: redraw the Home Screen behind
-       instead of waiting for the next start. */
-    if (root.APL && root.APL.reloadApps) root.APL.reloadApps();
   }
 
   function openSetup() {
+    /* Connected: there is nothing to set up, so Settings' row shows the
+       house. Leaving is-setup on would hide the house behind the form
+       (home-app.css). */
+    if (ha && ha.connected && ha.connected()) {
+      setupMode = false;
+      if (box) {
+        box.classList.remove('is-setup');
+        box.classList.remove('is-typing');
+        resetSetupLift();
+      }
+      if (openFlag) { paintSetup(); paint(true); return; }
+      open();
+      return;
+    }
     /* Already open behind Settings: show the connect screen over the house
        rather than doing nothing. */
     if (openFlag) {
@@ -1230,8 +1258,9 @@
     build();
     if (!box) return;
     /* Settings' way in: the tile only exists once a token is saved, so the
-       connect screen has to open without it. */
-    setupMode = !!forceSetup || (!previewHouse && !(ha && ha.connected && ha.connected()));
+       connect screen has to open without one. A screen that is already
+       connected has nothing to set up: Settings opens the house. */
+    setupMode = !(ha && ha.connected && ha.connected()) && (!!forceSetup || !previewHouse);
     /* The same picture as the Home tile's backdrop: the private package's
        photograph when it has one, the drawn mark otherwise. Read once per open
        so a backdrop change from elsewhere is picked up without a rebuild. */
@@ -1328,21 +1357,15 @@
     if (root.APL && root.APL.screensaver && root.APL.screensaver.touch) root.APL.screensaver.touch();
     /* The saver is in front: the key belongs to the launcher, which closes it. */
     if (root.APL && root.APL.screensaver && root.APL.screensaver.isActive && root.APL.screensaver.isActive()) return;
-    /* Red and ⏯ open the Control Center, green the App Switcher, blue Home:
-       none of them belongs over the house, which is left with Back. C is the
-       preview's red key. */
-    /* Blue is Home on a screen that passes Home through the colour keys:
-       there it leaves the house, as Back does. The rest belong to the
-       launcher, not to a screen that is in front. */
-    if (ev.keyCode === 406) {
-      ev.preventDefault();
-      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-      ev.stopPropagation();
-      key('back');
-      return;
-    }
-    var SHORTCUTS = { 403: 1, 404: 1, 405: 1, 415: 1, 10252: 1, 67: 1 };
-    if (SHORTCUTS[ev.keyCode]) {
+    /* Red and ⏯ open the Control Center and green the App Switcher: none of
+       them belongs over the house, which is left with Back. Blue is Home on
+       a screen that passes Home through the colour keys, so it goes through
+       to the launcher, which closes the app and puts the Home Screen back. */
+    var SHORTCUTS = { 403: 1, 404: 1, 405: 1, 415: 1, 10252: 1 };
+    /* C is the preview's red key, and only there: in a field it is a letter. */
+    var previewC = ev.keyCode === 67 && root.APL && root.APL.sys && root.APL.sys.PREVIEW &&
+                   !(ev.target && ev.target.tagName === 'INPUT');
+    if (SHORTCUTS[ev.keyCode] || previewC) {
       ev.preventDefault();
       if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
       ev.stopPropagation();
