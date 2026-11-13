@@ -50,7 +50,7 @@
 
   /* Every word this screen draws goes through APL.t: the app, the connect
      screen and the sheet are English unless lang-fr.js is asked. */
-  function t(s) { return (root.APL && root.APL.t) ? root.APL.t(s) : s; }
+  function t(s, v) { return (root.APL && root.APL.t) ? root.APL.t(s, v) : String(s).replace(/{(\w+)}/g, function (m, k) { return v && v[k] != null ? v[k] : m; }); }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -299,9 +299,9 @@
       Math.min.apply(null, climates) + '\u00b0\u2013' + Math.max.apply(null, climates) + '\u00b0' : t('All Off');
     return [
       { icon: 'climate', name: t('Climate'), value: climateText },
-      { icon: 'light', name: t('Lights'), value: lights ? lights + ' ' + t('On') : t('All Off') },
-      { icon: 'media', name: t('Speakers & TVs'), value: media ? media + ' ' + t('Playing') : t('None Playing') },
-      { icon: 'fan', name: t('Fans'), value: fans ? fans + ' ' + t('On') : t('All Off') }
+      { icon: 'light', name: t('Lights'), value: lights ? t('{n} On', { n: lights }) : t('All Off') },
+      { icon: 'media', name: t('Speakers & TVs'), value: media ? t('{n} Playing', { n: media }) : t('None Playing') },
+      { icon: 'fan', name: t('Fans'), value: fans ? t('{n} On', { n: fans }) : t('All Off') }
     ].map(function (c) {
       return '<div class="ha-pill acc-' + c.icon + '"><span class="ha-pill-mark">' + ico(c.icon) + '</span>' +
         '<span class="ha-pill-copy"><span>' + esc(c.name) + '</span><i>' + esc(c.value) + '</i></span></div>';

@@ -325,6 +325,8 @@ window.APL_LANG_PL = {
     "Not Playing": "Nie odtwarza",
     "All Off": "Wszystko wyłączone",
     "None Playing": "Brak odtwarzania",
+    "{n} On": "Włączone: {n}",
+    "{n} Playing": "Odtwarzające: {n}",
     "Adds a Home app. Paste a long-lived access token into the connect screen once, on the TV (Profile, Security, Long-lived access tokens), and the tile opens it from then on. Nothing to set on the PC.":
         "Dodaje aplikację Dom. Raz wklej na telewizorze, na ekranie połączenia, token dostępu długoterminowego (Profil, Bezpieczeństwo, Tokeny dostępu długoterminowego), a od tej pory kafelek będzie ją otwierał. Na komputerze nie trzeba nic ustawiać.",
     "OK on an accessory opens temperature, speed, brightness and mode. Back leaves Home.": "OK na akcesorium otwiera temperaturę, prędkość, jasność i tryb. Wstecz zamyka aplikację Dom.",

@@ -702,6 +702,8 @@ window.APL_LANG_FR = {
     "Not Playing": "À l'arrêt",
     "All Off": "Tout éteint",
     "None Playing": "Aucune lecture",
+    "{n} On": "{n} Activé",
+    "{n} Playing": "{n} Lecture",
     "Adds a Home app. Paste a long-lived access token into the connect screen once, on the TV (Profile, Security, Long-lived access tokens), and the tile opens it from then on. Nothing to set on the PC.": "Ajoute une app Maison. Colle une fois un jeton d'acc\u00e8s de longue dur\u00e9e dans l'\u00e9cran de connexion, sur la TV (Profil, S\u00e9curit\u00e9, Jetons d'acc\u00e8s de longue dur\u00e9e), et la tuile l'ouvre ensuite. Rien \u00e0 configurer sur le PC.",
     "OK on an accessory opens temperature, speed, brightness and mode. Back leaves Home.": "OK sur un accessoire ouvre la température, la vitesse, la luminosité et le mode. Retour quitte Maison.",
     "This build has no Home Assistant client.": "Cette version n'a pas de client Home Assistant.",
