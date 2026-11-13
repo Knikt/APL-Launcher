@@ -34,6 +34,7 @@ Hold **OK** on an app for half a second:
 | Choice | Effect |
 |---|---|
 | **Edit Home Screen** | The app jiggles. Move it with the arrows, then press OK or Back to drop it. The layout is saved. |
+| **Change Icon** | Another tile for the app, among the launcher's own logos: TizenTube with YouTube's logo, for example. *Original* gives the app its own tile back. |
 | **Hide App** | Removes it from the Home Screen. Bring it back in *Settings › Home Screen › Show on Home Screen*. |
 | **Delete App** | Asks for confirmation (*Cancel* is selected by default), then uninstalls through Vetro. System apps cannot be deleted from here. |
 

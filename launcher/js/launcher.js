@@ -663,7 +663,11 @@
         var card = document.createElement("div");
         card.className = "tile__card";
 
-        if (app.tileHtml) {
+        var chosen = iconOf(app);
+        if (chosen) {
+            // Change Icon (hold OK): the picture chosen for this app
+            card.style.background = "#111 center / cover no-repeat url('" + asset(chosen) + "')";
+        } else if (app.tileHtml) {
             card.innerHTML = app.tileHtml;
         } else if (app.tile) {
             // inline style: a url() inside a CSS variable would be resolved from css/
@@ -1435,6 +1439,7 @@
             return;
         }
         items.push({ label: APL.t("Move to Folder"), icon: "grid", run: function () { chooseFolder(app, anchor); } });
+        items.push({ label: APL.t("Change Icon"), icon: "photo", run: function () { chooseIcon(app); } });
         if (app.id !== "apl.settings") {
             items.push({ label: APL.t("Hide App"), icon: "eyeOff", run: function () { hideApp(app); } });
         }
@@ -1444,6 +1449,91 @@
             items.push({ label: APL.t("Delete App"), icon: "trash", destructive: true, run: function () { confirmDelete(app); } });
         }
         APL.contextMenu.open(el.querySelector(".tile__card") || el, items);
+    }
+
+    /* ---------- Change Icon (hold OK) ----------
+       Another picture for an app's tile, among the launcher's own: every logo of the catalogue
+       and the few tiles it draws itself. TizenTube with YouTube's own logo was asked for on
+       Reddit. Kept for the whole screen (the appIcons setting, by app id); Original gives the
+       app its own tile back. The Top Shelf stays the app's. */
+    var OWN_TILES = [
+        { name: "TizenTube", tile: "images/tile-tizentube.png" },
+        { name: "TizenBrew", tile: "images/tile-tizenbrew.png" },
+        { name: "Internet", tile: "images/tile-internet.png" },
+        { name: "Hot IPTV", tile: "images/tile-hotiptv.png" }
+    ];
+    function iconOf(app) { return app && !app.folder ? (APL.sys.pref("appIcons") || {})[app.id] || "" : ""; }
+    /* The picture a tile shows: the chosen one, else the app's own (folders.js, profiles.js). */
+    APL.tileOf = function (app) { var p = iconOf(app); return p ? asset(p) : app && app.tile; };
+
+    function iconChoices() {
+        var seen = {}, list = [];
+        (global.APL_CATALOG || []).concat(OWN_TILES).forEach(function (c) {
+            if (!c.tile || seen[c.tile]) return;
+            seen[c.tile] = true;
+            list.push({ name: APL.t(c.name || c.key || ""), tile: c.tile });     // Settings: Réglages in French
+        });
+        return list.sort(function (a, b) { return a.name.localeCompare(b.name, APL.locale, { sensitivity: "base" }); });
+    }
+
+    function chooseIcon(app) {
+        var box = document.createElement("div");
+        box.className = "ipicker";
+        box.innerHTML = '<h2 class="ipicker__title"></h2><div class="ipicker__scroll"><div class="ipicker__grid"></div></div>';
+        box.firstChild.textContent = APL.t("Icon for “{app}”", { app: app.name });
+        var grid = box.querySelector(".ipicker__grid"), items = [], now = iconOf(app), at = 0;
+        function item(name, paint, path) {
+            var it = document.createElement("div"), art = document.createElement("div"), label = document.createElement("div");
+            it.className = "ipicker__item" + (path === now ? " is-current" : "");
+            art.className = "ipicker__art";
+            label.className = "ipicker__name";
+            paint(art);
+            label.textContent = name;
+            it.appendChild(art);
+            it.appendChild(label);
+            it._path = path;
+            if (path === now) at = items.length;
+            grid.appendChild(it);
+            items.push(it);
+        }
+        // The app's own tile first, as the Home Screen draws it without a choice
+        item(APL.t("Original"), function (art) {
+            if (app.tileHtml) { art.innerHTML = app.tileHtml; return; }
+            if (app.tile) { art.style.backgroundImage = "url('" + app.tile + "')"; return; }
+            art.style.background = app.accent || "#2a2a2e";
+            if (!app.icon) { art.appendChild(letter(app.name)); return; }
+            var img = document.createElement("img");
+            img.alt = "";
+            img.src = app.icon;
+            art.appendChild(img);
+        }, "");
+        iconChoices().forEach(function (c) {
+            item(c.name, function (art) { art.style.backgroundImage = "url('" + asset(c.tile) + "')"; }, c.tile);
+        });
+        document.body.appendChild(box);
+        // The grid scrolls to keep the chosen row on screen (3rd row at the lowest): launcher.css .ipicker
+        var ROW = 204;
+        var pick = new APL.Nav({
+            onFocus: function (i, t) {
+                grid.style.transform = "translateY(" + (-Math.max(0, Math.round(t.offsetTop / ROW) - 2) * ROW) + "px)";
+            },
+            onSelect: function (i, t) {
+                var cur = APL.sys.pref("appIcons") || {}, next = {}, k;
+                for (k in cur) if (Object.prototype.hasOwnProperty.call(cur, k) && k !== app.id) next[k] = cur[k];
+                if (t._path) next[app.id] = t._path;
+                APL.sys.setPref("appIcons", next);
+                done();
+                render();
+            },
+            onBack: done
+        });
+        function done() {
+            APL.popNav(pick);
+            if (box.parentNode) box.parentNode.removeChild(box);
+        }
+        pick.setTiles(items);
+        pick.focus(at);
+        APL.pushNav(pick);
     }
 
     function chooseFolder(app, anchor) {
