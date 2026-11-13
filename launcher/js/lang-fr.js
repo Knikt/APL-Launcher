@@ -720,6 +720,10 @@ window.APL_LANG_FR = {
     "Backdrops": "Fonds d'écran",
     "Match the Home tile": "Comme la tuile Maison",
     "Whole house": "Toute la maison",
+    "Dusk": "Crépuscule",
+    "Linen": "Lin",
+    "Forest": "Forêt",
+    "Night": "Nuit",
 
     /* LG TVs (webOS): js/webos*.js */
     "The TV didn't answer": "La TV n'a pas répondu",

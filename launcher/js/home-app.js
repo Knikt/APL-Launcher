@@ -1153,12 +1153,17 @@
      into the widget and lists them in APL_KEYS.ha.backdrops, so the TV is never
      told where a picture lives and nothing is typed on a remote. */
   var BACKDROP_KEY = 'apl.ha.backdrop';
-  /* No photographs are bundled: four 3840x2160 stills came to 2.8 MB on
-     every screen and where they came from was never recorded, so they are
-     left out until that is known. A picture per room still comes from
-     images/backdrops/ - install-via-vetro.py --backdrops puts yours
-     there - and the Home tile's own picture is still offered. */
-  var BUNDLED = [], backdropSheet = false, bdMap = null, pickedPhoto = '', lastBackdropUrl = '';
+  /* Four backdrops are drawn by tools/make-backdrops.py: soft room light, not
+     photographs, so there is no licence to record and no photographer to
+     credit, and all four together come to under 100 KB. More pictures still
+     come from images/backdrops/ - install-via-vetro.py --backdrops puts
+     yours there - and the Home tile's own picture is still offered. */
+  var BUNDLED = [
+    { id: 'dusk', name: 'Dusk' },
+    { id: 'linen', name: 'Linen' },
+    { id: 'forest', name: 'Forest' },
+    { id: 'night', name: 'Night' }
+  ], DEFAULT_BACKDROP = 'dusk', backdropSheet = false, bdMap = null, pickedPhoto = '', lastBackdropUrl = '';
 
   function extraBackdrops() {
     var k = (root.APL_KEYS && root.APL_KEYS.ha) || {}, list = k.backdrops, out = [], i, b;
@@ -1227,7 +1232,10 @@
 
   function applyBackdrop() {
     if (!box) return;
-    var url = backdropUrl(backdropFor(backdropRoomKey())) || pickedPhoto;
+    /* Chosen picture, then the Home tile's own, then the drawn default: the
+       house is never a flat grey behind the glass. */
+    var url = backdropUrl(backdropFor(backdropRoomKey())) || pickedPhoto ||
+              backdropUrl(backdropById(DEFAULT_BACKDROP));
     if (url === lastBackdropUrl) return;
     lastBackdropUrl = url;
     if (url) box.style.setProperty('--ha-photo', 'url("' + url + '")');
