@@ -21,6 +21,7 @@
 
     var APL = global.APL, sys = APL.sys, K = APL.KEY;
     var P = APL.platform;             // another TV system (js/webos-settings.js on LG): its own sound outputs and AirPlay
+    var CC = !!(P && P.ccOverlay);    // drawn over the app in front (LG's Guide button): only this panel on the page
     /* The slider: the screen's brightness, or what the TV system puts there instead (LG keeps its picture
        settings from apps: the volume there) */
     var SLIDER = (P && P.ccSlider) || { id: "backlight", icon: "sun", title: APL.t("Brightness") };
@@ -46,7 +47,17 @@
             }, function (e) { APL.toast(e.message); });
         };
     }
-    function openSettings(section) { return function () { close(); APL.settings.open(section); }; }
+    function openSettings(section) {
+        return function () {
+            close();
+            if (CC) { P.toLauncher(section ? "settings:" + section : "settings"); return; }     // over the apps (webos.js)
+            APL.settings.open(section);
+        };
+    }
+    /* A page of the launcher: over the apps (LG's Guide button, webos.js), the launcher is put in front for it */
+    function inLauncher(action, here) {
+        return function () { close(); if (CC) P.toLauncher(action); else here(); };
+    }
 
     function remaining() {
         var at = sys.pref("sleepAt");
@@ -305,14 +316,16 @@
               on: function () { return sys.network().connected; }, select: openSettings(APL.t("Connection")) },
             { cls: "pill", icon: "moon", title: APL.t("Do Not Disturb"), tint: "#5e5ce6",
               sub: function () { return sys.pref("dnd") ? APL.t("On") : APL.t("Off"); },
-              on: function () { return sys.pref("dnd"); }, select: function () { sys.setPref("dnd", !sys.pref("dnd")); } },
-            { cls: "pill", icon: "airplayAudio", title: "Audio", sub: outputName, select: function () { show("audio"); } },
+              on: function () { return sys.pref("dnd"); },
+              select: function () { sys.setPref("dnd", !sys.pref("dnd")); if (P && P.ccChanged) P.ccChanged(); } },
+            { cls: "pill", icon: "airplayAudio", title: APL.t("Audio"), sub: outputName, select: function () { show("audio"); } },
             { cls: "pill", icon: "timer", title: APL.t("Sleep Timer"), tint: "#ff9f0a", sub: remaining,
               on: function () { return !!sys.pref("sleepAt"); },
               select: function () {
                   var i = TIMERS.indexOf(sys.pref("sleepTimer"));
                   var next = TIMERS[(i + 1) % TIMERS.length];
                   sys.armSleepTimer(next);
+                  if (P && P.ccChanged) P.ccChanged();
                   APL.toast(next ? APL.t("Going to sleep in {n} min", { n: next }) : APL.t("Sleep Timer off"), true);
               } },
             { cls: "round", icon: "gamepad", title: APL.t("Game Mode"), tint: "#30d158",
@@ -320,20 +333,20 @@
               on: function () { return gameState.on; }, select: gameToggle },
             { cls: "round", icon: "access", title: APL.t("Accessibility"), select: openSettings(APL.t("General & Privacy")) },
             { cls: "round", icon: "airplay", title: APL.t("AirPlay and iPhone"), select: function () { show("airplay"); } },
-            { cls: "round", icon: "source", title: "Sources", select: function () { close(); APL.openSources(); } },
+            { cls: "round", icon: "source", title: APL.t("Sources"), select: function () { close(); APL.openSources(); } },
             { cls: "slider", type: "backlight", icon: SLIDER.icon, title: SLIDER.title },
             { cls: "pill", icon: "photo", title: APL.t("Screensaver"), sub: function () { return APL.t("Start"); },
-              select: function () { close(); if (APL.screensaver) APL.screensaver.start(); } },
+              select: inLauncher("screensaver", function () { if (APL.screensaver) APL.screensaver.start(); }) },
             { cls: "pill", icon: "gear", title: APL.t("Settings"), sub: function () { return APL.t("All settings"); },
               select: openSettings() },
             { cls: "round", icon: "search", title: APL.t("Search"), start: true,
-              select: function () { close(); if (APL.search) APL.search.open(); } }
+              select: inLauncher("search", function () { if (APL.search) APL.search.open(); }) }
         ];
     }
 
     function audioItems() {
         if (P && P.ccAudioItems) return P.ccAudioItems(function () { if (isOpen && view === "audio") render(); });
-        var list = bt.list || [], out = [{ cls: "head", title: "Audio" }];
+        var list = bt.list || [], out = [{ cls: "head", title: APL.t("Audio") }];
         var phones = list.filter(function (d) { return d.kind === "headphones"; });
         var speakers = list.filter(function (d) { return d.kind === "speaker"; });
         var any = list.some(function (d) { return d.connected; });
@@ -516,7 +529,8 @@
         });
         if (view === "main") {
             // The avatar at the top right: the household's profiles
-            avatarEl._item = { cls: "avatar", title: APL.t("Profiles"), select: function () { close(); if (APL.profilesUI) APL.profilesUI.open(); } };
+            avatarEl._item = { cls: "avatar", title: APL.t("Profiles"),
+                               select: inLauncher("profiles", function () { if (APL.profilesUI) APL.profilesUI.open(); }) };
             focusables.unshift(avatarEl);
         }
         nav.setTiles(focusables);
@@ -580,10 +594,35 @@
         if (APL.profilesUI) APL.profilesUI.paint(avatarEl, sys.profiles.current());
     }
 
+    /* Keep the focused tile and the caption under it inside the panel. The panel's
+       own viewport is the only measure that matters: 900 was a guess, and offsetTop
+       is a page coordinate, so the row scrolled up for a tile that was already on
+       screen (Search sits at y 898 in a 1080 screen). Rects carry the panel's scale,
+       so divide by it before moving the body. */
+    /* Measured in layout space, not with getBoundingClientRect: the body slides
+       on a 260 ms transform, and a rect taken halfway through it reports a
+       place the tile never was — two quick presses read the tile mid-slide and
+       the panel scrolled past it. offsetTop and clientHeight ignore transforms,
+       so the two compare directly, with no scale to divide by. */
     function ensureVisible(t) {
-        var view = 900, top = t.offsetTop, h = t.offsetHeight;
-        if (top + scrollY < 0) scrollY = -top + 10;
-        else if (top + h + scrollY > view) scrollY = view - top - h;
+        if (!viewport || !body) return;
+        function layoutTop(node) {
+            var y = 0;
+            while (node) { y += node.offsetTop; node = node.offsetParent; }
+            return y;
+        }
+        var pad = 8;
+        var top = layoutTop(t) - layoutTop(body);
+        var holder = t.parentNode, next = holder && holder.nextElementSibling;
+        var cap = (next && next.classList && next.classList.contains("cc__caption")) ? next.offsetHeight : 0;
+        /* Both cases are in screen space: the tile sits at top + scrollY, and the
+           scroll has to move it there, not by the distance it is off by. */
+        var view = viewport.clientHeight, bottom = top + scrollY + t.offsetHeight + cap;
+        if (bottom > view - pad) scrollY -= bottom - (view - pad);
+        else if (top + scrollY < pad) scrollY = pad - top;
+        var least = Math.min(0, view - body.scrollHeight);
+        if (scrollY > 0) scrollY = 0;
+        if (scrollY < least) scrollY = least;
         body.style.transform = "translateY(" + scrollY + "px)";
     }
 
@@ -662,6 +701,7 @@
         document.body.classList.remove("has-cc");
         APL.popNav(nav);
         isOpen = false;
+        if (CC && P.ccQuit) P.ccQuit();          // over the apps: the window goes with it
     }
 
     setInterval(function () { if (isOpen) refresh(); }, 15000);

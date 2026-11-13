@@ -19,7 +19,7 @@ echo "APL Launcher — webOS root uninstall"
 echo
 
 echo "Removing boot hooks from $HOOK/"
-for f in 10-apl-block-updates 11-apl-block-privacy 12-apl-debloat 13-apl-services-stop 20-apl-elevate 21-apl-keep-root 30-apl-home; do
+for f in 10-apl-block-updates 11-apl-block-privacy 12-apl-debloat 13-apl-services-stop 14-apl-noload 15-apl-preload-off 20-apl-elevate 21-apl-keep-root 30-apl-home; do
     if [ -e "$HOOK/$f" ]; then
         echo "  $HOOK/$f"
         rm -f "$HOOK/$f"
@@ -35,7 +35,9 @@ echo "LG's own Home back"
 [ -r "$APL/apl-home-undo.sh" ] && sh "$APL/apl-home-undo.sh" || echo "  apl-home-undo.sh not found, skipping"
 
 echo
-echo "Lifting live changes (debloat + services)"
+echo "Lifting live changes (apps that never opened, debloat, services)"
+[ -r "$APL/apl-noload-undo.sh" ] && sh "$APL/apl-noload-undo.sh" || echo "  apl-noload-undo.sh not found, skipping"
+[ -r "$APL/apl-preload-undo.sh" ] && sh "$APL/apl-preload-undo.sh" || echo "  apl-preload-undo.sh not found, skipping"
 [ -x "$APL/apl-services-undo.sh" ] && sh "$APL/apl-services-undo.sh" || echo "  apl-services-undo.sh not found, skipping"
 [ -x "$APL/apl-debloat-undo.sh"  ] && sh "$APL/apl-debloat-undo.sh"  || echo "  apl-debloat-undo.sh  not found, skipping"
 

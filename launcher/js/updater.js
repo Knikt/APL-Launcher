@@ -142,8 +142,10 @@
         if (APL.platform && !APL.platform.updates) { if (APL.platform.updateNotice) check(false); return; }
         if (sys.pref("autoUpdate")) check(false);
     }
-    setTimeout(auto, 30000);
-    setInterval(auto, 6 * 3600 * 1000);
+    if (!APL.ccOverlay) {                   // not from the Control Center over the apps (LG, webos.js)
+        setTimeout(auto, 30000);
+        setInterval(auto, 6 * 3600 * 1000);
+    }
 
     APL.updater = { check: check, reset: reset, running: function () { return U.running; },
                     installed: function () { return U.installed; }, fromBundle: function () { return U.fromBundle; } };

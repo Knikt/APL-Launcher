@@ -18,7 +18,7 @@ namespace APL.Setup
     }
 
     /// <summary>What the scripts saved in %APPDATA%\APL-Launcher, read to prefill the form. The app itself only
-    /// writes the TV chosen on its first page (setup-platform.txt).</summary>
+    /// writes the TV chosen on its first page (setup-platform.txt) and the LG Home choice (setup-lg-home.txt).</summary>
     internal static class Saved
     {
         private static readonly string Dir = Path.Combine(
@@ -49,6 +49,28 @@ namespace APL.Setup
                 File.WriteAllText(Path.Combine(Dir, "setup-platform.txt"), platform + (rooted ? " rooted" : ""));
             }
             catch (Exception ex) { Log.Error("setup-platform.txt", ex); }
+        }
+
+        /// <summary>setup-lg-home.txt: "lg" once an LG install was started with "Home opens APL Launcher" off. The
+        /// next install keeps LG's Home the same way: the Setup never switches the TV's Home without being asked.</summary>
+        internal static bool LgHomeIsApl()
+        {
+            try
+            {
+                string f = Path.Combine(Dir, "setup-lg-home.txt");
+                return !File.Exists(f) || File.ReadAllText(f).Trim().ToLowerInvariant() != "lg";
+            }
+            catch { return true; }
+        }
+
+        internal static void SaveLgHome(bool apl)
+        {
+            try
+            {
+                Directory.CreateDirectory(Dir);
+                File.WriteAllText(Path.Combine(Dir, "setup-lg-home.txt"), apl ? "apl" : "lg");
+            }
+            catch (Exception ex) { Log.Error("setup-lg-home.txt", ex); }
         }
 
         internal static string TvIp()

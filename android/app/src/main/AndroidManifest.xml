@@ -1,7 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- APL Launcher for Android TV and Google TV: the remote only, no touch screen needed. -->
+<!-- APL Launcher for Android TV and Google TV: the remote only, no touch screen needed.
+     No accessibility service here: Google Play Protect blocks any app installed outside the Play Store that declares
+     one. The remote's Home and play/pause buttons are in the optional second app, APL Launcher Home Button
+     (../../homebutton, HomeButton.kt). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Between APL Launcher and APL Launcher Home Button only: Android gives it to apps signed with the same key.
+         Both declare it, so it exists whichever is installed first. -->
+    <permission
+        android:name="com.knikt.apllauncher.permission.HOME_BUTTON"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="com.knikt.apllauncher.permission.HOME_BUTTON" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -14,8 +24,8 @@
     <!-- Sleep Timer: on time, whatever app is in front -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
-    <!-- Optional, given with adb (docs/android.md): the Control Center over apps without the accessibility service,
-         and the apps used lately in the App Switcher -->
+    <!-- Optional (docs/android.md): the Control Center over the app in front, and the apps used lately in the
+         App Switcher -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions" />
 
@@ -42,6 +52,8 @@
         </intent>
         <!-- APL TV's Top Shelf (its ShelfProvider) -->
         <provider android:authorities="com.knikt.apltv.shelf" />
+        <!-- APL Launcher Home Button: installed, and the commands sent to it -->
+        <package android:name="com.knikt.apllauncher.home" />
     </queries>
 
     <application
@@ -78,20 +90,12 @@
             </intent-filter>
         </activity>
 
-        <!-- The remote's Home and play/pause buttons over every app, and the app in front (KeyService.kt).
-             Turned on by the user in Settings › Accessibility, or with adb. -->
-        <service
-            android:name=".KeyService"
-            android:label="@string/key_service_name"
+        <!-- What APL Launcher Home Button asks (HomeButton.kt): only apps signed with APL Launcher's key -->
+        <provider
+            android:name=".HomeButtonProvider"
+            android:authorities="com.knikt.apllauncher.homebutton"
             android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/key_service" />
-        </service>
+            android:permission="com.knikt.apllauncher.permission.HOME_BUTTON" />
 
         <!-- Sleep Timer -->
         <receiver android:name=".SleepReceiver" android:exported="false" />

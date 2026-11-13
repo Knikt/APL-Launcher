@@ -219,7 +219,7 @@ namespace APL.Setup
                 if (rooted)
                 {
                     opts.Children.Add(Ui.Separator(new Thickness(0)));
-                    opts.Children.Add(ToggleRow(T("Home opens APL Launcher"), T("The TV also starts on it, and Guide opens the Control Center. Settings › General & Privacy switches back to LG's Home."), out homeToggle, true));
+                    opts.Children.Add(ToggleRow(T("Home opens APL Launcher"), T("The TV also starts on it, and Guide opens the Control Center. Settings › General & Privacy switches back to LG's Home."), out homeToggle, Saved.LgHomeIsApl()));
                     opts.Children.Add(Ui.Separator(new Thickness(0)));
                     opts.Children.Add(ToggleRow(T("Debloat the TV"), T("Stops LG's ads, viewing tracking, telemetry and extra services (about 390 MB of memory freed on a G5). The TV's software updates stay blocked either way: they would remove the root."), out debloatToggle, true));
                 }
@@ -658,6 +658,7 @@ namespace APL.Setup
                     args.Add("-Rooted");
                     args.Add("-Password"); args.Add(Convert.ToBase64String(Encoding.UTF8.GetBytes(pw)));
                     if (homeToggle.IsChecked != true) args.Add("-NoHome");
+                    Saved.SaveLgHome(homeToggle.IsChecked == true);     // the same choice next time
                     if (debloatToggle.IsChecked != true) args.Add("-NoDebloat");
                 }
                 else

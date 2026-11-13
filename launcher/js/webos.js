@@ -29,6 +29,12 @@
     var APP_ID = "com.knikt.apllauncher";
     var SVC = "luna://com.knikt.apllauncher.service/";
     var KEY_STORE = "apl.webos.key", APPS_STORE = "apl.webos.apps";
+    /* The Control Center over the apps (the Guide button on a rooted TV, webos/root/guide): this same page,
+       opened with ?apl=cc by LG's Guide app, in the window LG draws over the app in front (its own menus'
+       kind). It has the launcher's settings from the service (its storage is the Guide app's), shows only the
+       Control Center and closes with it: the app under it, its video, never left the screen. */
+    var CC = /[?&]apl=cc(&|$)/.test(String(global.location.search || ""));
+    APL.ccOverlay = CC;
 
     function load(k, fallback) { try { var v = JSON.parse(global.localStorage.getItem(k) || "null"); return v === null ? fallback : v; } catch (e) { return fallback; } }
     function save(k, v) { try { global.localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
@@ -40,7 +46,7 @@
     var model = String(device.modelName || "").replace(/\..*$/, "");
     /* OLED: what the TV says (panelType), otherwise LG's model names (OLED55G56LS, OLED65C4…) */
     var oled = device.panelType ? /OLED/i.test(String(device.panelType)) : /^OLED/i.test(model);
-    document.documentElement.className += " is-webos";
+    document.documentElement.className += " is-webos" + (CC ? " is-cc-overlay" : "");
     /* 4K: LG draws the page in 3840 x 2160 (appinfo.json, tools/make-webos.py) and the launcher keeps its
        1920 x 1080 layout, zoomed to the page: everything is drawn at the panel's own sharpness. The glass
        follows (it reads layout offsets), and so do the arrows (they compare positions). */
@@ -164,7 +170,10 @@
 
     /* ---------- opening apps (luna: no question asked) ---------- */
     function launch(id, params) {
-        return lunaOnce("luna://com.webos.applicationManager/launch", { id: id, params: params || {} }).then(function () {});
+        return lunaOnce("luna://com.webos.applicationManager/launch", { id: id, params: params || {} }).then(function () {
+            // Over the apps, the Control Center makes way for what it opened (a launcher page, LG's Settings, an input)
+            if (CC && APL.controlCenter) APL.controlCenter.close();
+        });
     }
 
     /* ---------- the apps: LG's launch points (the apps in LG's own home bar) ---------- */
@@ -336,9 +345,23 @@
         returnAt = Date.now();
         returnTo = pendingAction === "controlcenter" && p.from && !SELF.test(p.from) && !/^com\.webos\.app\.home$/.test(p.from) ? String(p.from) : "";
         try { if (S.activate) S.activate(); } catch (e) {}
-        var ev;
-        try { ev = new Event("appcontrol"); } catch (x) { ev = document.createEvent("Event"); ev.initEvent("appcontrol", false, false); }
-        global.dispatchEvent(ev);
+        function fire() {
+            var ev;
+            try { ev = new Event("appcontrol"); } catch (x) { ev = document.createEvent("Event"); ev.initEvent("appcontrol", false, false); }
+            global.dispatchEvent(ev);
+        }
+        if (!CC) { fire(); return; }
+        /* Over the apps, opened again (the TV keeps the page): with the launcher's settings as they are now, read
+           again from the start if they changed since (a theme, a profile), the panel at once otherwise */
+        service("ccState", {}).then(function (m) {
+            var st = (m && m.store) || {}, seen = JSON.stringify(st);
+            try {
+                if (global.localStorage.getItem(CC_SEEN) === seen) { fire(); return; }
+                Object.keys(st).forEach(function (k) { global.localStorage.setItem(k, st[k]); });
+                global.localStorage.setItem(CC_SEEN, seen);
+            } catch (e) { fire(); return; }
+            global.location.reload();
+        }, fire);
     });
 
     /* ---------- the question on screen ---------- */
@@ -356,12 +379,59 @@
         }
     });
 
+    /* ---------- the Control Center over the apps: the launcher's settings handed over ----------
+       Its page keeps its storage under the Guide app's name: the service holds a copy of the launcher's
+       settings for it, given at the launcher's start and each time an app opens over it. What the Control
+       Center changes there (Do Not Disturb) comes back to the launcher when it is in front again. */
+    var CC_KEYS = /^apl\.(prefs(\.[\w-]+)?|profiles|region|liveRegion|webos\.(key|root|devmode))$/;
+    var CC_SEEN = "apl.ccSeen";         // over the apps: the settings last taken from the service (cc.html)
+    function ccStore() {
+        var store = {};
+        try {
+            for (var i = 0; i < global.localStorage.length; i++) {
+                var k = global.localStorage.key(i);
+                if (CC_KEYS.test(k)) store[k] = global.localStorage.getItem(k);
+            }
+        } catch (e) {}
+        return store;
+    }
+    function ccHandOver() { service("ccSave", { store: ccStore() }).catch(function () {}); }
+    function ccTakeBack() {
+        service("ccState", {}).then(function (m) {
+            var b = m && m.back;
+            if (!b || !APL.sys) return;
+            service("ccSave", { back: null }).catch(function () {});
+            if ("dnd" in b && !!APL.sys.pref("dnd") !== !!b.dnd) APL.sys.setPref("dnd", !!b.dnd);
+        }, function () {});
+    }
+    if (!CC) {
+        setTimeout(ccHandOver, 4000);
+        document.addEventListener("visibilitychange", function () { if (document.hidden) ccHandOver(); else ccTakeBack(); });
+    }
+
+    /* ---------- LG's own screen saver ----------
+       After two minutes without the remote, the TV asks its apps first (registerScreenSaverRequest) and covers
+       the screen with its own picture unless one answers no, within a few seconds. With the launcher in front and
+       its own screen saver on (Settings › Screen Saver, screensaver.js), the answer is no: the launcher's starts
+       after its own delay, the way it does on Samsung, instead of LG's over the Home Screen. With the launcher's
+       set to Never, or an app in front, LG's runs as before (it protects an OLED screen). */
+    var saverLast = null;               // the last question and answer, for Settings › General › Diagnostics
+    function saverAnswer(m) {
+        if (!m || m.timestamp === undefined) return;
+        var mine = document.visibilityState !== "hidden" && !!APL.sys && +APL.sys.pref("screensaverDelay") > 0;
+        saverLast = { at: Date.now(), ack: !mine };
+        luna("luna://com.webos.service.tvpower/power/responseScreenSaverRequest",
+             { clientName: APP_ID, ack: !mine, timestamp: m.timestamp }, function (r) { saverLast.ok = !!(r && r.returnValue); });
+    }
+    if (!CC) luna("luna://com.webos.service.tvpower/power/registerScreenSaverRequest", { subscribe: true, clientName: APP_ID }, saverAnswer);
+
     connect();
 
     APL.platform = {
         name: "webos",
         /* The dock's first apps (when installed), as FAVORITES on Samsung: YouTube in TizenTube's place */
         favorites: ["youtube.leanback.v4", "com.knikt.apltv", "app.hotiptv", "netflix"],
+        allAges: true,                        // what the Top Shelf recommends: all audiences only (liveshelf.js)
         model: model,
         oled: oled,
         device: device,
@@ -417,6 +487,23 @@
         noFrost: true,                        // no picture under the dock's pane (launcher.js frost)
         focusLayers: true,                    // a tile's focus shadow and sheen as layers (launcher.js makeTile)
         takeAction: function () { var a = pendingAction; pendingAction = ""; return a; },
-        ccBack: function () { var id = returnTo; returnTo = ""; if (id && Date.now() - returnAt < 600000) launch(id).catch(function () {}); }
+        ccBack: function () {
+            if (CC) return;                   // over the apps: the app is still there under it
+            var id = returnTo; returnTo = ""; if (id && Date.now() - returnAt < 600000) launch(id).catch(function () {});
+        },
+        /* The Control Center over the apps: a page of the launcher instead (Settings, Sources, Search…), with
+           the launcher put in front for it (launcher.js runAction) */
+        ccOverlay: CC,
+        saverLast: function () { return saverLast; },
+        toLauncher: function (action) { return launch(APP_ID, { apl_action: action }).catch(function () {}); },
+        /* …and what it changed, for its next opening and for the launcher */
+        ccChanged: function () {
+            if (!CC) return;
+            var st = ccStore();
+            try { global.localStorage.setItem(CC_SEEN, JSON.stringify(st)); } catch (e) {}
+            service("ccSave", { store: st, back: { dnd: !!(APL.sys && APL.sys.pref("dnd")) } }).catch(function () {});
+        },
+        /* Closed: this window goes, the app under it has the remote again */
+        ccQuit: function () { if (CC) setTimeout(function () { try { global.close(); } catch (e) {} }, 240); }
     };
 })(window);

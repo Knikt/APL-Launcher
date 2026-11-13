@@ -40,7 +40,7 @@ object AppList {
             for (ri in list) {
                 val ai = ri.activityInfo ?: continue
                 val pkg = ai.packageName
-                if (pkg == ctx.packageName || !seen.add(pkg)) continue
+                if (pkg == ctx.packageName || pkg == HomeButton.PKG || !seen.add(pkg)) continue
                 val app = ai.applicationInfo
                 val system = (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
                 // A phone app on a TV: only the ones installed by hand (sideloaded IPTV players…), not the
@@ -134,7 +134,7 @@ object AppList {
 
     /* Does Home on the remote really open APL Launcher? Being chosen is not enough: Android TV 12+ and
        Google TV keep their own launcher first (a system priority), even when Android's question or adb
-       made APL Launcher the "default". KeyService.kt then takes the button (catchHome). */
+       made APL Launcher the "default". APL Launcher Home Button then takes the button (catchHome). */
     fun isDefaultHome(ctx: Context): Boolean {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
         val ri = ctx.packageManager.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)

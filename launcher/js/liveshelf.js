@@ -43,7 +43,7 @@
     })();
     var KEYS = global.APL_KEYS;
     var TTL = 6 * 3600 * 1000;
-    var CACHE_VERSION = 5;              // 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown
+    var CACHE_VERSION = 6;              // 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown; 6: all audiences only on LG
     var MIN_VOTES = 20;                 // below that, a rating doesn't mean anything yet
 
     /* The screen's country, for trending videos, charts, prices and what each service streams there.
@@ -121,7 +121,7 @@
         } catch (e) {}
     }
     cacheFor(REGION);
-    setTimeout(function () { readRegion(6); }, 20000);
+    if (!APL.ccOverlay) setTimeout(function () { readRegion(6); }, 20000);
 
     /* TMDB (JustWatch) "provider" ids of the services (the same in every country). */
     var TMDB_PROVIDERS = {
@@ -153,6 +153,15 @@
     /* The full-screen pictures' size: TMDB's own on a page drawn in 4K (LG, js/webos.js sets APL_HIRES),
        where a 780 or 1280 px wide picture showed its title logo blurred; Samsung keeps its sizes. */
     function big(size) { return global.APL_HIRES ? "original" : size; }
+    /* The same TMDB picture at a smaller one of its sizes, never a bigger one: w300 for a blur or a sample,
+       w1280 for a card. Drawing a 4K "original" into a 192 x 108 blur made the page decode all of it on its
+       own thread, 0.4 s at a time on an LG G5 while the focus moved. Other hosts are left as they are. */
+    var SIZES = ["w45", "w92", "w154", "w185", "w300", "w342", "w500", "w780", "w1280", "original"];
+    APL.artSize = function (url, size) {
+        var m = /^(https?:\/\/image\.tmdb\.org\/t\/p\/)([a-z0-9]+)(\/.+)$/.exec(String(url || ""));
+        if (!m || SIZES.indexOf(m[2]) <= SIZES.indexOf(size) || SIZES.indexOf(size) < 0) return url;
+        return m[1] + size + m[3];
+    };
 
     /* Fanart.tv (free key): textless HD background and title logo, when available. */
     var FANART = "https://webservice.fanart.tv/v3/";
@@ -190,8 +199,8 @@
             return n ? { rating: n, ratingFrom: "IMDb" } : other;
         }, function () { return other; });
     }
-    /* "★ 7.8 IMDb" (with a decimal comma in French) */
-    function noteOf(item) { return item.rating ? "★ " + item.rating.toFixed(1).replace(".", APL.lang === "fr" ? "," : ".") + " " + (item.ratingFrom || "TMDB") : ""; }
+    /* "★ 7.8 IMDb" (with a decimal comma in French and Polish) */
+    function noteOf(item) { return item.rating ? "★ " + item.rating.toFixed(1).replace(".", APL.lang === "fr" || APL.lang === "pl" ? "," : ".") + " " + (item.ratingFrom || "TMDB") : ""; }
     /* "★ 7.8 IMDb · 2025 · TV Show" */
     function metaOf(item) {
         var type = item.type === "tv" ? APL.t("TV Show") : item.type === "movie" ? APL.t("content|Movie") : item.type;
@@ -224,6 +233,51 @@
     }
     function kind(k) { return function (r) { r._kind = r._kind || k; return r; }; }
 
+    /* ---------- all audiences only (LG: APL.platform.allAges, js/webos.js) ----------
+       What the Top Shelf recommends (popular on a service, trending, anime) is then only for all ages: every
+       rating TMDB knows for it, in the screen's country and in the big ones (US, UK, Germany, France), is
+       Tous publics, U, G, PG, FSK 0 or 6. Nothing rated -10, -12, PG-13, 12A, FSK 12 and above, nothing with no
+       rating. The same rule as APL TV's screen saver (its js/meta.js, allAges). */
+    var ALL_AGES = !!(APL.platform && APL.platform.allAges);
+    var AGES = { G: 0, U: 0, TP: 0, AL: 0, KT: 0, T: 0, L: 0, APTA: 0, A: 0, "TV-Y": 0, "TV-G": 0, C: 0,
+                 PG: 8, "TV-Y7": 7, C8: 8, "TV-PG": 10, "PG-13": 13, "TV-14": 14, "14A": 14, "12A": 12, R: 17, "TV-MA": 17,
+                 "NC-17": 18, "18A": 18, R18: 18, X: 18, VM14: 14, VM18: 18 };
+    var UNRATED = /^(NR|N\/A|NA|UNRATED|NOT RATED|-|EXEMPT|E)$/i;
+    function minAge(cc, v) {
+        var up = String(v || "").toUpperCase().trim(), n = parseInt(up.replace(/^M\//, "").replace(/\D/g, ""), 10);
+        if (!up || UNRATED.test(up)) return -1;
+        if (AGES[up] !== undefined) return cc === "CA" && up === "R" ? 18 : AGES[up];
+        return isNaN(n) ? -1 : n;
+    }
+    var RELEASE_ORDER = [3, 2, 4, 5, 1, 6];          // the cinema release's rating first, then the others
+    function ageOk(r) {
+        if (r.adult) return Promise.resolve(false);
+        var path = r._kind === "tv" ? "/tv/" + r.id + "/content_ratings" : "/movie/" + r.id + "/release_dates";
+        return getJson(TMDB + path + "?api_key=" + KEYS.tmdb).then(function (j) {
+            var by = {};
+            (j.results || []).forEach(function (x) {
+                var v = x.rating || "", rank = 99;
+                (x.release_dates || []).forEach(function (d) {
+                    var k = RELEASE_ORDER.indexOf(d.type);
+                    if (k < 0) k = 9;
+                    if (d.certification && k < rank) { rank = k; v = d.certification; }
+                });
+                by[x.iso_3166_1] = v;
+            });
+            var worst = -1;
+            ["US", "GB", "DE", "FR", REGION].forEach(function (cc) { if (by[cc]) worst = Math.max(worst, minAge(cc, by[cc])); });
+            return worst >= 0 && worst < 10;
+        }).catch(function () { return false; });
+    }
+    /* The most popular ones, or on LG the most popular for all audiences (more are looked at: few are) */
+    function pick(results, n) {
+        if (!ALL_AGES) return Promise.resolve(top(results, n));
+        var many = top(results, 30);
+        return Promise.all(many.map(ageOk)).then(function (ok) {
+            return many.filter(function (r, i) { return ok[i]; }).slice(0, n || 8);
+        });
+    }
+
     /* Popular movies and series on a service (Netflix, Prime Video…) in the screen's country. */
     function tmdb(providerId) {
         var common = "api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&watch_region=" + REGION +
@@ -232,15 +286,15 @@
             getJson(TMDB + "/discover/tv?" + common).catch(function () { return { results: [] }; }),
             getJson(TMDB + "/discover/movie?" + common).catch(function () { return { results: [] }; })
         ]).then(function (res) {
-            return decorate(top((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))));
+            return pick((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))).then(decorate);
         });
     }
 
     /* Trending titles of the week, all services (movie and series websites). */
     function trending() {
         return getJson(TMDB + "/trending/all/week?api_key=" + KEYS.tmdb + "&language=" + APL.locale).then(function (j) {
-            return decorate(top((j.results || []).filter(function (r) { return r.media_type === "movie" || r.media_type === "tv"; })
-                .map(function (r) { r._kind = r.media_type; return r; })));
+            return pick((j.results || []).filter(function (r) { return r.media_type === "movie" || r.media_type === "tv"; })
+                .map(function (r) { r._kind = r.media_type; return r; })).then(decorate);
         });
     }
 
@@ -251,7 +305,7 @@
             getJson(TMDB + "/discover/tv?" + q).catch(function () { return { results: [] }; }),
             getJson(TMDB + "/discover/movie?" + q).catch(function () { return { results: [] }; })
         ]).then(function (res) {
-            return decorate(top((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))));
+            return pick((res[0].results || []).map(kind("tv")).concat((res[1].results || []).map(kind("movie")))).then(decorate);
         });
     }
 
@@ -292,7 +346,7 @@
     /* Games: Steam top sellers in the screen's country (no key). Background = a screenshot of the game at
        1920×1080, title = the game's official logo (else its name). */
     var STEAM_CDN = "https://cdn.akamai.steamstatic.com/steam/apps/";
-    var STEAM_LANG = APL.lang === "fr" ? "french" : "english";       // language of the genres
+    var STEAM_LANG = APL.lang === "fr" ? "french" : APL.lang === "pl" ? "polish" : "english";       // language of the genres
     function games() {
         return getJson("https://store.steampowered.com/api/featuredcategories?cc=" + REGION + "&l=" + STEAM_LANG).then(function (j) {
             var seen = {}, list = [];
@@ -554,15 +608,18 @@
     }
     /* Like on Apple TV, the picture with the title already drawn on it: TMDB tags it with a language, the
        interface's language first. Else the textless background, with the title logo laid over it (widgets.js). */
+    /* A card is about a quarter of the screen wide: 1280 px is sharp on a page drawn in 4K, where the
+       "original" cost a 4K decode for each card (widgets.js) */
+    function cardSize() { return global.APL_HIRES ? "w1280" : "w780"; }
     function keyArt(hit) {
-        var plain = { image: IMG + big("w780") + hit.backdrop_path };
+        var plain = { image: IMG + cardSize() + hit.backdrop_path };
         return getJson(TMDB + "/" + hit._kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
             function best(list, lang) {
                 return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
                     .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
             }
             var titled = best(im.backdrops, APL.lang) || best(im.backdrops, "en");
-            if (titled) return { image: IMG + big("w780") + titled.file_path, titled: true };
+            if (titled) return { image: IMG + cardSize() + titled.file_path, titled: true };
             var logo = best(im.logos, APL.lang) || best(im.logos, "en");
             return { image: plain.image, logo: logo ? IMG + big("w500") + logo.file_path : "" };
         }).catch(function () { return plain; });

@@ -1,5 +1,5 @@
 #!/bin/sh
-# apl-home.sh: the Home key opens APL Launcher, the TV starts on it, and Guide opens its Control Center.
+# apl-home.sh: the Home key opens APL Launcher, the TV starts on it, and Guide opens its Control Center over the app.
 # home/ (a page named com.webos.app.home that only opens APL Launcher) is mounted in RAM over LG's Home,
 # then the app manager (sam) is restarted so it reads it: the way CleanYourTV (MIT) replaces the Flutter
 # Home of webOS 24 and newer. Nothing is written under /usr. Undone by apl-home-undo.sh, or by a restart
@@ -12,6 +12,10 @@ ME=/media/developer/apps/usr/palm/applications/com.knikt.apllauncher
 T=/tmp/apl-home
 G=/usr/palm/applications/com.webos.app.livemenu
 TG=/tmp/apl-guide
+# The Control Center over the apps: an LG app that draws a see-through window over the one in front and that the
+# TV never opens once set up (its first-use overlay), given APL Launcher's app info, which points at cc.html
+C=/usr/palm/applications/com.webos.app.firstuse-overlay
+TC=/tmp/apl-cchost
 LOG=/tmp/apl-home.log
 log() { echo "$(cut -d' ' -f1 /proc/uptime) $*" | tee -a $LOG; }
 luna() { luna-send "$@" </dev/null; }
@@ -28,6 +32,10 @@ mount --bind $T $H || { log "the mount over LG's Home failed"; exit 1; }
 if [ ! -e "$APL/OFF-guide" ] && [ -r "$APL/guide/index.html" ] && [ -d $G ] && ! grep -q " $G " /proc/mounts; then
     rm -rf $TG && mkdir -p $TG && cp "$APL/guide/index.html" "$APL/guide/appinfo.json" $TG/ && cp "$ME/icon-80.png" $TG/icon.png 2>/dev/null
     mount --bind $TG $G && log "Guide opens the Control Center"
+    if [ -r "$APL/cchost/appinfo.json" ] && [ -r "$ME/cc.html" ] && [ -d $C ] && ! grep -q " $C " /proc/mounts; then
+        rm -rf $TC && mkdir -p $TC && cp "$APL/cchost/appinfo.json" $TC/ && cp "$ME/icon-80.png" $TC/icon.png 2>/dev/null
+        mount --bind $TC $C && log "the Control Center is drawn over the apps"
+    fi
 fi
 log "mounted over LG's Home; restarting the app manager"
 # an AirPlay child of sam makes its stop wait about 90 s (CleanYourTV): ended once the stop has begun

@@ -6,9 +6,13 @@
 #    .\scripts\install-android.ps1 -TvIp 192.168.1.30 -PairPort 37123 -PairCode 482913   (Wireless debugging)
 #
 #  1. adb: Android's own tool (platform-tools), found on this PC or downloaded once from Google
-#  2. the package: -Apk, else dist\apl-launcher-*-android.apk, else the latest GitHub release's .apk
+#  2. the packages: -Apk, else dist\apl-launcher-v*-android.apk, else the latest GitHub release's .apk; and APL Launcher
+#     Home Button, the optional module with the remote buttons service (dist\apl-launcher-home-button-v*-android.apk,
+#     or the release's). It is a second app because Play Protect blocks a sideloaded app that declares an accessibility
+#     service: adb installs it all the same.
 #  3. connects to the TV (USB or Network debugging: the TV asks to allow this PC once)
-#  4. installs it, turns on its remote buttons service (Home opens APL Launcher), gives it your TMDB, YouTube and
+#  4. installs them, turns on the module's remote buttons service (Home opens APL Launcher), lets the launcher draw
+#     over apps (its Control Center over the app in front), gives it your TMDB, YouTube and
 #     Fanart.tv keys (-Tmdb -YouTube -Fanart, else the ones saved by APL Launcher Setup) and opens it
 #  -CheckOnly: only says what this PC has (APL-CHECK).
 # ============================================================
@@ -18,7 +22,7 @@ param(
     [string]$PairPort,          # Wireless debugging (Android 11+): the pairing port and code the TV shows
     [string]$PairCode,
     [string]$Apk,
-    [switch]$NoHomeService,     # leaves the remote buttons service off (Home keeps the TV's own launcher)
+    [switch]$NoHomeService,     # no APL Launcher Home Button (Home keeps the TV's own launcher)
     [string]$Tmdb, [string]$YouTube, [string]$Fanart,   # the Top Shelf's keys; none given: the Setup's saved ones
     [string]$Repo = "Knikt/APL-Launcher",
     [switch]$AplTv,             # also installs APL TV (apl-tv-android.apk of Knikt/APL-TV's latest release)
@@ -31,7 +35,9 @@ $ErrorActionPreference = 'Stop'
 $Root = Split-Path $PSScriptRoot -Parent
 $Quiet = $Unattended -or $CheckOnly
 $AppId = "com.knikt.apllauncher"
-$KeyService = "$AppId/$AppId.KeyService"
+$ModuleId = "$AppId.home"                      # APL Launcher Home Button (android/homebutton)
+$KeyService = "$ModuleId/$ModuleId.KeyService"
+$OldService = "$AppId/$AppId.KeyService"       # 1.1.3 and before: the service was in the launcher itself
 $Total = 4 + [int][bool]$AplTv
 
 function Step([int]$n, [string]$txt) {
@@ -57,17 +63,36 @@ function Find-Adb {
     if ($cmd) { return $cmd.Source }
     return $null
 }
-function Find-LocalApk {
+function Find-LocalApk([string]$prefix = "apl-launcher-v") {
     $dist = Join-Path $Root "dist"
     if (-not (Test-Path -LiteralPath $dist)) { return $null }
-    $hit = Get-ChildItem -LiteralPath $dist -Filter "apl-launcher-*android*.apk" -File -ErrorAction SilentlyContinue |
+    $hit = Get-ChildItem -LiteralPath $dist -Filter "$prefix*android*.apk" -File -ErrorAction SilentlyContinue |
            Where-Object { $_.Name -notmatch 'testkey' } | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($hit) { return $hit.FullName }
     return $null
 }
 
+# A release's package (its versioned name, else its fixed name for Downloader), checked against SHA256SUMS-apk.txt
+function Get-ReleaseApk($rel, [string]$pattern, [string]$fixed) {
+    $asset = @($rel.assets) | Where-Object { $_.name -match $pattern -and $_.name -notmatch 'testkey' } | Select-Object -First 1
+    if (-not $asset) { $asset = @($rel.assets) | Where-Object { $_.name -eq $fixed } | Select-Object -First 1 }
+    if (-not $asset) { return $null }
+    $file = Join-Path $env:LOCALAPPDATA ("APL-Launcher\" + $asset.name)
+    Write-Host (Tr "        Downloading $($asset.name)…" "        Téléchargement de $($asset.name)…")
+    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $file -TimeoutSec 300
+    $sums = @($rel.assets) | Where-Object { $_.name -match '^SHA256SUMS' -and $_.name -match 'apk' } | Select-Object -First 1
+    if ($sums) {
+        $txt = (Invoke-WebRequest -UseBasicParsing -Uri $sums.browser_download_url -TimeoutSec 60).Content
+        if ($txt -is [byte[]]) { $txt = [Text.Encoding]::ASCII.GetString($txt) }
+        $want = ([regex]::Match($txt, '([0-9a-fA-F]{64})\s+\*?' + [regex]::Escape($asset.name))).Groups[1].Value.ToLowerInvariant()
+        $got = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($want -and $want -ne $got) { Remove-Item -LiteralPath $file -Force; throw (Tr "The download is damaged (SHA256 differs). Try again." "Le téléchargement est abîmé (SHA256 différent). Réessaie.") }
+    }
+    return $file
+}
+
 if ($CheckOnly) {
-    $check = [ordered]@{ adb = (Find-Adb); apk = $(if ($Apk) { $Apk } else { Find-LocalApk }) }
+    $check = [ordered]@{ adb = (Find-Adb); apk = $(if ($Apk) { $Apk } else { Find-LocalApk }); module = (Find-LocalApk "apl-launcher-home-button-v") }
     Send-Gui ("APL-CHECK " + ($check | ConvertTo-Json -Compress))
     if (-not $script:Gui) { $check | Format-List }
     exit 0
@@ -104,26 +129,23 @@ Adb @('start-server') | Out-Null
 # ---------- 2. the package ----------
 Step 2 (Tr "Getting APL Launcher for Android…" "Récupération d'APL Launcher pour Android…")
 if (-not $Apk) { $Apk = Find-LocalApk }
-if (-not $Apk) {
+$ModuleApk = if ($NoHomeService) { $null } else { Find-LocalApk "apl-launcher-home-button-v" }
+if (-not $Apk -or (-not $NoHomeService -and -not $ModuleApk)) {
     $api = "https://api.github.com/repos/$Repo/releases/latest"
     try { $rel = Invoke-RestMethod -UseBasicParsing -Uri $api -Headers @{ 'User-Agent' = 'APL-Launcher-Setup' } -TimeoutSec 60 }
     catch { Fail (Tr "Could not reach GitHub ($api): $($_.Exception.Message)" "GitHub injoignable ($api) : $($_.Exception.Message)") }
-    $asset = @($rel.assets) | Where-Object { $_.name -match 'android.*\.apk$' -and $_.name -notmatch 'testkey' } | Select-Object -First 1
-    if (-not $asset) { Fail (Tr "This release ($($rel.tag_name)) has no Android package yet." "Cette version ($($rel.tag_name)) n'a pas encore de paquet Android.") }
-    $Apk = Join-Path $env:LOCALAPPDATA ("APL-Launcher\" + $asset.name)
-    Write-Host (Tr "        Downloading $($asset.name)…" "        Téléchargement de $($asset.name)…")
-    Invoke-WebRequest -UseBasicParsing -Uri $asset.browser_download_url -OutFile $Apk -TimeoutSec 300
-    $sums = @($rel.assets) | Where-Object { $_.name -match '^SHA256SUMS' -and $_.name -match 'apk' } | Select-Object -First 1
-    if ($sums) {
-        $txt = (Invoke-WebRequest -UseBasicParsing -Uri $sums.browser_download_url -TimeoutSec 60).Content
-        if ($txt -is [byte[]]) { $txt = [Text.Encoding]::ASCII.GetString($txt) }
-        $want = ([regex]::Match($txt, '([0-9a-fA-F]{64})\s+\*?' + [regex]::Escape($asset.name))).Groups[1].Value.ToLowerInvariant()
-        $got = (Get-FileHash -LiteralPath $Apk -Algorithm SHA256).Hash.ToLowerInvariant()
-        if ($want -and $want -ne $got) { Remove-Item -LiteralPath $Apk -Force; Fail (Tr "The download is damaged (SHA256 differs). Try again." "Le téléchargement est abîmé (SHA256 différent). Réessaie.") }
+    if (-not $Apk) {
+        try { $Apk = Get-ReleaseApk $rel '^apl-launcher-v.*-android\.apk$' 'apl-launcher-android.apk' } catch { Fail $_.Exception.Message }
+        if (-not $Apk) { Fail (Tr "This release ($($rel.tag_name)) has no Android package yet." "Cette version ($($rel.tag_name)) n'a pas encore de paquet Android.") }
+    }
+    if (-not $NoHomeService -and -not $ModuleApk) {
+        # Releases up to 1.1.3 have none: the launcher then had the service itself
+        try { $ModuleApk = Get-ReleaseApk $rel '^apl-launcher-home-button-v.*-android\.apk$' 'apl-launcher-home-button.apk' } catch { Write-Host "        $($_.Exception.Message)" -ForegroundColor Yellow }
     }
 }
 if (-not (Test-Path -LiteralPath $Apk)) { Fail (Tr "Package not found: $Apk" "Paquet introuvable : $Apk") }
 Write-Host "        $(Split-Path $Apk -Leaf)" -ForegroundColor Green
+if ($ModuleApk) { Write-Host "        $(Split-Path $ModuleApk -Leaf)" -ForegroundColor Green }
 
 # ---------- 3. connect ----------
 Step 3 (Tr "Connecting to the TV ($TvIp)… Allow this PC on the TV if it asks." "Connexion à la TV ($TvIp)… Autorise ce PC sur la TV si elle le demande.")
@@ -162,18 +184,25 @@ if ($r.Output -notmatch 'Success') {
     if ($r.Output -match 'INSTALL_FAILED_UPDATE_INCOMPATIBLE') { Fail (Tr "Another APL Launcher (signed with another key) is installed: uninstall it on the TV first." "Un autre APL Launcher (signé avec une autre clé) est installé : désinstalle-le d'abord sur la TV.") }
     Fail (Tr "The TV did not install the package: $($r.Output.Trim())" "La TV n'a pas installé le paquet : $($r.Output.Trim())")
 }
-if (-not $NoHomeService) {
-    # Home opens APL Launcher: its accessibility service (docs/android.md, way A), added to the ones already on
-    $cur = (Adb @('-s', $serial, 'shell', 'settings', 'get', 'secure', 'enabled_accessibility_services')).Output.Trim()
-    if ($cur -eq 'null') { $cur = '' }
-    if ($cur -notmatch [regex]::Escape($KeyService)) {
-        $new = if ($cur) { "${cur}:$KeyService" } else { $KeyService }
-        Adb @('-s', $serial, 'shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', $new) | Out-Null
+if ($ModuleApk) {
+    # Home opens APL Launcher: APL Launcher Home Button and its accessibility service (docs/android.md, way A), added to
+    # the services already on, without the launcher's own one of 1.1.3 and before
+    $r = Adb @('-s', $serial, 'install', '-r', $ModuleApk)
+    Write-Host "        $($r.Output.Trim())"
+    if ($r.Output -notmatch 'Success') {
+        Write-Host (Tr "        APL Launcher Home Button could not be installed: Home keeps the TV's own launcher. APL Launcher shows how to get it (Settings › Android TV)." "        APL Launcher Home Button n'a pas pu être installé : Home garde le launcher de la TV. APL Launcher explique comment l'obtenir (Réglages › Android TV).") -ForegroundColor Yellow
+    } else {
+        $cur = (Adb @('-s', $serial, 'shell', 'settings', 'get', 'secure', 'enabled_accessibility_services')).Output.Trim()
+        if ($cur -eq 'null') { $cur = '' }
+        $list = @(@($cur -split ':') | Where-Object { $_ -and $_ -ne $OldService -and $_ -ne $KeyService }) + $KeyService
+        Adb @('-s', $serial, 'shell', 'settings', 'put', 'secure', 'enabled_accessibility_services', ($list -join ':')) | Out-Null
+        Adb @('-s', $serial, 'shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1') | Out-Null
+        $now = (Adb @('-s', $serial, 'shell', 'settings', 'get', 'secure', 'enabled_accessibility_services')).Output
+        if ($now -match [regex]::Escape($KeyService)) { Write-Host (Tr "        Remote buttons on: Home opens APL Launcher." "        Boutons de la télécommande activés : Home ouvre APL Launcher.") -ForegroundColor Green }
+        else { Write-Host (Tr "        The remote buttons service could not be turned on: APL Launcher will offer it at its first start." "        Le service des boutons n'a pas pu être activé : APL Launcher le proposera à son premier démarrage.") -ForegroundColor Yellow }
     }
-    Adb @('-s', $serial, 'shell', 'settings', 'put', 'secure', 'accessibility_enabled', '1') | Out-Null
-    $now = (Adb @('-s', $serial, 'shell', 'settings', 'get', 'secure', 'enabled_accessibility_services')).Output
-    if ($now -match [regex]::Escape($KeyService)) { Write-Host (Tr "        Remote buttons on: Home opens APL Launcher." "        Boutons de la télécommande activés : Home ouvre APL Launcher.") -ForegroundColor Green }
-    else { Write-Host (Tr "        The remote buttons service could not be turned on: APL Launcher will offer it at its first start." "        Le service des boutons n'a pas pu être activé : APL Launcher le proposera à son premier démarrage.") -ForegroundColor Yellow }
+    # Its Control Center over the app in front: "draw over other apps" (also in the TV's Settings › Apps › Special app access)
+    Adb @('-s', $serial, 'shell', 'appops', 'set', $AppId, 'SYSTEM_ALERT_WINDOW', 'allow') | Out-Null
 }
 # The API keys: the published .apk has none and can't be changed here (it is signed with APL Launcher's key), so
 # they go to the app itself (KeysReceiver.kt, which only adb and the system may call). Never written to the log.

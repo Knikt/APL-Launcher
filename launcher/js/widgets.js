@@ -546,23 +546,25 @@
         else pic.innerHTML = APL.icon("photo", 96, 1.4);
         card.appendChild(pic);
         var images = c.images || (c.image ? [c.image] : []);
+        // A card is about a quarter of the screen wide: TMDB's 1280 px picture, never its 4K original
+        var sized = images.map(function (u) { return APL.artSize ? APL.artSize(u, "w1280") : u; });
         (function next(i) {
             if (i >= images.length) return;
             var probe = new global.Image();
             probe.onload = function () {
                 pic.innerHTML = "";
-                pic.style.backgroundImage = "url('" + images[i].replace(/'/g, "%27") + "')";
+                pic.style.backgroundImage = "url('" + sized[i].replace(/'/g, "%27") + "')";
                 // The title is already on the picture: it isn't written a second time
                 if (c.titled && images[i] === c.image) card.classList.add("is-titled");
             };
             probe.onerror = function () { next(i + 1); };
-            probe.src = images[i];
+            probe.src = sized[i];
         })(0);
         if (c.logo) {
             var logo = el("img", "wdg__logo");
             logo.onload = function () { card.classList.add("is-titled"); };
             logo.onerror = function () { if (logo.parentNode) logo.parentNode.removeChild(logo); };
-            logo.src = c.logo;
+            logo.src = APL.artSize ? APL.artSize(c.logo, "w500") : c.logo;
             card.appendChild(logo);
         }
         var txt = el("div", "wdg__txt");
@@ -587,6 +589,9 @@
         blur.style.opacity = "0";
         if (!src) return;
         var img = new global.Image();
+        /* Drawn into 192 x 108: TMDB's 300 px copy. Its 4K original was decoded whole by the page
+           itself when the canvas was drawn, 0.4 s with nothing moving on an LG G5 */
+        if (APL.artSize) src = APL.artSize(src, "w300");
         img.onload = function () {
             if (token !== blurToken) return;
             var ctx = blur.getContext("2d"), w = blur.width, h = blur.height, m = 14;
@@ -693,7 +698,7 @@
 
     /* Back from an app: what was just watched counts right away. */
     document.addEventListener("visibilitychange", function () {
-        if (document.hidden || !READERS[shownFor]) return;
+        if (document.hidden || APL.ccOverlay || !READERS[shownFor]) return;
         delete cache[shownFor];
         trendN++;
         painted = "";

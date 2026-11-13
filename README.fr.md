@@ -72,7 +72,7 @@ Ce qu'il fait sur chaque TV :
 - **Samsung (rootée)** : fabrique APL Launcher avec tes clés, le signe avec ton certificat Samsung et l'installe par Vetro. Il faut Tizen Studio et le certificat sur le PC : l'installateur les vérifie et te dit quoi faire. Ses pages **Optimiser** et **Restaurer** sont aussi pour Samsung.
 - **LG rootée** : fabrique le paquet avec tes clés et l'envoie en SSH (utilisateur `root`, mot de passe `alpine` sauf si tu l'as changé), l'installe, puis active les fonctions root et le debloat. Testé sur une LG OLED G5 (webOS 26) avec le Homebrew Channel 0.7.3.
 - **LG non rootée** : installe par l'app **Developer Mode** de LG (un compte développeur LG gratuit ; active *Dev Mode Status*, puis *Key Server*, et tape sa phrase secrète dans l'installateur). APL Launcher renouvelle tout seul les 1000 heures du mode développeur.
-- **Android TV** : trouve adb (ou télécharge une fois les platform-tools de Google), installe le `.apk` et active le service des boutons, pour que Home ouvre APL Launcher. Active d'abord le *débogage USB* ou le *débogage réseau* dans les *Options pour les développeurs* de la TV (*Paramètres › Préférences de l'appareil › À propos*, appuie sept fois sur OK sur *Build*).
+- **Android TV** : trouve adb (ou télécharge une fois les platform-tools de Google), installe le launcher et APL Launcher Home Button, active le service des boutons du module (Home ouvre APL Launcher) et autorise le launcher à s'afficher par-dessus les apps (son Centre de contrôle sur l'app au premier plan). Active d'abord le *débogage USB* ou le *débogage réseau* dans les *Options pour les développeurs* de la TV (*Paramètres › Préférences de l'appareil › À propos*, appuie sept fois sur OK sur *Build*).
 
 Le guide complet, étape par étape : [docs/installation.md](docs/installation.md) (en anglais).
 
@@ -100,11 +100,14 @@ Sans ordinateur. Installe l'app **Downloader** (d'AFTVnews) sur la TV, ouvre-la 
 
 C'est toujours la dernière version. Installe-la, puis ouvre APL Launcher : il demande ce qu'il faut pour Home.
 
+Pour le bouton Home (Home, l'appui long sur Home et ⏯ par-dessus les apps), ajoute **APL Launcher Home Button**, une petite seconde app : `https://github.com/Knikt/APL-Launcher/releases/latest/download/apl-launcher-home-button.apk`. Elle est à part car Google Play Protect bloque toute app installée hors du Play Store qui utilise l'accessibilité : désactive *Analyser les applications avec Play Protect* (Play Store › profil › Paramètres › Play Protect) le temps de l'installer, puis réactive-le. Le launcher l'explique dans *Réglages › Android TV* ([docs/android.md](docs/android.md)).
+
 ### adb, à la main (Android TV)
 
 ```sh
 adb connect <ip-de-la-tv>
-adb install -r apl-launcher-v1.1.1-android.apk
+adb install -r apl-launcher-v1.1.4-android.apk
+adb install -r apl-launcher-home-button-v1.1.4-android.apk
 ```
 
 Puis ouvre APL Launcher une fois. Plus de détails, dont la touche Home : [docs/android.md](docs/android.md).

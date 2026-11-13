@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "APL Launcher"
-include ":app"
+include ":app", ":homebutton"

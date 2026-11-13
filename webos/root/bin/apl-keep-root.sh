@@ -9,6 +9,9 @@
 #      keys of its own keeps them, and they become the kept ones;
 #   2. the launcher's service runs without root: elevate-service gives it root again and it is restarted
 #      (the launcher starts it again on its next call). At most once a minute.
+#   3. the launcher's service doesn't run: it is started (one luna call, at most once a minute). It closes
+#      the unused apps (Close Unused Apps) and watches the Guide button, and with LG's own Home in front
+#      nothing else calls it. OFF-idleclose leaves it stopped.
 # Pause: touch /media/developer/apl-debloat/OFF-root. Log: /tmp/apl-keep-root.log.
 export PATH=/usr/bin:/usr/sbin:/bin:/sbin:$PATH
 APL=/media/developer/apl-debloat
@@ -47,6 +50,7 @@ restore() {
 
 seen=""
 last=0
+started=0
 log "watching $SVC"
 while :; do
     if [ ! -e $APL/OFF-root ]; then
@@ -63,6 +67,12 @@ while :; do
                 "$E" $SVC </dev/null >/dev/null 2>&1
                 kill "$p" 2>/dev/null
                 log "root given back to $SVC (it ran as uid $(stat -c %u /proc/$p 2>/dev/null))"
+            fi
+        elif [ -z "$p" ] && [ -d "$SVCDIR" ] && [ ! -e $APL/OFF-idleclose ]; then
+            now=$(cut -d. -f1 /proc/uptime)
+            if [ $((now - started)) -ge 60 ]; then
+                started=$now
+                luna-send-pub -n 1 -w 8000 luna://$SVC/idle '{}' </dev/null >/dev/null 2>&1 && log "started $SVC"
             fi
         fi
     fi

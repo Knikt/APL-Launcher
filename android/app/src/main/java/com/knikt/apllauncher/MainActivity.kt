@@ -24,7 +24,7 @@ import org.json.JSONObject
 class MainActivity : Activity(), Bridge.Host {
     companion object {
         const val EXTRA_ACTION = "apl_action"
-        const val EXTRA_HOME = "apl_home"          // Home pressed (KeyService.kt), where Android keeps its own launcher on it
+        const val EXTRA_HOME = "apl_home"          // Home pressed (APL Launcher Home Button), where Android keeps its own launcher on it
         const val REQUEST_HOME = 7
         @Volatile var current: MainActivity? = null
         @Volatile var resumed = false

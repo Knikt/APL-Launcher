@@ -240,7 +240,8 @@
         return false;
     });
 
-    setInterval(function () {
+    // The Control Center over the apps (LG, webos.js) is a page of its own: never a screen saver there
+    if (!APL.ccOverlay) setInterval(function () {
         var delay = sys.pref("screensaverDelay");
         // Only with the launcher really in front: an app over it can leave the page "visible", and the
         // screen saver would then greet the return to the Home Screen

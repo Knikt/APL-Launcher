@@ -51,6 +51,9 @@ android/app/build/
 android/app/src/main/assets/
 android/app/src/main/res/mipmap-*/
 android/app/src/main/res/drawable/banner.png
+android/homebutton/build/
+android/homebutton/src/main/res/mipmap-*/
+android/homebutton/src/main/res/drawable/banner.png
 *.apk
 *.jks
 *.keystore

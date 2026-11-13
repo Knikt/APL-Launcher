@@ -1,6 +1,5 @@
 package com.knikt.apllauncher
 
-import android.accessibilityservice.AccessibilityService
 import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
@@ -62,7 +61,9 @@ class Bridge(private val ctx: Context, private val host: Host) {
         o.put("defaultHome", AppList.isDefaultHome(app))
         o.put("chosenHome", AppList.isChosenHome(app))
         o.put("homeBlocked", AppList.stockHomeWins(app))
-        o.put("accessibility", KeyService.isOn(app))
+        o.put("module", HomeButton.installed(app))           // APL Launcher Home Button (HomeButton.kt)
+        o.put("accessibility", HomeButton.isOn(app))
+        o.put("oldService", HomeButton.oldServiceWasOn(app))   // 1.1.3 and before: the service was in the launcher itself
         o.put("overlayAllowed", if (Build.VERSION.SDK_INT >= 23) Settings.canDrawOverlays(app) else true)
         o.put("usageAccess", usageAccess())
         o.put("root", hasSu())
@@ -121,15 +122,15 @@ class Bridge(private val ctx: Context, private val host: Host) {
         return start(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    /* The app in front, as the accessibility service last saw it ("" when it is off). */
-    @JavascriptInterface fun foreground(): String = KeyService.front
+    /* The app in front, as APL Launcher Home Button last saw it ("" without it). */
+    @JavascriptInterface fun foreground(): String = HomeButton.front
 
     /* The apps used lately, most recent first: from the accessibility service, and from Android's usage
        statistics when that access was given (adb, docs/android.md). */
     @JavascriptInterface
     fun running(): String {
         val out = LinkedHashSet<String>()
-        KeyService.recent().forEach { out.add(it) }
+        HomeButton.recent().forEach { out.add(it) }
         if (usageAccess()) {
             try {
                 val um = app.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -152,7 +153,7 @@ class Bridge(private val ctx: Context, private val host: Host) {
         val before = memAvail(am)
         val arr = try { JSONArray(pkgsJson) } catch (e: Exception) { JSONArray() }
         var n = 0
-        val front = KeyService.front
+        val front = HomeButton.front
         for (i in 0 until arr.length()) {
             val pkg = arr.optString(i)
             if (pkg.isEmpty() || pkg == app.packageName || pkg == front) continue
@@ -352,7 +353,7 @@ class Bridge(private val ctx: Context, private val host: Host) {
     fun openSystemHome(): Boolean {
         val homes = AppList.otherHomes(app)
         val c = homes.firstOrNull { it.packageName == AppList.GOOGLE_TV_HOME } ?: homes.firstOrNull() ?: return false
-        KeyService.allowStockHome(10 * 60 * 1000L)
+        HomeButton.send(app, "allowStock:" + 10 * 60 * 1000L)
         return start(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).setComponent(c)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
     }
@@ -365,31 +366,19 @@ class Bridge(private val ctx: Context, private val host: Host) {
     }
 
     /* ---------- sleep, the remote ---------- */
-    /* Asleep now: the accessibility service's "lock screen" (Android 9+), which a TV takes as sleep. */
-    @JavascriptInterface
-    fun sleep(): Boolean {
-        if (KeyService.instance == null || Build.VERSION.SDK_INT < 28) return false
-        Web.onMain { Overlay.hide() }
-        return KeyService.action(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
-    }
+    /* Asleep now: through APL Launcher Home Button's "lock screen" (Android 9+), which a TV takes as sleep. */
+    @JavascriptInterface fun sleep(): Boolean = HomeButton.sleep(app)
 
     @JavascriptInterface fun sleepAt(): Double = SleepReceiver.at(app).toDouble()
     @JavascriptInterface fun setSleepAt(at: Double) { SleepReceiver.schedule(app, at.toLong()) }
 
     @JavascriptInterface
     fun globalAction(name: String): Boolean {
-        val a = when (name) {
-            "home" -> AccessibilityService.GLOBAL_ACTION_HOME
-            "back" -> AccessibilityService.GLOBAL_ACTION_BACK
-            "recents" -> AccessibilityService.GLOBAL_ACTION_RECENTS
-            "notifications" -> AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS
-            "power" -> AccessibilityService.GLOBAL_ACTION_POWER_DIALOG
-            else -> return false
-        }
-        return KeyService.action(a)
+        if (name !in listOf("home", "back", "recents", "notifications", "power")) return false
+        return HomeButton.send(app, "global:$name")
     }
 
-    /* Launcher settings the native side needs too (KeyService.kt): pauseKey, catchHome, idleClose, homeReturn. */
+    /* Launcher settings APL Launcher Home Button reads too (HomeButtonProvider): pauseKey, catchHome, idleClose, homeReturn. */
     @JavascriptInterface
     fun setNativePref(key: String, value: String) {
         if (!Regex("^[A-Za-z]{1,40}$").matches(key)) return

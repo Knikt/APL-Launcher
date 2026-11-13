@@ -1,6 +1,5 @@
 package com.knikt.apllauncher
 
-import android.accessibilityservice.AccessibilityService
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -10,13 +9,13 @@ import android.os.Build
 import android.util.Log
 
 /* The Sleep Timer: Android counts, so it works whatever app is in front. At the time chosen, the device
-   goes to sleep through the accessibility service ("lock screen", which a TV takes as sleep). */
+   goes to sleep through APL Launcher Home Button ("lock screen", which a TV takes as sleep). */
 class SleepReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
         val at = Bridge.prefs(c).getLong("sleepAt", 0L)
         if (at == 0L || System.currentTimeMillis() < at - 60 * 1000L) return
         Bridge.prefs(c).edit().remove("sleepAt").apply()
-        if (!KeyService.action(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)) Log.w(Web.TAG, "sleep timer: the accessibility service is off")
+        if (!HomeButton.sleep(c)) Log.w(Web.TAG, "sleep timer: APL Launcher Home Button is not on")
     }
 
     companion object {

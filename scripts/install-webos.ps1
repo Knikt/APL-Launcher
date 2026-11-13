@@ -618,7 +618,9 @@ if ($Rooted) {
     [IO.File]::WriteAllBytes($tarFile, $tar.Tar())
     $r = Invoke-TvSsh -Command 'rm -rf /tmp/apl-root && mkdir -p /tmp/apl-root && tar -x -C /tmp/apl-root && echo APL-SENT' -InputFile $tarFile -TimeoutSec 120
     if ($r.Out -notmatch 'APL-SENT') { Fail (Tr "The root scripts did not arrive on the TV. ($($r.Err.Trim()))" "Les scripts root ne sont pas arrivés sur la TV. ($($r.Err.Trim()))") }
-    $offDebloat = 'OFF-ads OFF-tracking OFF-logs OFF-suggestions OFF-services'
+    # OFF-noload / OFF-preload: LG's apps opened in the background on their own (LG Channels, the preload
+    # manager) are part of the debloat
+    $offDebloat = 'OFF-ads OFF-tracking OFF-logs OFF-suggestions OFF-services OFF-noload OFF-preload'
     $rootScript = @"
 A=/media/developer/apl-debloat
 APL_SRC=/tmp/apl-root sh /tmp/apl-root/install.sh || { echo APL-ROOT-FAILED; exit 1; }
@@ -629,6 +631,15 @@ $(if ($NoHome) { 'touch OFF-home' } else { 'rm -f OFF-home' })
 sh /var/lib/webosbrew/init.d/10-apl-block-updates
 sh /var/lib/webosbrew/init.d/11-apl-block-privacy
 $(if (-not $NoDebloat) { "sh `$A/apl-debloat-stop.sh; sh `$A/apl-services-stop.sh" })
+$(if (-not $NoDebloat) { @'
+# now too, not only at the next start: LG Channels covered, LG's preloading off. Their loops (every 10 min)
+# start again from the new scripts.
+for n in noload preload; do
+    if [ -f /tmp/apl-$n.pid ]; then kill "$(cat /tmp/apl-$n.pid)" 2>/dev/null; rm -f /tmp/apl-$n.pid; fi
+done
+sh /var/lib/webosbrew/init.d/14-apl-noload
+sh /var/lib/webosbrew/init.d/15-apl-preload-off
+'@ })
 rm -rf /tmp/apl-root
 echo APL-ROOT-OK
 "@

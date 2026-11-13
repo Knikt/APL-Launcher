@@ -22,7 +22,7 @@
 # To undo everything: sh /media/developer/apl-debloat/uninstall.sh
 set -eu
 
-APL_VERSION="1.1.2"
+APL_VERSION="1.1.4"
 REPO="Knikt/APL-Launcher"
 BRANCH="${1:-main}"
 URL="https://raw.githubusercontent.com/$REPO/$BRANCH/webos/root"
@@ -65,7 +65,13 @@ fetch "$APL/apl-services-undo.sh"  bin/apl-services-undo.sh
 fetch "$APL/apl-home.sh"           bin/apl-home.sh
 fetch "$APL/apl-home-undo.sh"      bin/apl-home-undo.sh
 fetch "$APL/apl-keep-root.sh"      bin/apl-keep-root.sh
+fetch "$APL/apl-noload.sh"         bin/apl-noload.sh
+fetch "$APL/apl-noload-undo.sh"    bin/apl-noload-undo.sh
+fetch "$APL/apl-preload-off.sh"    bin/apl-preload-off.sh
+fetch "$APL/apl-preload-undo.sh"   bin/apl-preload-undo.sh
 fetch "$APL/uninstall.sh"          uninstall.sh
+mkdir -p "$APL/noload"
+fetch "$APL/noload/index.html"     noload/index.html
 mkdir -p "$APL/personal"
 mkdir -p "$APL/home"
 fetch "$APL/home/index.html"       home/index.html
@@ -73,6 +79,8 @@ fetch "$APL/home/appinfo.json"     home/appinfo.json
 mkdir -p "$APL/guide"
 fetch "$APL/guide/index.html"      guide/index.html
 fetch "$APL/guide/appinfo.json"    guide/appinfo.json
+mkdir -p "$APL/cchost"
+fetch "$APL/cchost/appinfo.json"   cchost/appinfo.json
 
 echo
 echo "Downloading boot hooks into $HOOK/"
@@ -80,6 +88,8 @@ fetch "$HOOK/10-apl-block-updates"   init.d/10-apl-block-updates
 fetch "$HOOK/11-apl-block-privacy"   init.d/11-apl-block-privacy
 fetch "$HOOK/12-apl-debloat"         init.d/12-apl-debloat
 fetch "$HOOK/13-apl-services-stop"   init.d/13-apl-services-stop
+fetch "$HOOK/14-apl-noload"          init.d/14-apl-noload
+fetch "$HOOK/15-apl-preload-off"     init.d/15-apl-preload-off
 fetch "$HOOK/20-apl-elevate"         init.d/20-apl-elevate
 fetch "$HOOK/21-apl-keep-root"       init.d/21-apl-keep-root
 fetch "$HOOK/30-apl-home"            init.d/30-apl-home
@@ -121,6 +131,8 @@ echo "  sh $HOOK/10-apl-block-updates"
 echo "  sh $HOOK/11-apl-block-privacy"
 echo "  sh $APL/apl-debloat-stop.sh"
 echo "  sh $APL/apl-services-stop.sh"
+echo "  sh $HOOK/14-apl-noload           (LG Channels never opens)"
+echo "  sh $HOOK/15-apl-preload-off      (LG no longer opens apps in the background by itself)"
 echo "  sh $APL/apl-home.sh             (Home opens APL Launcher; the screen goes black a few seconds)"
 echo
 echo "LG's Home instead of APL Launcher: touch $APL/OFF-home, or sh $APL/apl-home-undo.sh for now."

@@ -34,14 +34,31 @@
     var ROOT_KEY = "apl.webos.root", rootFns = [];
     P.rooted = (function () { try { return global.localStorage.getItem(ROOT_KEY) === "1"; } catch (e) { return false; } })();
     P.onRoot = function (fn) { rootFns.push(fn); fn(P.rooted); };
-    P.service("status", {}).then(function (m) {
-        var r = !!m.root;
-        try { global.localStorage.setItem(ROOT_KEY, r ? "1" : "0"); } catch (e) {}
-        if (r) readHome();
-        if (r === P.rooted) return;
-        P.rooted = r;
-        rootFns.forEach(function (fn) { try { fn(r); } catch (e) {} });
-    }, function () {});
+    /* Just after an update of the launcher, its service starts without root, and apl-keep-root.sh (webos/root)
+       gives it back within seconds, with your keys and fonts put back into the package: the page looks again
+       for a few minutes, and reloads once when root comes back, so it has them all. */
+    var rootTries = 0, startedRooted = null;
+    function readRoot() {
+        P.service("status", {}).then(function (m) {
+            var r = !!m.root;
+            try { global.localStorage.setItem(ROOT_KEY, r ? "1" : "0"); } catch (e) {}
+            if (startedRooted === null) startedRooted = r;
+            if (r) readHome();
+            if (!r && ++rootTries < 12) setTimeout(readRoot, 15000);
+            if (r && !startedRooted && !APL.ccOverlay) {
+                var again = false;
+                try { again = global.sessionStorage.getItem("apl.webos.rootReload") !== "1"; global.sessionStorage.setItem("apl.webos.rootReload", "1"); } catch (e) {}
+                if (again) { setTimeout(function () { global.location.reload(); }, 500); return; }
+            }
+            if (r === P.rooted) return;
+            P.rooted = r;
+            rootFns.forEach(function (fn) { try { fn(r); } catch (e) {} });
+        }, function () { if (++rootTries < 12) setTimeout(readRoot, 15000); });
+    }
+    readRoot();
+    document.addEventListener("visibilitychange", function () {
+        if (!document.hidden && !P.rooted && rootTries >= 12) { rootTries = 0; readRoot(); }
+    });
     /* Home: APL Launcher or LG's own (webos/root/bin/apl-home.sh), Settings › General & Privacy */
     P.home = null;
     function readHome() {
@@ -230,8 +247,10 @@
             try { global.localStorage.setItem(DEV_KEY, JSON.stringify(devm)); } catch (e) {}
         }, function (e) { devm.error = e.message; });
     }
-    setTimeout(devCheck, 8000);
-    setInterval(devCheck, 3600 * 1000);
+    if (!APL.ccOverlay) {                   // the launcher does it, not the Control Center over the apps
+        setTimeout(devCheck, 8000);
+        setInterval(devCheck, 3600 * 1000);
+    }
     P.devmode = function () {
         if (devm.hours === undefined) return devm.error ? t("Unavailable") : "…";
         var left = Math.max(0, devm.hours - Math.floor((Date.now() - (devm.at || Date.now())) / 3600000));
@@ -377,9 +396,13 @@
         if (D) {
             if (P.oled) D.screensaverClockMove = 2;      // as on Samsung's OLEDs: the clock goes round the corners
             // Samsung-only parts: no Smart Hub rows, no Vetro, no APL Overlay, no updates from GitHub yet
-            D.hubShelf = false; D.homeReturn = false; D.alexaBridge = false; D.idleClose = false; D.bootCleanup = false; D.autoUpdate = false;
+            D.hubShelf = false; D.homeReturn = false; D.alexaBridge = false; D.bootCleanup = false; D.autoUpdate = false;
+            D.idleClose = true;                       // done by the launcher's service on a rooted TV (webos/service, "idle")
             D.lgHomeApl = true;                       // read from the TV at each start (readHome)
         }
+        // Close Unused Apps: the launcher's service closes them (rooted TV); this setting turns it on or off there
+        P.onRoot(function (on) { if (on) P.service("idle", { on: sys.pref("idleClose") !== false }).catch(function () {}); });
+        sys.onPref("idleClose", function (v) { if (P.rooted) P.service("idle", { on: !!v }).catch(function () {}); });
         sys.platform = "webos";
         sys.audio = audio;
         sys.network = network;

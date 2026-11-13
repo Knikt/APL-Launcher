@@ -35,6 +35,8 @@ var ssap = require("./ssap.js");
 var pkg = require("./package.json");
 
 var ID = "com.knikt.apllauncher.service", APP = "com.knikt.apllauncher";
+var GUIDE = "com.webos.app.livemenu";       // LG's Guide app: a see-through page of APL Launcher on a rooted TV (webos/root/guide)
+var CC_HOST = "com.webos.app.firstuse-overlay";     // where the Control Center is drawn over the apps (webos/root/cchost)
 var service = new Service(ID);
 var client = null, key = "";
 /* The key the TV gave, kept for this boot: restarted (an update, the app manager), the service must not ask
@@ -63,10 +65,21 @@ function caller(message) {
     return s;
 }
 /* The launcher (com.knikt.apllauncher, its windows "com.knikt.apllauncher-123…"), or a developer at the
-   TV's own shell (luna-send-pub). No other app gets the TV's remote API through this service. */
+   TV's own shell (luna-send-pub). No other app gets the TV's remote API through this service. On a rooted TV,
+   LG's first-use overlay app is given APL Launcher's own app info by apl-home.sh (webos/root/cchost): it shows
+   the launcher's Control Center over the apps, so it may too, but only while that app info is the one in place. */
+var CC_MOUNT = /\s\/usr\/palm\/applications\/com\.webos\.app\.firstuse-overlay\s/, ccOursAt = 0, ccOurs = false;
+function ccHostIsOurs() {
+    if (Date.now() - ccOursAt > 10000) {
+        ccOursAt = Date.now();
+        try { ccOurs = CC_MOUNT.test(fs.readFileSync("/proc/mounts", "utf8")); } catch (e) { ccOurs = false; }
+    }
+    return ccOurs;
+}
 function allowed(message) {
     var s = caller(message);
-    return s === APP || s.indexOf(APP + "-") === 0 || s.indexOf("com.webos.lunasendpub") === 0;
+    if (s === APP || s.indexOf(APP + "-") === 0 || s.indexOf("com.webos.lunasendpub") === 0) return true;
+    return s.indexOf(CC_HOST + "-") === 0 && ccHostIsOurs();
 }
 function guard(fn) {
     return function (message) {
@@ -279,30 +292,152 @@ service.register("home", guard(function (message) {
    apl-home.sh puts a blank page in place of LG's Guide (com.webos.app.livemenu, webos/root/guide/). When the
    TV opens it, the Control Center of APL Launcher opens instead, saying which app was in front so that Back
    goes back to it. The app manager's life events tell both. Rooted TV only; OFF-guide turns it off. */
-var GUIDE = "com.webos.app.livemenu", lastApp = "", guideAt = 0;
+var lastApp = "", guideAt = 0;
 var NOT_AN_APP = /^(com\.webos\.app\.(home|livemenu|starfish.*|.*systemui.*|quicksettings|volume.*)|com\.knikt\.apllauncher)$/;
 function onLife(p) {
     var id = String(p.appId || ""), ev = String(p.event || "");
+    idleLife(id, ev);
     if (ev === "foreground") {
         if (id === APP || id === "com.webos.app.home") lastApp = "";
         else if (!NOT_AN_APP.test(id)) lastApp = id;
     }
-    if (id === GUIDE && (ev === "splash" || ev === "launch" || ev === "foreground") && Date.now() - guideAt > 1500) {
+    // One press gives "launch", then "foreground" up to 2 s later: once per press, or the panel opened and closed
+    if (id === GUIDE && (ev === "splash" || ev === "launch" || ev === "foreground") && Date.now() - guideAt > 4000) {
         guideAt = Date.now();
-        ssap.note("Guide (" + ev + "): Control Center over " + (lastApp || "the launcher"));
         service.call("luna://com.webos.applicationManager/closeByAppId", { id: GUIDE }, function () {});
-        service.call("luna://com.webos.applicationManager/launch", { id: APP, params: { apl_action: "controlcenter", from: lastApp } }, function () {});
+        frontNow(function (front) {
+            // Over the launcher itself: its own Control Center, with its glass
+            if (!front) { ccLauncher(""); return; }
+            ccHostReady(function (ready) {
+                if (!ready) { ccLauncher(front); return; }
+                ssap.note("Guide: Control Center drawn over " + front);
+                service.call("luna://com.webos.applicationManager/launch", { id: CC_HOST, params: { apl: "cc" } }, function (m) {
+                    if (m && m.payload && m.payload.returnValue === false) ccLauncher(front);
+                });
+            });
+        });
     }
 }
+/* The launcher in front with its Control Center open, the app it was opened over coming back with Back: over the
+   launcher, and until the TV restarts once with the app info of webos/root/cchost (it reads it at its start) */
+function ccLauncher(front) {
+    ssap.note("Guide: Control Center over " + (front || "the launcher"));
+    service.call("luna://com.webos.applicationManager/launch", { id: APP, params: { apl_action: "controlcenter", from: front } }, function () {});
+}
+/* The app in front ("" for the launcher or LG's Home): the TV says, the windows drawn over the apps left out */
+function frontNow(cb) {
+    service.call("luna://com.webos.applicationManager/getForegroundAppInfo", {}, function (m) {
+        var id = String(m && m.payload && m.payload.appId || "");
+        if (id === APP || id === "com.webos.app.home") id = "";
+        else if (!id || NOT_AN_APP.test(id) || id === CC_HOST) id = lastApp;     // not known, a panel: the last app seen
+        cb(id);
+    });
+}
+/* Is the Control Center's window ready over the apps? The TV has APL Launcher's app info for it (its vendor, a
+   window over the apps, cc.html) only once it restarted after apl-home.sh put it in place. */
+var hostAt = 0, hostIs = false;
+function ccHostReady(cb) {
+    if (Date.now() - hostAt < 30000) { cb(hostIs); return; }
+    service.call("luna://com.webos.applicationManager/getAppInfo", { id: CC_HOST }, function (m) {
+        var a = (m && m.payload && m.payload.appInfo) || {};
+        hostIs = a.defaultWindowType === "overlay" && /Knikt/.test(String(a.vendor || "")) &&
+                 /\/cc\.html$/.test(String(a.main || "")) && ccHostIsOurs();
+        hostAt = Date.now();
+        cb(hostIs);
+    });
+}
+
+/* ---------- the Control Center over the apps (the Guide button) ----------
+   launcher/cc.html opens the launcher's own page (?apl=cc) in the window over the app in front. Its storage is
+   that app's: the launcher's settings are kept here for it (ccSave, given each time an app opens over the
+   launcher), and what it changes (Do Not Disturb) goes back to the launcher (back). In RAM, and in /tmp in case
+   the service restarts; the remote API's key is in it, so the file is root's alone. */
+var CC_FILE = "/tmp/apl-cc-state.json", ccStore = {}, ccBack = null;
+try { var ccWas = JSON.parse(fs.readFileSync(CC_FILE, "utf8")); ccStore = ccWas.store || {}; ccBack = ccWas.back || null; } catch (e) {}
+service.register("ccSave", guard(function (message) {
+    var p = message.payload || {};
+    if (p.store && typeof p.store === "object") {
+        var s = {}, size = 0;
+        Object.keys(p.store).slice(0, 80).forEach(function (k) {
+            var v = p.store[k];
+            if (/^apl\./.test(k) && typeof v === "string" && (size += k.length + v.length) < 512 * 1024) s[k] = v;
+        });
+        ccStore = s;
+    }
+    if ("back" in p) ccBack = p.back && typeof p.back === "object" ? { dnd: !!p.back.dnd, at: Date.now() } : null;
+    try { fs.writeFileSync(CC_FILE, JSON.stringify({ store: ccStore, back: ccBack }), { mode: 384 }); } catch (e) {}
+    message.respond({ returnValue: true });
+}));
+/* over: the app the Control Center is drawn over */
+service.register("ccState", guard(function (message) {
+    frontNow(function (front) { message.respond({ returnValue: true, over: front, store: ccStore, back: ccBack }); });
+}));
 function watchApps() {
     var sub = service.subscribe("luna://com.webos.applicationManager/getAppLifeEvents", { subscribe: true });
     ssap.note("watching app launches for Guide");
-    sub.on("response", function (m) { if (!fs.existsSync(ROOT_DIR + "/OFF-guide")) onLife(m && m.payload || {}); });
+    sub.on("response", function (m) {
+        var p = m && m.payload || {};
+        if (!fs.existsSync(ROOT_DIR + "/OFF-guide")) onLife(p);
+        else idleLife(String(p.appId || ""), String(p.event || ""));
+    });
     sub.on("cancel", function () { setTimeout(watchApps, 5000); });
 }
+
+/* ---------- Close Unused Apps (rooted TV), as APL Overlay does on Samsung ----------
+   An app left 10 minutes in the background closes on its own; one the TV opened by itself and you never used
+   (LG Channels, which LG keeps preloaded) after 1 minute. Never the app in front, the launcher and its Home
+   page, live TV, the inputs, AirPlay, nor an app playing sound or video. The TV keeps its memory, and the
+   launcher stays smooth. Settings › Apps › Close Unused Apps turns it off (service "idle"). */
+var idleOn = true, bgSince = {}, hidden = {}, frontApp = "";
+var NEVER_CLOSE = /^(com\.knikt\.apllauncher|com\.webos\.app\.(home|livetv|hdmi\d*|inputcommon|livemenu|firstuse-overlay|.*systemui.*|airplay|screensaver|tvhotkey)|airplay)$/;
+var PRELOADED = { "com.webos.app.lgchannels": 1 };
+function idleLife(id, ev) {
+    if (!id) return;
+    if (ev === "foreground") { frontApp = id; delete bgSince[id]; delete hidden[id]; }
+    else if (ev === "background") { bgSince[id] = Date.now(); if (frontApp === id) frontApp = ""; }
+    else if (ev === "launch" || ev === "splash") { if (frontApp !== id && !(id in bgSince)) { hidden[id] = true; bgSince[id] = Date.now(); } }
+    else if (ev === "close" || ev === "stop") { delete bgSince[id]; delete hidden[id]; }
+}
+// The apps that play sound or video now (the media server's pipelines): never closed
+function playing(cb) {
+    service.call("luna://com.webos.media/getActivePipelines", {}, function (m) {
+        var out = {}, list = m && m.payload;
+        (Array.isArray(list) ? list : []).forEach(function (p) {
+            var id = String(p.appid || p.appId || "");
+            if (id && p.type !== "vtclient") out[id] = true;
+        });
+        cb(out);
+    });
+}
+function idleTick() {
+    if (!idleOn || fs.existsSync(ROOT_DIR + "/OFF-idleclose")) return;
+    service.call("luna://com.webos.applicationManager/running", {}, function (m) {
+        var apps = (m && m.payload && m.payload.running) || [];
+        playing(function (busy) {
+            var now = Date.now();
+            apps.forEach(function (a) {
+                var id = String(a.id || "");
+                if (!id || id === frontApp || NEVER_CLOSE.test(id) || busy[id]) return;
+                if (!(id in bgSince)) { bgSince[id] = now; if (PRELOADED[id]) hidden[id] = true; return; }   // first seen behind: counted from now
+                var limit = hidden[id] ? 60000 : 10 * 60000;
+                if (now - bgSince[id] < limit) return;
+                service.call("luna://com.webos.applicationManager/closeByAppId", { id: id }, function () {});
+                ssap.note("closed " + id + (hidden[id] ? " (opened by the TV, never used)" : " (10 min in the background)"));
+                delete bgSince[id]; delete hidden[id];
+            });
+        });
+    });
+}
+service.register("idle", guard(function (message) {
+    var p = message.payload || {};
+    if (typeof p.on === "boolean") idleOn = p.on;
+    message.respond({ returnValue: true, on: idleOn, root: ROOT });
+}));
 if (ROOT) {
     stayAwake();
     watchApps();
+    service.call("luna://com.webos.applicationManager/getForegroundAppInfo", {}, function (m) { frontApp = String(m && m.payload && m.payload.appId || frontApp); });
+    setInterval(idleTick, 30000);
 }
 
 /* ---------- APL TV's Top Shelf ----------

@@ -170,7 +170,7 @@
 
     function render(focus) {
         cards = inputs().concat(extras());
-        titleEl.textContent = "Sources";
+        titleEl.textContent = APL.t("Sources");
         hintEl.textContent = APL.t("OK: switch to the input · Hold OK: choose the device, or add it to the Home Screen · Back: Home");
         fill(cards, focus);
     }
@@ -252,7 +252,7 @@
         });
     }
     // Once after start-up: the ports and the devices Samsung recognized may have changed since last time
-    setTimeout(function () {
+    if (!APL.ccOverlay) setTimeout(function () {
         refreshPorts().then(function (changed) { if (changed && pinned().length && APL.refreshHome) APL.refreshHome(); });
     }, 20000);
 

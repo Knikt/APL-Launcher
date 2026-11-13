@@ -39,6 +39,8 @@ window.APL_LANG_FR = {
     "“{name}” is part of the TV's system and can't be deleted. You can hide it.": "« {name} » fait partie du système de la TV et ne peut pas être supprimée. Tu peux la masquer.",
     "Couldn't delete “{name}”. You can hide it.": "Impossible de supprimer « {name} ». Tu peux la masquer.",
     "APL Launcher {v} is available": "APL Launcher {v} est disponible",
+    "An app left in the background for more than 10 minutes closes on its own, and one the TV opened by itself (LG Channels) after 1 minute: the TV keeps its memory and the launcher stays smooth. Never the app in front, live TV, the inputs, AirPlay, or an app playing sound or video.":
+        "Une app laissée plus de 10 minutes en arrière-plan se ferme toute seule, et celle que la TV a ouverte d'elle-même (LG Channels) au bout d'1 minute : la TV garde sa mémoire et le launcher reste fluide. Jamais l'app à l'écran, la TV en direct, les entrées, AirPlay, ni une app qui joue du son ou de la vidéo.",
     "To install it: open the Homebrew Channel, choose APL Launcher, then Update. Not in its list yet? Add APL Launcher's repository first, then install it from the list. Your settings, the root and your fonts are kept.":
         "Pour l'installer : ouvre le Homebrew Channel, choisis APL Launcher, puis Update. Pas encore dans sa liste ? Ajoute d'abord le dépôt d'APL Launcher, puis installe-le depuis la liste. Tes réglages, le root et tes polices sont gardés.",
     "To install it, run APL Launcher Setup again on your PC (Your TV › LG). Your settings are kept.":

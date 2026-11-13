@@ -1,6 +1,5 @@
 package com.knikt.apllauncher
 
-import android.accessibilityservice.AccessibilityService
 import android.content.Context
 import android.graphics.PixelFormat
 import android.os.Build
@@ -16,9 +15,9 @@ import android.widget.FrameLayout
 
 /* The Control Center over the app in front, like APL Overlay on Samsung: a window of its own with the
    launcher's Control Center (assets/app/cc.html), transparent around it.
-   - Opened by the accessibility service (Home held, or ⏯ in an app): its own kind of window, which
-     needs no other permission.
-   - Otherwise, with "draw over other apps" (only given with adb on a TV: docs/android.md).
+   Asked by APL Launcher Home Button (Home held, or ⏯ in an app), it needs "draw over other apps"
+   (Settings › Apps › Special app access, or adb: docs/android.md). Without it the module opens the
+   launcher with its own Control Center instead.
    The page stays loaded a few minutes after it closes, so the next opening is immediate. */
 object Overlay : Bridge.Host {
     private val h = Handler(Looper.getMainLooper())
@@ -38,7 +37,6 @@ object Overlay : Bridge.Host {
     fun show(c: Context): Boolean {
         if (shown) return true
         val type = when {
-            c is AccessibilityService && Build.VERSION.SDK_INT >= 22 -> WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
             Build.VERSION.SDK_INT >= 26 && Settings.canDrawOverlays(c) -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             Build.VERSION.SDK_INT in 23..25 && Settings.canDrawOverlays(c) -> @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
             else -> return false

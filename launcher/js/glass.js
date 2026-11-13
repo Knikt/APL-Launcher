@@ -56,6 +56,11 @@
        picture had the whole surface repainted with it: on a G5 drawing in 4K the clock pill alone took
        25 ms of GPU each time (blurred shadows, masked rim), the dock 12. */
     var DIRECT = !!(APL.platform && APL.platform.directGlass);
+    /* Its picture is made at half the size, 240 x 135, without a canvas filter, and encoded away from the
+       animation (toBlob): the 480 x 270 JPEG of toDataURL took 20 ms at rest on a G5, and 110 to 140 ms
+       each while the focus moved along the dock, six times in a first pass. The picture is a 48 x 27
+       sample enlarged, so the screen's own enlarging shows it the same. */
+    var DIRECT_W = 240, DIRECT_H = 135;
 
     var baked = "";          /* data URL of the frozen backdrop */
     var bakedFrom = "";      /* the artwork it was made from */
@@ -133,6 +138,7 @@
        Center built; one already loaded in the page is taken as it is (0.3 ms). */
     var quickUrl = {}, quickN = 0;
     function quick(data) {
+        if (/^blob:/.test(data)) { quickUrl[data] = data; quickN++; return; }      // a direct pane (drawDirect)
         if (data in quickUrl || !global.fetch || !global.URL) return;
         quickUrl[data] = "";                              // on its way
         global.fetch(data).then(function (r) { return r.blob(); }).then(function (b) {
@@ -264,6 +270,45 @@
         return data;
     }
 
+    /* LG: the same pane, made for the direct panes (see DIRECT_W). The brightness is put on the 1,296 pixels of
+       the sample, not filtered over the bigger canvas; the luminances are read before, as draw() does. */
+    function drawDirect(img, cb) {
+        var iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+        var sw = iw / ZOOM, sh = ih / ZOOM;
+        var tiny = document.createElement("canvas");
+        tiny.width = TINY_W;
+        tiny.height = TINY_H;
+        var t = tiny.getContext("2d", READ);
+        t.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, 0, 0, TINY_W, TINY_H);
+        var g = grid(tiny);
+        try {
+            var px = t.getImageData(0, 0, TINY_W, TINY_H), d = px.data, i;
+            for (i = 0; i < d.length; i += 4) { d[i] = d[i] * LIGHT; d[i + 1] = d[i + 1] * LIGHT; d[i + 2] = d[i + 2] * LIGHT; }
+            t.putImageData(px, 0, 0);
+        } catch (e) {}
+        var out = document.createElement("canvas");
+        out.width = DIRECT_W;
+        out.height = DIRECT_H;
+        var c = out.getContext("2d", READ);
+        c.imageSmoothingEnabled = true;
+        if ("imageSmoothingQuality" in c) c.imageSmoothingQuality = "high";
+        c.drawImage(tiny, 0, 0, DIRECT_W, DIRECT_H);
+        var answered = false;
+        function answer(data) {
+            if (answered) return;
+            answered = true;
+            if (data && g) lums[data] = g;
+            cb(data);
+        }
+        if (out.toBlob && global.URL && global.URL.createObjectURL) {
+            out.toBlob(function (b) { answer(b ? global.URL.createObjectURL(b) : out.toDataURL("image/jpeg", 0.72)); }, "image/jpeg", 0.72);
+            // an encoder that never answers: the small one now
+            global.setTimeout(function () { if (!answered) answer(out.toDataURL("image/jpeg", 0.72)); }, 1500);
+        } else {
+            answer(out.toDataURL("image/jpeg", 0.72));
+        }
+    }
+
     var rendering = {};
     /* One render per artwork, however many ask for it: a bake finishing after
        the focus moved on still answers everybody, and nothing is dropped. */
@@ -301,8 +346,15 @@
         function paintSource() {
             if (painted) return;
             painted = true;
+            if (DIRECT) {
+                try { drawDirect(img, withPane); } catch (e) { withPane(""); }
+                return;
+            }
             var data = "";
             try { data = draw(img); } catch (e) { data = ""; }
+            withPane(data);
+        }
+        function withPane(data) {
             if (objectUrl) { try { global.URL.revokeObjectURL(objectUrl); } catch (e) {} objectUrl = ""; }
             if (!data) { finish(""); return; }
             /* Decode the frozen pane before anyone can show it: a pane whose
@@ -343,17 +395,20 @@
            a blob URL is same-origin, so the canvas is readable as usual. Hosts
            whose fetch is refused still take the plain <img> path. */
         var remote = !/^(data:|blob:)/i.test(src);
+        /* The pane is a 48 x 27 sample: TMDB's 300 px copy of the picture is plenty, where its 4K
+           original was a 4K decode on the page's own thread */
+        var from = remote && APL.artSize ? APL.artSize(src, "w300") : src;
         if (remote && global.fetch && global.URL && global.URL.createObjectURL) {
-            global.fetch(src, { mode: "cors", credentials: "omit" }).then(function (r) {
+            global.fetch(from, { mode: "cors", credentials: "omit" }).then(function (r) {
                 if (!r.ok) throw new Error("http " + r.status);
                 return r.blob();
             }).then(function (blob) {
                 if ((blob.type || "").indexOf("image/") !== 0) throw new Error("not an image");
                 objectUrl = global.URL.createObjectURL(blob);
                 useImage(objectUrl, false);
-            }).catch(function () { useImage(src, true); });
+            }).catch(function () { useImage(from, true); });
         } else {
-            useImage(src, remote);
+            useImage(from, remote);
         }
     }
 
@@ -503,19 +558,22 @@
     function gradScene() { return gradOf(sceneEl()); }
 
     function gradImage(stops) {
+        /* LG: drawn at the sample's size, 48 x 27, the screen enlarges it as smoothly (1 ms instead of 20 to
+           140 for the 480 x 270 JPEG) */
+        var W = DIRECT ? TINY_W : BAKE_W, H = DIRECT ? TINY_H : BAKE_H;
         var out = document.createElement("canvas");
-        out.width = BAKE_W;
-        out.height = BAKE_H;
+        out.width = W;
+        out.height = H;
         var c = out.getContext("2d", READ);
-        var g = c.createLinearGradient(0, 0, 0, BAKE_H), i;
+        var g = c.createLinearGradient(0, 0, 0, H), i;
         for (i = 0; i < stops.length; i++) {
             g.addColorStop(stops.length === 1 ? 0 : i / (stops.length - 1), stops[i].trim());
         }
         c.fillStyle = g;
-        c.fillRect(0, 0, BAKE_W, BAKE_H);
+        c.fillRect(0, 0, W, H);
         /* The same brightness the baked pictures carry. */
         c.fillStyle = "rgba(255, 255, 255, " + (LIGHT - 1) + ")";
-        c.fillRect(0, 0, BAKE_W, BAKE_H);
+        c.fillRect(0, 0, W, H);
         var data = out.toDataURL("image/jpeg", 0.72);
         var tiny = document.createElement("canvas");
         tiny.width = TINY_W;

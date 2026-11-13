@@ -12,6 +12,9 @@
     var levels = [];
     var listY = 0;
     var isOpen = false;
+    /* LG: the focused row's white plate is one layer that slides from row to row (launcher.css .srow__plate),
+       as on tvOS. A row turning white repainted its whole layer on every frame of the change. */
+    var PLATE = !!(APL.platform && APL.platform.focusLayers), plate = null;
 
     function el(tag, cls, html) {
         var e = document.createElement(tag);
@@ -208,6 +211,7 @@
         listEl.innerHTML = "";
         listY = 0;
         listEl.style.transform = "translateY(0)";
+        if (PLATE) { plate = el("i", "srow__plate"); listEl.appendChild(plate); }
         // Section titles ("VIDEO", "AUDIO"…): shown, never selectable
         var rows = [];
         node.children.forEach(function (item) {
@@ -242,9 +246,22 @@
         listEl.style.transform = "translateY(" + listY + "px)";
     }
 
+    /* The plate under the focused row: in place at once the first time, then sliding */
+    function placePlate(row) {
+        if (!plate || plate.parentNode !== listEl) return;
+        var first = !plate.classList.contains("is-on");
+        if (first) plate.style.transition = "none";
+        plate.style.height = row.offsetHeight + "px";
+        // the row's place in the list (the list, being moved by a transform, is the row's offset parent in Chromium)
+        var y = row.offsetParent === listEl ? row.offsetTop : row.offsetTop - listEl.offsetTop;
+        plate.style.transform = "translate3d(0," + y + "px,0) scale(1.04)";
+        if (first) { void plate.offsetWidth; plate.style.transition = ""; plate.classList.add("is-on"); }
+    }
+
     function onFocus(i, row) {
         cur().index = i;
         ensureVisible(row);
+        placePlate(row);
         var item = row._item;
         descEl.textContent = item.desc || (item.type === "menu" ? "" : "");
         pathEl.style.display = "none";

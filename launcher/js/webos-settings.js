@@ -28,7 +28,10 @@
     // On a rooted TV the launcher's service reads and sets these through LG's own settings (webos-system.js)
     var ROOT_ROWS = { "tv:backlight": 1, "tv:contrast": 1, "tv:sharpness": 1, "tv:color": 1, "tvmode:": 1 };
     function samsungOnly(item) {
-        if (item.vetro === true && !(P.rooted && item.type === "action" && item.label === t("Free Up Memory"))) return true;
+        // Free Up Memory and Close Unused Apps: the launcher's service does them on a rooted TV
+        var rootedHere = P.rooted && ((item.type === "action" && item.label === t("Free Up Memory")) || (item.type === "toggle" && item.key === "idleClose"));
+        if (rootedHere) return false;
+        if (item.vetro === true) return true;
         if (SAMSUNG_TYPES[item.type] && !(P.rooted && ROOT_ROWS[item.type + ":" + (item.id || "")])) return true;
         if ((item.type === "toggle" || item.type === "choice") && SAMSUNG_PREFS[item.key]) return true;
         if (item.type === "hide" && item.id === "apl.samsunghome") return true;
@@ -63,6 +66,8 @@
             item.desc = t("How bright the OLED panel is. ◀ ▶ to adjust, live.");
         } else if (item.type === "tvmode") {
             item.desc = t("The TV's own modes: Filmmaker Mode, Cinema, Standard, Vivid… Changes right away. Each mode keeps its own settings.");
+        } else if (item.type === "toggle" && item.key === "idleClose") {
+            item.desc = t("An app left in the background for more than 10 minutes closes on its own, and one the TV opened by itself (LG Channels) after 1 minute: the TV keeps its memory and the launcher stays smooth. Never the app in front, live TV, the inputs, AirPlay, or an app playing sound or video.");
         } else if (item.type === "action" && item.label === t("Free Up Memory")) {
             item.desc = t("Closes the apps left open behind the launcher (Netflix, Disney+, LG Channels…). They reopen normally, but start over from the beginning. The app in front, the inputs and AirPlay stay.");
         }
@@ -154,7 +159,7 @@
     P.ccOutputName = function () { return sys.audio.outputMode(); };
     P.ccAudioItems = function (redraw) {
         var cur = sys.audio.output ? sys.audio.output() : "";
-        var out = [{ cls: "head", title: "Audio" }, { cls: "section", title: t("Sound Output") }];
+        var out = [{ cls: "head", title: t("Audio") }, { cls: "section", title: t("Sound Output") }];
         OUTPUT_LIST.forEach(function (o) {
             out.push({ cls: "row", icon: o === "tv_speaker" ? "display" : o === "headphone" ? "headphones" : o === "bt_soundbar" ? "bluetooth" : "speaker",
                        title: sys.audio.outputName(o),

@@ -15,18 +15,18 @@
       "manifestUrl": "https://raw.githubusercontent.com/Knikt/APL-Launcher/main/webos/repo/apl-launcher.json",
       "manifest": {
         "id": "com.knikt.apllauncher",
-        "version": "1.1.2",
+        "version": "1.1.4",
         "type": "web",
         "title": "APL Launcher",
         "appDescription": "An Apple TV style Home Screen",
         "iconUri": "https://raw.githubusercontent.com/Knikt/APL-Launcher/main/launcher/icon.png",
         "sourceUrl": "https://github.com/Knikt/APL-Launcher",
         "rootRequired": false,
-        "ipkUrl": "https://github.com/Knikt/APL-Launcher/releases/download/v1.1.2/apl-launcher-v1.1.2-lg-webos.ipk",
+        "ipkUrl": "https://github.com/Knikt/APL-Launcher/releases/download/v1.1.4/apl-launcher-v1.1.4-lg-webos.ipk",
         "ipkHash": {
-          "sha256": "2144f658cdfef734932172f76d507e49d866cc822beb19a0822ab73355958f69"
+          "sha256": "929643761e602e40276a4705673bfa02a17160c73a3a87aff3c4f4a02b12b07f"
         },
-        "ipkSize": 5454498
+        "ipkSize": 5481260
       },
       "pool": "main",
       "shortDescription": "An Apple TV style Home Screen for LG TVs. Root features: see the README.",

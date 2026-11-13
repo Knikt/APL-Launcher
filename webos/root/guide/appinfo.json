@@ -11,6 +11,7 @@
     "class": {
         "hidden": true
     },
+    "defaultWindowType": "overlay",
     "noSplashOnLaunch": true,
     "handlesRelaunch": true,
     "disableBackHistoryAPI": true

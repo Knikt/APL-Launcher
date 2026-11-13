@@ -1,4 +1,10 @@
-"""Builds APL Launcher for Android TV and Google TV: an .apk.
+"""Builds APL Launcher for Android TV and Google TV: two .apk files.
+
+    apl-launcher-v<V>-android.apk               the launcher (no accessibility service: it installs without a Play
+                                                Protect warning)
+    apl-launcher-home-button-v<V>-android.apk   APL Launcher Home Button, optional: the accessibility service for the
+                                                remote's Home and play/pause buttons (android/homebutton). Signed with
+                                                the same key as the launcher, or the two can't talk.
 
     python tools/make-android.py              your own devices: your keys, fonts and avatars (never publish it)
     python tools/make-android.py --release    the package for GitHub Releases: no personal file (no key, no SF Pro, which
@@ -107,7 +113,7 @@ open(os.path.join(app_dir, "js", "build.js"), "w", encoding="utf-8", newline="\n
 # The Android layer, and the Control Center over the apps with the few modules it needs
 shutil.copy2(os.path.join(WEB, "android.js"), os.path.join(app_dir, "js", "android.js"))
 shutil.copy2(os.path.join(WEB, "android.css"), os.path.join(app_dir, "css", "android.css"))
-CC = ["js/lang-fr.js", "js/i18n.js", "js/system.js", "js/icons.js", "js/navigation.js"] + \
+CC = ["js/lang-fr.js", "js/lang-ms.js", "js/lang-pl.js", "js/i18n.js", "js/system.js", "js/icons.js", "js/navigation.js"] + \
      (["js/avatars.local.js"] if have_avatars else []) + ["js/profiles.js", "js/controlcenter.js", "js/android.js"]
 for s in CC:
     if not os.path.exists(os.path.join(app_dir, s)):
@@ -143,6 +149,42 @@ draw.text((132, 52), "APL", fill=(255, 255, 255), font=font or ImageFont.load_de
 draw.text((132, 90), "Launcher", fill=(255, 255, 255), font=font or ImageFont.load_default())
 os.makedirs(os.path.join(MAIN, "res", "drawable"), exist_ok=True)
 banner.save(os.path.join(MAIN, "res", "drawable", "banner.png"))
+
+# APL Launcher Home Button: the same icon with a small house, and its own banner
+HB = os.path.join(AND, "homebutton", "src", "main")
+def house(img):
+    img = img.copy()
+    d = ImageDraw.Draw(img)
+    w = img.size[0]
+    r = int(w * 0.36)                     # the badge, bottom right
+    x0 = y0 = w - r - int(w * 0.04)
+    d.ellipse((x0, y0, x0 + r, y0 + r), fill=(10, 132, 255, 255))
+    cx, cy, k = x0 + r / 2.0, y0 + r / 2.0, r / 100.0
+    d.polygon([(cx - 26 * k, cy - 2 * k), (cx, cy - 26 * k), (cx + 26 * k, cy - 2 * k)], fill=(255, 255, 255, 255))
+    d.rectangle((cx - 18 * k, cy - 4 * k, cx + 18 * k, cy + 24 * k), fill=(255, 255, 255, 255))
+    d.rectangle((cx - 6 * k, cy + 8 * k, cx + 6 * k, cy + 24 * k), fill=(10, 132, 255, 255))
+    return img
+hicon = house(icon)
+for folder, size in (("mipmap-mdpi", 48), ("mipmap-hdpi", 72), ("mipmap-xhdpi", 96), ("mipmap-xxhdpi", 144), ("mipmap-xxxhdpi", 192)):
+    d = os.path.join(HB, "res", folder)
+    os.makedirs(d, exist_ok=True)
+    hicon.resize((size, size), Image.LANCZOS).save(os.path.join(d, "ic_launcher.png"))
+hbanner = Image.new("RGB", (320, 180), (0, 0, 0))
+hpx = hbanner.load()
+for y in range(180):
+    for x in range(320):
+        hpx[x, y] = px[x, y]
+hlogo = hicon.resize((96, 96), Image.LANCZOS)
+hbanner.paste(hlogo, (22, 42), hlogo)
+hdraw = ImageDraw.Draw(hbanner)
+small = None
+for f in (os.path.join(L, "fonts", "SFPRODISPLAYBOLD.OTF"), "C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/arialbd.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"):
+    if os.path.exists(f):
+        small = ImageFont.truetype(f, 30); break
+hdraw.text((132, 54), "Home", fill=(255, 255, 255), font=small or ImageFont.load_default())
+hdraw.text((132, 90), "Button", fill=(255, 255, 255), font=small or ImageFont.load_default())
+os.makedirs(os.path.join(HB, "res", "drawable"), exist_ok=True)
+hbanner.save(os.path.join(HB, "res", "drawable", "banner.png"))
 
 # ---- the tools (on this PC: E:, where there is room; elsewhere: what the machine provides)
 win = os.name == "nt"
@@ -202,12 +244,20 @@ if release and testkey:
 print("APL Launcher", version, "for Android:", "release" if release else ("dev" if dev else "personal"))
 if subprocess.call(args, env=env, shell=False) != 0:
     sys.exit("the Android build failed (see above)")
-apk = os.path.join(AND, "app", "build", "outputs", "apk", "release", "app-release.apk")
 os.makedirs(out, exist_ok=True)
-final = os.path.join(out, "apl-launcher-v%s-android%s%s.apk" % (version, "" if release else ("-dev" if dev else "-personal"), "-testkey" if testkey else ""))
-shutil.copy2(apk, final)
-print("package:", final, os.path.getsize(final), "bytes")
+suffix = ("" if release else ("-dev" if dev else "-personal")) + ("-testkey" if testkey else "")
+finals = []
+for module, name, fixed in (("app", "apl-launcher", "apl-launcher-android.apk"), ("homebutton", "apl-launcher-home-button", "apl-launcher-home-button.apk")):
+    apk = os.path.join(AND, module, "build", "outputs", "apk", "release", module + "-release.apk")
+    final = os.path.join(out, "%s-v%s-android%s.apk" % (name, version, suffix))
+    shutil.copy2(apk, final)
+    finals.append(final)
+    print("package:", final, os.path.getsize(final), "bytes")
+    # The release also carries each one under a fixed name: .../releases/latest/download/<name>, for Downloader
+    if release:
+        shutil.copy2(final, os.path.join(out, fixed))
 if release:
     import hashlib
-    h = hashlib.sha256(open(final, "rb").read()).hexdigest()
-    open(os.path.join(out, "SHA256SUMS-apk.txt"), "w", encoding="utf-8", newline="\n").write("%s  %s\n" % (h, os.path.basename(final)))
+    with open(os.path.join(out, "SHA256SUMS-apk.txt"), "w", encoding="utf-8", newline="\n") as f:
+        for final in finals:
+            f.write("%s  %s\n" % (hashlib.sha256(open(final, "rb").read()).hexdigest(), os.path.basename(final)))
