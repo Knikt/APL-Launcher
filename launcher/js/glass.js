@@ -31,6 +31,7 @@
     /* These canvases are read back (getImageData, toDataURL) and never shown: kept in ordinary memory.
        On the GPU each read waited for it, 90 ms at a time on an LG G5, in the middle of an animation. */
     var READ = { willReadFrequently: true };
+    var PANE_FADE_MS = 300;              /* the picture's crossfade (launcher.js FADE_MS) */
 
     var BAKE_W = 480, BAKE_H = 270;      /* 1/4 of the stage */
     var TINY_W = 48, TINY_H = 27;        /* 1/40: two steps down, no filter */
@@ -438,6 +439,14 @@
                 forget();
                 paint();
                 notify();
+            } else if (!data && src === wanted && baked) {
+                /* The picture cannot be read back (a host that serves no CORS
+                   header): keeping the pane that was there left the app before
+                   last under the dock, a backdrop that never matched the one on
+                   screen. With the pane dropped, the dock's own frosted copy of
+                   the picture - var(--glass-img), which follows the layer - is
+                   what shows through. */
+                drop();
             }
             if (done) done();
         }, el);
@@ -588,6 +597,9 @@
         if (!ensure()) return;
         if (!baked) return;
         var list = document.querySelectorAll(TARGETS.join(",")), i, el, r, key, l;
+        /* Panes set to 0 in the write pass below and to 1 after it: one layout
+           read for all of them, not one per surface. */
+        var fades = [];
         var theme = body.className.indexOf("theme-light") > -1 ? "l" : "d";
         if (body.classList.contains("perf")) theme += "p";
         /* Every measure first, then every write: a write between two reads had the page laid out again
@@ -624,15 +636,38 @@
                 tint(n, el, r);
                 el.insertBefore(n, l.parentNode === el ? l.nextSibling : el.firstChild);
                 el.__cgLayer = n;
-                (function (old) {
-                    global.setTimeout(function () { if (old && old.parentNode) old.parentNode.removeChild(old); }, 32);
-                })(l);
+                /* The picture crossfades to the next one over 300 ms, so the pane
+                   over it does too: it used to cut, and a cut against a fade is
+                   the dock changing before the backdrop has finished changing.
+                   The old slice stays under the new one until the fade is over,
+                   so neither surface is ever empty. */
+                n.style.transition = "opacity " + PANE_FADE_MS + "ms var(--glass-ease, ease)";
+                n.style.opacity = "0";
+                fades.push(n);
+                /* The pane is passed in: `n` is paint()'s variable and by the time
+                   this runs it points at the last pane the loop made. */
+                (function (old, pane) {
+                    global.setTimeout(function () {
+                        if (old && old.parentNode) old.parentNode.removeChild(old);
+                        pane.style.transition = "";
+          /* Hand the opacity back to the stylesheet once the fade is over, so a
+             rule can still hide a pane (Control Center hides the focused tile's). */
+          pane.style.opacity = "";
+                    }, PANE_FADE_MS + 40);
+                })(l, n);
                 continue;
             }
             l.style.setProperty("--gx", (-r.x) + "px");
             l.style.setProperty("--gy", (-r.y) + "px");
             tint(l, el, r);
             l.classList.add("is-on");
+        }
+        if (fades.length) {
+            /* One read for every pane made in this pass: a read between two writes
+               laid the page out again per surface, and a Control Center build
+               makes about fifteen of them. */
+            void body.offsetWidth;
+            for (i = 0; i < fades.length; i++) fades[i].style.opacity = "1";
         }
     }
 
