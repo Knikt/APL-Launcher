@@ -3,7 +3,7 @@
 
    The launcher is written in English. Other languages come from a
    table keyed by the English text: js/lang-fr.js for French,
-   js/lang-ms.js for Malay.
+   js/lang-ms.js for Malay, js/lang-pl.js for Polish.
      APL.t("Settings")                          -> "Réglages" in French
      APL.t("Version {v} available", { v: "2" }) -> placeholders
    Text without a translation stays in English.
@@ -12,7 +12,7 @@
    word; it is never shown.
 
    The language follows the screen's (a French screen gets French,
-   a Malay screen gets Malay),
+   a Malay screen gets Malay, a Polish screen gets Polish),
    unless Settings › General › Language picks one. It is fixed when the
    launcher starts: changing it reloads the launcher.
    ============================================================ */
@@ -20,9 +20,9 @@
     "use strict";
 
     var APL = global.APL = global.APL || {};
-    var TABLES = { fr: global.APL_LANG_FR || {}, ms: global.APL_LANG_MS || {} };
+    var TABLES = { fr: global.APL_LANG_FR || {}, ms: global.APL_LANG_MS || {}, pl: global.APL_LANG_PL || {} };
 
-    /* The choice saved in Settings (screen-wide, not per profile): "auto", "en", "fr" or "ms". */
+    /* The choice saved in Settings (screen-wide, not per profile): "auto", "en", "fr", "ms" or "pl". */
     function saved() {
         try { return (JSON.parse(global.localStorage.getItem("apl.prefs") || "null") || {}).language; } catch (e) { return null; }
     }
@@ -30,6 +30,7 @@
         var l = String((global.navigator && (global.navigator.language || global.navigator.userLanguage)) || "en").toLowerCase();
         if (l.indexOf("fr") === 0) return "fr";
         if (l.indexOf("ms") === 0) return "ms";               // not "ml": that is Malayalam
+        if (l.indexOf("pl") === 0) return "pl";
         return "en";
     }
 
@@ -48,7 +49,7 @@
     }
 
     APL.t = t;
-    APL.lang = lang;                                // "en", "fr" or "ms"
-    APL.locale = lang === "fr" ? "fr-FR" : lang === "ms" ? "ms-MY" : "en-US"; // for dates, sorting and TMDB
+    APL.lang = lang;                                // "en", "fr", "ms" or "pl"
+    APL.locale = lang === "fr" ? "fr-FR" : lang === "ms" ? "ms-MY" : lang === "pl" ? "pl-PL" : "en-US"; // for dates, sorting and TMDB
     try { document.documentElement.lang = lang; } catch (e) {}
 })(window);

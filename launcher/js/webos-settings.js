@@ -159,7 +159,7 @@
     P.ccOutputName = function () { return sys.audio.outputMode(); };
     P.ccAudioItems = function (redraw) {
         var cur = sys.audio.output ? sys.audio.output() : "";
-        var out = [{ cls: "head", title: "Audio" }, { cls: "section", title: t("Sound Output") }];
+        var out = [{ cls: "head", title: t("Audio") }, { cls: "section", title: t("Sound Output") }];
         OUTPUT_LIST.forEach(function (o) {
             out.push({ cls: "row", icon: o === "tv_speaker" ? "display" : o === "headphone" ? "headphones" : o === "bt_soundbar" ? "bluetooth" : "speaker",
                        title: sys.audio.outputName(o),
