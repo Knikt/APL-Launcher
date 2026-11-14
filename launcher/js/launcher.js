@@ -69,17 +69,7 @@
        its own artwork included (the launcher's own Settings and Sources keep their large icon). What the
        apps show (What You're Watching, What's Popular) has its own switches. */
     function black() { return APL.sys.pref("shelfArt") === "black"; }
-    function artOf(app) {
-        if (black()) return null;
-        /* A title's backdrop is known (and prefetched) - or the app has a Top
-           Shelf of its own (fanart, YouTube), warmed at start-up: the generated
-           sheet of light must never stand in for either, not even for a frame. */
-        if (app && backdropPick(app)) return null;
-        /* A Top Shelf only hides the sheet once it actually has titles: what you
-           are watching being off leaves the app's own sheet in place. */
-        if (app && app._liveItems && app._liveItems.length) return null;
-        return app.bg;
-    }
+    function artOf(app) { return black() ? null : app.bg; }
     function plain(app) { return black() && !app.shelfHtml; }
 
     function backdropFor(app) {
@@ -134,11 +124,7 @@
             return;
         }
         if (glow) glow.parentNode.removeChild(glow);
-        /* Not #000: a layer prepared for an app whose picture arrives later was
-           an opaque black rectangle over the one on screen - the black stage seen
-           while scrolling. Transparent lets the last picture stay until this
-           app's own is in place. */
-        layer.style.background = artOf(app) ? "transparent" : backdropFor(app);
+        layer.style.background = artOf(app) ? "#000" : backdropFor(app);
     }
 
     /* ---------- dynamic backdrops (app-art.js) ---------- */
@@ -305,9 +291,6 @@
     /* An image is only shown once decoded: the fade starts without a hitch. */
     function whenDecoded(src, then) {
         if (!src) { then(); return; }
-        /* Already fetched and decoded at start-up: nothing to wait for. */
-        var warm = warmMap[src];
-        if (warm && warm.complete && warm.naturalWidth) { then(warm); return; }
         var im = new Image();
         im.src = src;
         /* The decoded element is handed on: the glass bakes its pane from this
@@ -352,9 +335,7 @@
            background: a background on this full-screen layer was painted as the
            file decoded, a line at a time from the top. */
         cardBack(l, app);
-        /* The tvOS icon of Settings and Sources, never the app's name: a backdrop
-           that has not landed yet leaves a dark screen, not a title card. */
-        if (!artOf(app) && !plain(app) && app.shelfHtml) l.appendChild(brandCard(app));
+        if (!artOf(app) && !plain(app)) l.appendChild(brandCard(app));
         l.dataset.app = app.id;
         dom.bgA.parentNode.insertBefore(l, dom.bgA);
         layers[app.id] = l;
@@ -503,13 +484,9 @@
         if (pick && pick.url) { setPoster(app, pick, force); return; }
         currentPick = null;
         currentPickApp = "";
-        var image = artOf(app);
-        /* Nothing to put up yet - a live shelf still fetching, the trending list
-           still on its way: the picture already on screen stays rather than a
-           black stage, and this app's own art replaces it when it lands. */
-        if (!image && bgActive.dataset.app) return;
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
         stopRotate();
+        var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
         if (apps.indexOf(app) < DOCK_SIZE) {
@@ -537,7 +514,7 @@
             var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
             next.innerHTML = "";
             if (image) next.style.background = "#000"; else cardBack(next, app);
-            if (!image && !plain(app) && app.shelfHtml) next.appendChild(brandCard(app));
+            if (!image && !plain(app)) next.appendChild(brandCard(app));
             if (!image) { showLayer(next, app); refreshGlass(); return; }
             showPicture(next, image, function (pic) {
                 if (token !== backdropToken) return;
@@ -651,7 +628,6 @@
            has finished decoding: a fast scroll left the last show's name over the
            next show's picture. */
         posterInfo(pick);
-        warmNeighbours(app, rotN);
         var token = ++backdropToken;
         /* The picture AND the glass over it change together: the image is decoded
            and the pane baked before either is shown, so the dock, the pill and the
@@ -698,17 +674,7 @@
             lastPicks[app.id] = pick;
             startRotate(app);
         };
-        /* A warmed picture is already decoded and its pane already baked
-           (glass.prefetch): it goes on screen now, and the lens is asked for in
-           the background. Waiting for that answer is what left the sheet of light
-           up for a moment before the picture. */
-        var warm = warmMap[pick.url];
         whenDecoded(pick.url, function (im) {
-            if (warm) {
-                apply();
-                if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, function () {}, im);
-                return;
-            }
             /* Baked from the element that is about to be shown, so the picture and
                the pane land together rather than the pane a second later. */
             if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply, im); else apply();
@@ -988,12 +954,7 @@
                 refreshGlass();
                 shelfInfo(item);
             };
-            /* Warmed at start-up: the picture goes up now and the lens follows. */
-            if (warmMap[item.bg]) {
-                go();
-                if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, function () {}, pic);
-            } else if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic);
-            else go();
+            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic); else go();
         });
     }
 
@@ -1037,151 +998,6 @@
     /* The panes of the apps either side are baked while this one is on screen:
        stepping along the row never waits for one, which was the last place a
        pane could still arrive a moment after the picture it belongs to. */
-    /* ---------- the wall's pictures, before they are asked for ----------
-       An app's picture used to be requested the moment the focus landed on it,
-       so its card showed while the file downloaded. The dock is warmed as soon
-       as the Home Screen is drawn and the rest of the wall behind it, one every
-       400 ms so the slide keeps its frames. glass.prefetch() bakes the lens with
-       the picture too, which is what the Control Center and Search read.
-       Driven by the same setting as the pictures: nothing is fetched when
-       Dynamic Backdrops is off. */
-    var warmTimer = 0, warmToken = 0, warmWaiting = false, warmPics = [], warmCount = 0, warmActive = false, warmSteps = 0, warmLast = "", warmErr = "";
-    /* Decoded pictures, by URL: a backdrop that is already warm is painted in the
-       same frame instead of after a decode. */
-    var warmMap = {};
-    function keepWarm(url, im) { if (url && im) warmMap[url] = im; }
-    /* The titles either side of the one on screen, fetched while it is up: the
-       next ◀ or ▶ finds its picture already decoded instead of waiting for it. */
-    function warmNeighbours(app, n) {
-        if (!APL.appArt || !APL.appArt.next) return;
-        setTimeout(function () {
-            var backs = [-1, 1, 2];
-            for (var i = 0; i < backs.length; i++) {
-                var p = null;
-                try { p = APL.appArt.next(app, n + backs[i]); } catch (e) {}
-                if (!p || !p.url || warmMap[p.url]) continue;
-                (function (url) {
-                    var im = new global.Image();
-                    im.src = url;
-                    if (im.decode) im.decode().then(function () { keepWarm(url, im); }, function () {});
-                    else keepWarm(url, im);
-                    if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(url);
-                })(p.url);
-            }
-        }, 80);
-    }
-    function warmWall() {
-        if (!APL.glass || !APL.glass.prefetch) return;
-        if (!APL.sys.pref("cleanFrameBackdrops")) { warmActive = false; return; }
-        /* render() runs again on every background change (autoart). Restarting the
-           warm each time meant it never reached its first picture: one run at a
-           time, from the wall's start to its end. */
-        if (warmActive) return;
-        warmActive = true;
-        if (global.navigator && global.navigator.onLine === false) return;
-        /* The trending list lands a few seconds after the wall is drawn (JustWatch,
-           per service): warming before it holds no picture for most apps, so the
-           warm starts again when it answers. */
-        if (APL.appArt && APL.appArt.status && !APL.appArt.status().at) {
-            if (!warmWaiting && APL.appArt.start) {
-                warmWaiting = true;
-                APL.appArt.start(function () {
-                    warmWaiting = false;
-                    warmWall();
-                    /* The list has just landed: the app in focus is repainted at
-                       once, or the sheet of light it was drawn with would stay
-                       until the focus moved. */
-                    if (mode !== "grid" && apps[nav.index]) setBackdrop(apps[nav.index], true);
-                });
-            }
-            return;
-        }
-        var token = ++warmToken, i = 0;
-        clearTimeout(warmTimer);
-        function step() {
-            if (token !== warmToken) { warmActive = false; return; }
-            if (i >= apps.length) { warmActive = false; return; }
-            var app = apps[i++], pick = null, src = null;
-            warmSteps++;
-            try { pick = backdropPick(app); } catch (e) { warmErr = String(e); }
-            src = pick && pick.url ? pick.url : artOf(app);
-            if (src) {
-                /* The picture itself, at the size it is shown: the browser keeps
-                   it, so the backdrop is there when the focus lands. The image is
-                   held, or it would be collected before it is used. */
-                var im = new global.Image();
-                im.src = src;
-                warmPics.push(im);
-                if (im.decode) im.decode().then(function () { keepWarm(src, im); }, function () {});
-                else keepWarm(src, im);
-                if (warmPics.length > 24) warmPics.shift();
-                warmLast = src;
-                try { APL.glass.prefetch(src); } catch (e) { warmErr = "prefetch: " + e; }
-                warmCount++;
-            }
-            /* The two titles the wall slides on to while this app stays in focus
-               (the ten-second rotation): warmed too, or they arrive after the
-               picture they replace has already gone. */
-            for (var k = 1; k <= 2; k++) {
-                var nx = null;
-                try { nx = APL.appArt && APL.appArt.next ? APL.appArt.next(app, k) : null; } catch (e) {}
-                if (nx && nx.url) {
-                    var follows = new global.Image();
-                    follows.src = nx.url;
-                    warmPics.push(follows);
-                    if (warmPics.length > 24) warmPics.shift();
-                }
-            }
-            /* The dock first, and quickly: those are the apps a finger lands on. */
-            warmTimer = setTimeout(step, i <= 8 ? 150 : 400);
-        }
-        warmTimer = setTimeout(step, 250);            // the wall draws first
-    }
-
-    /* glass.js loads after this file: the first render has no lens to bake yet,
-       so the warm waits for it instead of giving up (it did, and nothing was
-       ever fetched). */
-    function warmSoon(tries) {
-        if (APL.glass && APL.glass.prefetch) { warmShelf(); warmWall(); return; }
-        if ((tries || 0) > 40) return;
-        global.setTimeout(function () { warmSoon((tries || 0) + 1); }, 250);
-    }
-
-    /* The dock's own Top Shelf pictures (fanart, TMDB, YouTube): fetched here so
-       the first app in focus already has them, independently of the JustWatch
-       setting. Two titles each, the one on screen and the one the rotation
-       shows next. */
-    var shelfWarmed = false;
-    function warmShelf() {
-        if (shelfWarmed || !APL.live || !APL.live.itemsNow) return;
-        shelfWarmed = true;
-        apps.slice(0, 8).forEach(function (app) {
-            if (!APL.live.hasSource(app)) return;
-            try {
-                APL.live.itemsNow(app).then(function (items) {
-                    if (!items || !items.length) return;
-                    /* Kept on the app: startLive() shows the first one at once and
-                       its list, not a sheet of light, fills the screen. */
-                    if (!app._liveItems) { app._liveItems = items; app._liveN = 0; }
-                    for (var j = 0; items && j < 2 && j < items.length; j++) {
-                        if (!items[j] || !items[j].bg) continue;
-                        var im = new global.Image();
-                        im.src = items[j].bg;
-                        warmPics.push(im);
-                        if (warmPics.length > 24) warmPics.shift();
-                        if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(items[j].bg);
-                    }
-                }, function () {});
-            } catch (e) {}
-        });
-    }
-
-    /* browser checks read this, like APL.appArt.status() */
-    APL.warmStatus = function () {
-        return { warmed: warmCount, held: warmPics.length, waiting: warmWaiting, apps: apps.length,
-                 steps: warmSteps, active: warmActive, last: warmLast.slice(0, 60), err: warmErr };
-    };
-
     function warmNear(i) {
         if (!APL.glass || !APL.glass.prefetch) return;
         [-1, 1].forEach(function (d) {
@@ -1194,42 +1010,26 @@
             if (art) APL.glass.prefetch(art);
         });
     }
+
     /* After a short pause on the app, its current content is loaded. */
     function startLive(app) {
         stopLive();
         if (!APL.live || !APL.live.hasSource(app)) return;
-        var shown = false;
-        function show(items) {
-            if (shown) return;
-            shown = true;
-            if (!items || !items.length || apps[nav.index] !== app) return;
-            if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
-            var n = 0;
-            app._liveItems = items;
-            app._liveN = 0;
-            setLiveBackdrop(app, items[0], 0, items, 0);
-            warmNext(items, 1);
-            if (APL.trailer) APL.trailer.arm(app, trailerOver, items[0]);
-            liveRotate = setInterval(function () {
-                if (mode === "grid") return;                 // paused under the grid
-                /* A trailer owns the screen: the title must not slide out
-                   from under it. The slide waits for the next tick once the
-                   video is gone. */
-                if (APL.trailer && APL.trailer.busy && APL.trailer.busy()) return;
-                if (apps[nav.index] !== app) { stopLive(); return; }
-                n = (n + 1) % items.length;
-                app._liveN = n;
-                setLiveBackdrop(app, items[n], n, items, 0);
-                warmNext(items, n + 1);
-                if (APL.trailer) APL.trailer.arm(app, trailerOver, items[n]);
-            }, LIVE_ROTATE_MS);
-        }
-        /* The items were fetched at start-up (warmShelf) and their pictures are
-           in memory: the backdrop is shown at once, no pause, no sheet of light
-           in between. */
-        if (app._liveItems && app._liveItems.length) { show(app._liveItems); return; }
         liveTimer = setTimeout(function () {
-            APL.live.itemsNow(app).then(show, function () {});
+            APL.live.itemsNow(app).then(function (items) {
+                if (!items || apps[nav.index] !== app) return;
+                if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
+                var n = 0;
+                setLiveBackdrop(app, items[0], 0, items, 0);
+                warmNext(items, 1);
+                liveRotate = setInterval(function () {
+                    if (mode === "grid") return;                 // paused under the grid
+                    if (apps[nav.index] !== app) { stopLive(); return; }
+                    n = (n + 1) % items.length;
+                    setLiveBackdrop(app, items[n], n, items, 0);
+                    warmNext(items, n + 1);
+                }, LIVE_ROTATE_MS);
+            });
         }, 650);
     }
 
@@ -1260,12 +1060,7 @@
         // scrolling fast, a large image isn't decoded on every press.
         clearTimeout(bgTimer);
         var swap = function () { setBackdrop(app); startLive(app); };
-        /* A warm picture is painted at once: the 170 ms wait exists only to keep
-           a fast scroll from decoding a large image per press. */
-        var warmNow = false;
-        try { var p = backdropPick(app); warmNow = !!(p && warmMap[p.url] && warmMap[p.url].complete); } catch (e) {}
-        if (live && app._liveItems && app._liveItems.length) warmNow = true;
-        if (!bgActive.dataset.app || warmNow) swap(); else bgTimer = setTimeout(swap, 170);
+        if (!bgActive.dataset.app) swap(); else bgTimer = setTimeout(swap, 170);
     }
 
     function launch(i) {
@@ -1473,7 +1268,6 @@
         bgActive.dataset.app = "";
         nav.setTiles(tiles);
         nav.focus(want);
-        warmSoon();
     }
 
     function createNav() {
@@ -1987,7 +1781,6 @@
         if (document.hidden) { if (mode === "full") setMode("shelf"); return; }
         lastShown = Date.now();
         hideVeil();
-        warmSoon();                                   // back from an app: its pictures are warm again
         setTimeout(function () { bootCleanup(8); }, 25000);
         if (switcherOnShow) { switcherOnShow = false; if (APL.switcher) APL.switcher.open(); }
     });
