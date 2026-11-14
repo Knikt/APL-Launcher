@@ -885,6 +885,9 @@ html, body {
 .reduce-motion .bg.is-motion { animation: none; }
 
 .tile__card--art { box-shadow: none; background-color: transparent; }
+/* The tile art is drawn on black: lighten drops that black, so only the logo
+   and its own colours sit on the backdrop, with no rectangle around them. */
+.tile__card--art { mix-blend-mode: lighten; }
 .tile__card--art::after { content: none; }
 .tile.is-focused .tile__card--art { box-shadow: none; }
 .tile__card--icon { overflow: hidden; }

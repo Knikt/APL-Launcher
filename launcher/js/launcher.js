@@ -1022,7 +1022,18 @@
         // Full-screen artwork changed a fraction of a second after the focus: when
         // scrolling fast, a large image isn't decoded on every press.
         clearTimeout(bgTimer);
-        var swap = function () { setBackdrop(app); startLive(app); };
+        var swap = function () {
+            /* A shelf whose pictures are already here paints once. Drawing the
+               app's own artwork first and the shelf's a moment later changed
+               both the backdrop and the dock's pane twice, which is what read
+               as the glass lagging behind while scrolling. */
+            if (live && APL.live && APL.live.hasSource(app) && app._liveItems && app._liveItems.length) {
+                startLive(app);
+                return;
+            }
+            setBackdrop(app);
+            startLive(app);
+        };
         if (!bgActive.dataset.app) swap(); else bgTimer = setTimeout(swap, 170);
     }
 
