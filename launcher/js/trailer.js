@@ -264,7 +264,12 @@
             if (open === over) return;
             over = open;
             if (open) stop();
-            else if (document.body.className.indexOf("mode-full") >= 0) arm(last);
+            else if (document.body.className.indexOf("mode-full") >= 0) {
+                /* Back from Control Center or Search: the show on the wall, not the
+                   app's first pick. */
+                var here = APL.trailer && APL.trailer.pickOnWall ? APL.trailer.pickOnWall(last) : null;
+                arm(last, onEnd, here);
+            }
         }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     }
 
