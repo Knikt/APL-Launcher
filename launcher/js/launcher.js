@@ -581,6 +581,7 @@
                 if (!items || !items.length || apps[nav.index] !== app) return;
                 app._liveItems = items;
                 app._liveN = dir < 0 ? items.length - 1 : 0;
+                warmItems(items);
                 setLiveBackdrop(app, items[app._liveN], app._liveN, items, 0);
                 if (APL.trailer) APL.trailer.arm(app, trailerOver, items[app._liveN]);
             }, function () {});
@@ -834,21 +835,36 @@
     /* A shelf hands over its titles at once; their pictures are fetched and
        decoded here, so the first ◀ ▶ is a swap and not a download. */
     function warmItems(items) {
-        /* A few, and later: ten full-size fanart files at once competed with the
-           picture on screen and slowed the dock's pane down with it. */
-        if (warmItems._t) return;
-        warmItems._t = true;
-        global.setTimeout(function () { warmItems._t = false; }, 1200);
-        for (var i = 0; items && i < items.length && i < 4; i++) {
-            var it = items[i];
-            if (!it || !it.bg || it.ok || it.bad || it._warm) continue;
-            it._warm = true;
-            (function (item) {
-                var im = new Image();
-                im.onload = function () { item.ok = true; };
-                im.src = item.bg;
-            })(it);
+        /* Every title of the shelf, one after another: a ◀ ▶ press swaps a picture
+           that is already fetched, so the step never waits for the network. They
+           used to be fetched four at once, which meant the fifth title of a shelf
+           was still a download, and that is what a step past it looked like. */
+        if (!items || !items.length) return;
+        if (warmItems._items === items) return;                 // this shelf is already being warmed
+        warmItems._items = items;
+        var i = 0;
+        function next() {
+            while (i < items.length) {
+                var it = items[i++];
+                if (!it || !it.bg || it.ok || it.bad || it._warm) continue;
+                it._warm = true;
+                (function (item) {
+                    var im = new Image(), done = false;
+                    var then = function (ok) {
+                        if (done) return;
+                        done = true;
+                        if (ok) item.ok = true; else item.bad = true;
+                        global.setTimeout(next, 160);           // one picture at a time: the page keeps drawing
+                    };
+                    im.onload = function () { then(true); };
+                    im.onerror = function () { then(false); };
+                    im.src = item.bg;
+                    global.setTimeout(function () { then(true); }, 4000);   // a stalled file must not stop the rest
+                })(it);
+                return;
+            }
         }
+        next();
     }
 
     function setLiveBackdrop(app, item, n, items, tries) {
