@@ -94,6 +94,7 @@ window.APL_LANG_MS = {
     "Do Not Disturb": "Jangan Ganggu",
     "On": "Hidup",
     "Off": "Mati",
+    "{n} On": "{n} Hidup",
     "Sleep Timer": "Pemasa Tidur",
     "Going to sleep in {n} min": "Akan tidur dalam {n} min",
     "Sleep Timer off": "Pemasa tidur dimatikan",

@@ -213,6 +213,9 @@
             "Opens the device's own home screen ({name}). Press Home to come back.": "Otwiera ekran główny urządzenia ({name}). Naciśnij Home, aby wrócić.",
             "Home Screen of the device": "Ekran główny urządzenia",
             "Ethernet": "Ethernet",
+            "Up Next": "Następne",
+            "Continue Watching from the apps that fill Android TV's Play Next row (Nuvio, YouTube, Plex…), as cards over the Top Shelf. Android asks once to let APL Launcher read it.":
+                "„Kontynuuj oglądanie” z aplikacji, które wypełniają rząd Play Next na Androidzie TV (Nuvio, YouTube, Plex…), jako karty nad Top Shelf. Android jednorazowo poprosi o zgodę, aby APL Launcher mógł go odczytać.",
             "Make APL Launcher Your Home Screen?": "Ustawić APL Launcher jako ekran główny?",
             "So that the remote's Home button and the device's start-up open APL Launcher. Android then asks which app to use: choose APL Launcher, then Set as default.":
                 "Aby przycisk Home na pilocie i uruchomienie urządzenia otwierały APL Launcher. Android zapyta wtedy, której aplikacji użyć: wybierz APL Launcher i ustaw go jako domyślny.",
