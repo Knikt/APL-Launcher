@@ -131,9 +131,12 @@
        name otherwise. The logo is an <img> inside the title line, sized like the
        text it replaces. */
     function titleShow(text, logo) {
+        /* Only the title's own logo: the name is never printed in its place. A
+           title without one leaves the line empty until TMDB answers, and stays
+           empty when TMDB has nothing for it. */
         var t = dom.shelfTitle;
-        if (!logo) { t.textContent = text || ""; return; }
         t.textContent = "";
+        if (!logo) return;
         var im = document.createElement("img");
         im.className = "shelfinfo__logo";
         im.alt = text || "";
