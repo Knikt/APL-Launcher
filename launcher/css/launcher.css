@@ -1350,3 +1350,33 @@ html, body {
 html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
 .is-cc-overlay .bg, .is-cc-overlay .bgblur, .is-cc-overlay .scrim, .is-cc-overlay .status, .is-cc-overlay .shelfinfo,
 .is-cc-overlay .hint, .is-cc-overlay .home, .is-cc-overlay .boot { display: none; }
+
+/* ---------- Trailer over the full-screen artwork ----------
+   A layer of its own, between the pictures and the scrim: the picture under it
+   can change without taking the video with it, and the scrim, the dock and the
+   title cards stay above exactly as they were. */
+.trailerlayer {
+    position: fixed;
+    top: 0; right: 0; bottom: 0; left: 0;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 600ms linear;
+}
+
+.trailerlayer.is-on { opacity: 1; }
+
+/* Slightly larger than the layer, so the player's own corner branding falls
+   outside the frame: the video is cropped by a few per cent all round, which
+   nothing in the picture notices. */
+.trailerlayer {
+    overflow: hidden;
+}
+
+.trailerlayer > iframe {
+    position: absolute;
+    top: -3%;
+    left: -3%;
+    width: 106%;
+    height: 106%;
+    border: 0;
+}

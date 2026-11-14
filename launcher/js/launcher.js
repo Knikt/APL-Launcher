@@ -531,11 +531,31 @@
     function overlayOpen() {
         return /(^| )has-(cc|sources|search|settings|profiles|wdg)( |$)/.test(document.body.className);
     }
+    /* The trailer is over (trailer.js knows its length): the wall slides on to the
+       next title of the same app, exactly as the ten-second timer would have. */
+    function trailerOver() {
+        var app = apps[nav.index];
+        if (!app || mode !== "full" || overlayOpen()) return;
+        /* An app with a Top Shelf of its own (the fanart pictures) slides on its
+           own clock: nothing to advance here, the next tick does it. */
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) { startRotate(app); return; }
+        var pick = null;
+        try { pick = APL.appArt && APL.appArt.next ? APL.appArt.next(app, ++rotN) : null; } catch (e) {}
+        if (pick && pick.url) {
+            setPoster(app, pick);
+            if (APL.trailer) APL.trailer.arm(app, trailerOver, pick);
+        }
+        startRotate(app);
+    }
+
     function startRotate(app) {
         stopRotate();
         if (!APL.appArt || !APL.appArt.next) return;
         rotTimer = setTimeout(function () {
             rotTimer = null;
+            /* A trailer playing owns the screen: the title must not slide out
+               from under it. arm() re-enters here when the video is over. */
+            if (APL.trailer && APL.trailer.playing && APL.trailer.playing()) { startRotate(app); return; }
             if (apps[nav.index] !== app || mode === "grid" || overlayOpen()) { startRotate(app); return; }
             var pick = null;
             try { pick = APL.appArt.next(app, ++rotN); } catch (e) {}
@@ -776,6 +796,12 @@
         dom.body.classList.add("mode-" + m);
         layout();
         if (dom.shelfInfo && nav) openHint();
+        /* Full screen: two seconds on the same app may bring its trailer (trailer.js).
+           Anywhere else, the video goes and the picture is immediately behind. */
+        if (APL.trailer) {
+            if (m === "full" && nav && apps[nav.index]) APL.trailer.arm(apps[nav.index], trailerOver);
+            else APL.trailer.stop();
+        }
     }
 
     /* Apps per row: the tiles share the dock's width (1750 px inside its padding, 50 px gaps) and keep
@@ -906,6 +932,88 @@
     /* The panes of the apps either side are baked while this one is on screen:
        stepping along the row never waits for one, which was the last place a
        pane could still arrive a moment after the picture it belongs to. */
+    /* ---------- the wall's pictures, before they are asked for ----------
+       An app's picture used to be requested the moment the focus landed on it,
+       so its card showed while the file downloaded. The dock is warmed as soon
+       as the Home Screen is drawn and the rest of the wall behind it, one every
+       400 ms so the slide keeps its frames. glass.prefetch() bakes the lens with
+       the picture too, which is what the Control Center and Search read.
+       Driven by the same setting as the pictures: nothing is fetched when
+       Dynamic Backdrops is off. */
+    var warmTimer = 0, warmToken = 0, warmWaiting = false, warmPics = [], warmCount = 0, warmActive = false, warmSteps = 0, warmLast = "", warmErr = "";
+    function warmWall() {
+        if (!APL.glass || !APL.glass.prefetch) return;
+        if (!APL.sys.pref("cleanFrameBackdrops")) { warmActive = false; return; }
+        /* render() runs again on every background change (autoart). Restarting the
+           warm each time meant it never reached its first picture: one run at a
+           time, from the wall's start to its end. */
+        if (warmActive) return;
+        warmActive = true;
+        if (global.navigator && global.navigator.onLine === false) return;
+        /* The trending list lands a few seconds after the wall is drawn (JustWatch,
+           per service): warming before it holds no picture for most apps, so the
+           warm starts again when it answers. */
+        if (APL.appArt && APL.appArt.status && !APL.appArt.status().at) {
+            if (!warmWaiting && APL.appArt.start) {
+                warmWaiting = true;
+                APL.appArt.start(function () { warmWaiting = false; warmWall(); });
+            }
+            return;
+        }
+        var token = ++warmToken, i = 0;
+        clearTimeout(warmTimer);
+        function step() {
+            if (token !== warmToken) { warmActive = false; return; }
+            if (i >= apps.length) { warmActive = false; return; }
+            var app = apps[i++], pick = null, src = null;
+            warmSteps++;
+            try { pick = backdropPick(app); } catch (e) { warmErr = String(e); }
+            src = pick && pick.url ? pick.url : artOf(app);
+            if (src) {
+                /* The picture itself, at the size it is shown: the browser keeps
+                   it, so the backdrop is there when the focus lands. The image is
+                   held, or it would be collected before it is used. */
+                var im = new global.Image();
+                im.src = src;
+                warmPics.push(im);
+                if (warmPics.length > 24) warmPics.shift();
+                warmLast = src;
+                try { APL.glass.prefetch(src); } catch (e) { warmErr = "prefetch: " + e; }
+                warmCount++;
+            }
+            /* The two titles the wall slides on to while this app stays in focus
+               (the ten-second rotation): warmed too, or they arrive after the
+               picture they replace has already gone. */
+            for (var k = 1; k <= 2; k++) {
+                var nx = null;
+                try { nx = APL.appArt && APL.appArt.next ? APL.appArt.next(app, k) : null; } catch (e) {}
+                if (nx && nx.url) {
+                    var follows = new global.Image();
+                    follows.src = nx.url;
+                    warmPics.push(follows);
+                    if (warmPics.length > 24) warmPics.shift();
+                }
+            }
+            warmTimer = setTimeout(step, 400);
+        }
+        warmTimer = setTimeout(step, 900);            // the wall draws first
+    }
+
+    /* glass.js loads after this file: the first render has no lens to bake yet,
+       so the warm waits for it instead of giving up (it did, and nothing was
+       ever fetched). */
+    function warmSoon(tries) {
+        if (APL.glass && APL.glass.prefetch) { warmWall(); return; }
+        if ((tries || 0) > 40) return;
+        global.setTimeout(function () { warmSoon((tries || 0) + 1); }, 250);
+    }
+
+    /* browser checks read this, like APL.appArt.status() */
+    APL.warmStatus = function () {
+        return { warmed: warmCount, held: warmPics.length, waiting: warmWaiting, apps: apps.length,
+                 steps: warmSteps, active: warmActive, last: warmLast.slice(0, 60), err: warmErr };
+    };
+
     function warmNear(i) {
         if (!APL.glass || !APL.glass.prefetch) return;
         [-1, 1].forEach(function (d) {
@@ -929,12 +1037,18 @@
                 var n = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
                 warmNext(items, 1);
+                if (APL.trailer) APL.trailer.arm(app, trailerOver, items[0]);
                 liveRotate = setInterval(function () {
                     if (mode === "grid") return;                 // paused under the grid
+                    /* A trailer owns the screen: the title must not slide out
+                       from under it. The slide waits for the next tick once the
+                       video is gone. */
+                    if (APL.trailer && APL.trailer.playing && APL.trailer.playing()) return;
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
                     setLiveBackdrop(app, items[n], n, items, 0);
                     warmNext(items, n + 1);
+                    if (APL.trailer) APL.trailer.arm(app, trailerOver, items[n]);
                 }, LIVE_ROTATE_MS);
             });
         }, 650);
@@ -948,7 +1062,7 @@
         focusFx(el);
         if (!inDock) stopRotate();
         if (mode !== "full") setMode(inDock ? "shelf" : "grid");
-        else layout();
+        else { layout(); if (APL.trailer) APL.trailer.arm(app, trailerOver); }
         if (APL.widgets) APL.widgets.show(inDock ? app : null, fromGrid);
         if (!inDock) flushBlur();
         // In the grid, as on tvOS: the Top Shelf artwork freezes and becomes
@@ -1175,6 +1289,7 @@
         bgActive.dataset.app = "";
         nav.setTiles(tiles);
         nav.focus(want);
+        warmSoon();
     }
 
     function createNav() {
@@ -1686,6 +1801,7 @@
         if (document.hidden) { if (mode === "full") setMode("shelf"); return; }
         lastShown = Date.now();
         hideVeil();
+        warmSoon();                                   // back from an app: its pictures are warm again
         setTimeout(function () { bootCleanup(8); }, 25000);
         if (switcherOnShow) { switcherOnShow = false; if (APL.switcher) APL.switcher.open(); }
     });

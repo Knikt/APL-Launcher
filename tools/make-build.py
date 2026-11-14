@@ -19,7 +19,7 @@ SCRIPTS = [
     "js/diag.js", "js/webos.js", "js/lang-fr.js", "js/lang-ms.js", "js/lang-pl.js", "js/i18n.js", "js/catalog.js", "js/webos-system.js", "js/system.js", "js/keys.local.js", "js/liveshelf.js", "js/app-art.js", "js/icons.js", "js/qr.js",
     "js/apps.js", "js/autoart.js", "js/genart.js", "js/navigation.js", "js/services.js", "js/settings-tree.js", "js/webos-settings.js", "js/settings.js",
     "js/controlcenter.js", "js/avatars.local.js", "js/profiles.js", "js/devices.js", "js/sources.js", "js/search.js", "js/appmenu.js", "js/aerials.js", "js/screensaver.js", "js/folders.js", "js/switcher.js", "js/widgets.js", "js/overlay.js",
-    "js/updater.js", "js/ha.js", "js/home-app.js", "js/homeassistant.js", "js/launcher.js", "js/glass.js", "js/preview.js",
+    "js/updater.js", "js/ha.js", "js/home-app.js", "js/homeassistant.js", "js/launcher.js", "js/trailer.js", "js/glass.js", "js/preview.js",
 ]
 STYLES = ["css/launcher.css", "css/home-app.css", "css/glass.css"]
 LOADER = 1          # raise it when boot.js changes: the screens will ask for APL Launcher Setup
