@@ -265,10 +265,15 @@
         }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
     }
 
+    /* Waiting to play counts too: the wall must hold still from the moment the
+       two seconds start, not only once the video is on screen. */
+    function busy() { return !!timer || playing(); }
+
     APL.trailer = {
         arm: arm,
         stop: stop,
         playing: playing,
+        busy: busy,
         status: function () {
             return { playing: playing(), armed: !!timer, ends: !!endTimer, waiting: Object.keys(resolving) };
         }

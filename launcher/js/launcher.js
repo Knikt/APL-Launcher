@@ -69,7 +69,13 @@
        its own artwork included (the launcher's own Settings and Sources keep their large icon). What the
        apps show (What You're Watching, What's Popular) has its own switches. */
     function black() { return APL.sys.pref("shelfArt") === "black"; }
-    function artOf(app) { return black() ? null : app.bg; }
+    function artOf(app) {
+        if (black()) return null;
+        /* A title's backdrop is known (and prefetched): the generated sheet of
+           light must never stand in for it, not even for a frame. */
+        if (app && backdropPick(app)) return null;
+        return app.bg;
+    }
     function plain(app) { return black() && !app.shelfHtml; }
 
     function backdropFor(app) {
@@ -482,6 +488,8 @@
         backdropToken++;
         var pick = backdropPick(app);
         if (pick && pick.url) { setPoster(app, pick, force); return; }
+        currentPick = null;
+        currentPickApp = "";
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
         stopRotate();
         var image = artOf(app);
@@ -525,6 +533,10 @@
        Shelf's own rotation. Only apps with a catalogue of their own advance
        (app-art.js says no otherwise), so a channel never slides on to a rival. */
     var ROTATE_MS = 10000, rotTimer = null, rotN = 0;
+    /* The title actually on the wall, per app: the trailer must follow it, not
+       the app's first pick, now that ◀ ▶ and the rotation change it. */
+    var currentPick = null, currentPickApp = "";
+    function pickOnWall(app) { return app && currentPickApp === app.id ? currentPick : null; }
     function stopRotate() { clearTimeout(rotTimer); rotTimer = null; }
     /* The backdrop is left alone while something is over it: the Control Center,
        a drawer, search, Settings, profiles. */
@@ -533,11 +545,41 @@
     }
     /* The trailer is over (trailer.js knows its length): the wall slides on to the
        next title of the same app, exactly as the ten-second timer would have. */
+    /* ◀ ▶ in full screen: the other titles of the app on the wall, rather than
+       the app next door. The art changes at once, its trailer two seconds later. */
+    function stepShow(dir) {
+        var app = apps[nav.index];
+        if (!app || mode !== "full") return false;
+        if (APL.trailer) APL.trailer.stop();
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app) && app._liveItems && app._liveItems.length) {
+            var list = app._liveItems, n = ((app._liveN || 0) + dir + list.length) % list.length;
+            app._liveN = n;
+            setLiveBackdrop(app, list[n], n, list, 0);
+            if (APL.trailer) APL.trailer.arm(app, trailerOver, list[n]);
+            return true;
+        }
+        var pick = null;
+        try { pick = APL.appArt && APL.appArt.next ? APL.appArt.next(app, rotN + dir) : null; } catch (e) {}
+        if (!pick || !pick.url) return false;
+        rotN = Math.max(0, rotN + dir);
+        setPoster(app, pick);
+        if (APL.trailer) APL.trailer.arm(app, trailerOver, pick);
+        return true;
+    }
+
     function trailerOver() {
         var app = apps[nav.index];
         if (!app || mode !== "full" || overlayOpen()) return;
-        /* An app with a Top Shelf of its own (the fanart pictures) slides on its
-           own clock: nothing to advance here, the next tick does it. */
+        /* An app with a Top Shelf of its own (the fanart pictures) walks its own
+           list: the next title goes up now, with its own trailer armed. */
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app) && app._liveItems && app._liveItems.length) {
+            var list = app._liveItems, n = ((app._liveN || 0) + 1) % list.length;
+            app._liveN = n;
+            setLiveBackdrop(app, list[n], n, list, 0);
+            if (APL.trailer) APL.trailer.arm(app, trailerOver, list[n]);
+            startRotate(app);
+            return;
+        }
         if (APL.live && APL.live.hasSource && APL.live.hasSource(app)) { startRotate(app); return; }
         var pick = null;
         try { pick = APL.appArt && APL.appArt.next ? APL.appArt.next(app, ++rotN) : null; } catch (e) {}
@@ -553,9 +595,9 @@
         if (!APL.appArt || !APL.appArt.next) return;
         rotTimer = setTimeout(function () {
             rotTimer = null;
-            /* A trailer playing owns the screen: the title must not slide out
-               from under it. arm() re-enters here when the video is over. */
-            if (APL.trailer && APL.trailer.playing && APL.trailer.playing()) { startRotate(app); return; }
+            /* A trailer owns the screen, armed or playing: the title must not
+               slide out from under it. trailerOver() advances once it is over. */
+            if (APL.trailer && APL.trailer.busy && APL.trailer.busy()) { startRotate(app); return; }
             if (apps[nav.index] !== app || mode === "grid" || overlayOpen()) { startRotate(app); return; }
             var pick = null;
             try { pick = APL.appArt.next(app, ++rotN); } catch (e) {}
@@ -614,6 +656,8 @@
                 if (coming && coming.url) APL.glass.prefetch(coming.url);
             }
             posterInfo(pick);
+            currentPick = pick;
+            currentPickApp = app.id;
             startRotate(app);
         };
         whenDecoded(pick.url, function (im) {
@@ -799,7 +843,8 @@
         /* Full screen: two seconds on the same app may bring its trailer (trailer.js).
            Anywhere else, the video goes and the picture is immediately behind. */
         if (APL.trailer) {
-            if (m === "full" && nav && apps[nav.index]) APL.trailer.arm(apps[nav.index], trailerOver);
+            var focusApp = nav && apps[nav.index];
+            if (m === "full" && focusApp) APL.trailer.arm(focusApp, trailerOver, pickOnWall(focusApp));
             else APL.trailer.stop();
         }
     }
@@ -1035,6 +1080,8 @@
                 if (!items || apps[nav.index] !== app) return;
                 if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
                 var n = 0;
+                app._liveItems = items;
+                app._liveN = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
                 warmNext(items, 1);
                 if (APL.trailer) APL.trailer.arm(app, trailerOver, items[0]);
@@ -1043,9 +1090,10 @@
                     /* A trailer owns the screen: the title must not slide out
                        from under it. The slide waits for the next tick once the
                        video is gone. */
-                    if (APL.trailer && APL.trailer.playing && APL.trailer.playing()) return;
+                    if (APL.trailer && APL.trailer.busy && APL.trailer.busy()) return;
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
+                    app._liveN = n;
                     setLiveBackdrop(app, items[n], n, items, 0);
                     warmNext(items, n + 1);
                     if (APL.trailer) APL.trailer.arm(app, trailerOver, items[n]);
@@ -1062,7 +1110,7 @@
         focusFx(el);
         if (!inDock) stopRotate();
         if (mode !== "full") setMode(inDock ? "shelf" : "grid");
-        else { layout(); if (APL.trailer) APL.trailer.arm(app, trailerOver); }
+        else { layout(); if (APL.trailer) APL.trailer.arm(app, trailerOver, pickOnWall(app)); }
         if (APL.widgets) APL.widgets.show(inDock ? app : null, fromGrid);
         if (!inDock) flushBlur();
         // In the grid, as on tvOS: the Top Shelf artwork freezes and becomes
@@ -1312,6 +1360,8 @@
                 if (editing) return editKey(code);
                 if (mode !== "full") return false;
                 // In full screen: ◀ ▶ change app, ▼ / Back return, OK opens, ▲ Search (search.js).
+                if (code === K.LEFT) return stepShow(-1);
+                if (code === K.RIGHT) return stepShow(1);
                 if (code === K.DOWN || code === K.RETURN || code === K.ESC || code === K.BACKSPACE) { setMode("shelf"); return true; }
                 if (code === K.UP) { if (APL.search) APL.search.open(); return true; }
                 return false;
