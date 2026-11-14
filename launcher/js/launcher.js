@@ -675,6 +675,9 @@
                and the corners it does not paint stay transparent, so the
                backdrop shows there instead of a lighter rectangle. */
             card.style.background = "transparent center / contain no-repeat url('" + app.tile + "')";
+            /* Its shadow and sheen are the card's rectangle, not the icon's shape:
+               behind a transparent picture they drew a halo box around it. */
+            card.classList.add("tile__card--art");
         } else if (app.icon) {
             // No logo in the catalog: the app's real, sharp icon, until
             // genart.js makes its tile.
@@ -837,7 +840,12 @@
     /* A shelf hands over its titles at once; their pictures are fetched and
        decoded here, so the first ◀ ▶ is a swap and not a download. */
     function warmItems(items) {
-        for (var i = 0; items && i < items.length && i < 10; i++) {
+        /* A few, and later: ten full-size fanart files at once competed with the
+           picture on screen and slowed the dock's pane down with it. */
+        if (warmItems._t) return;
+        warmItems._t = true;
+        global.setTimeout(function () { warmItems._t = false; }, 1200);
+        for (var i = 0; items && i < items.length && i < 4; i++) {
             var it = items[i];
             if (!it || !it.bg || it.ok || it.bad || it._warm) continue;
             it._warm = true;
@@ -985,7 +993,7 @@
                     warmNext(items, n + 1);
                 }, LIVE_ROTATE_MS);
             });
-        }, app._liveItems && app._liveItems.length ? 60 : 150);
+        }, app._liveItems && app._liveItems.length ? 80 : 260);
     }
 
     var bgTimer = null, lastFocus = 0;
