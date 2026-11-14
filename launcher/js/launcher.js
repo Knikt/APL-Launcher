@@ -74,7 +74,10 @@
         /* A title's backdrop is known (and prefetched) - or the app has a Top
            Shelf of its own (fanart, YouTube), warmed at start-up: the generated
            sheet of light must never stand in for either, not even for a frame. */
-        if (app && (backdropPick(app) || (APL.live && APL.live.hasSource && APL.live.hasSource(app)))) return null;
+        if (app && backdropPick(app)) return null;
+        /* A Top Shelf only hides the sheet once it actually has titles: what you
+           are watching being off leaves the app's own sheet in place. */
+        if (app && app._liveItems && app._liveItems.length) return null;
         return app.bg;
     }
     function plain(app) { return black() && !app.shelfHtml; }
@@ -345,7 +348,9 @@
            background: a background on this full-screen layer was painted as the
            file decoded, a line at a time from the top. */
         cardBack(l, app);
-        if (!artOf(app) && !plain(app)) l.appendChild(brandCard(app));
+        /* The tvOS icon of Settings and Sources, never the app's name: a backdrop
+           that has not landed yet leaves a dark screen, not a title card. */
+        if (!artOf(app) && !plain(app) && app.shelfHtml) l.appendChild(brandCard(app));
         l.dataset.app = app.id;
         dom.bgA.parentNode.insertBefore(l, dom.bgA);
         layers[app.id] = l;
@@ -524,7 +529,7 @@
             var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
             next.innerHTML = "";
             if (image) next.style.background = "#000"; else cardBack(next, app);
-            if (!image && !plain(app)) next.appendChild(brandCard(app));
+            if (!image && !plain(app) && app.shelfHtml) next.appendChild(brandCard(app));
             if (!image) { showLayer(next, app); refreshGlass(); return; }
             showPicture(next, image, function (pic) {
                 if (token !== backdropToken) return;
@@ -636,6 +641,10 @@
            Control Center or a drawer is over it. */
         if (!force && overlayOpen()) return;
         lastPicks[app.id] = pick;                 // known before the decode: ▲ right after a slide plays this title
+        /* The title under the picture changes with the choice, not when the file
+           has finished decoding: a fast scroll left the last show's name over the
+           next show's picture. */
+        posterInfo(pick);
         var token = ++backdropToken;
         /* The picture AND the glass over it change together: the image is decoded
            and the pane baked before either is shown, so the dock, the pill and the
@@ -677,7 +686,6 @@
                 try { coming = APL.appArt.next(app, rotN + 1); } catch (e) {}
                 if (coming && coming.url) APL.glass.prefetch(coming.url);
             }
-            posterInfo(pick);
             currentPick = pick;
             currentPickApp = app.id;
             lastPicks[app.id] = pick;
