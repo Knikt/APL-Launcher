@@ -399,7 +399,11 @@
         var id = String((app && app.id) || (app && app.name) || "");
         var h = 0;
         for (var i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 100003;
-        return list[(h + (n || 0)) % list.length];
+        /* Negative steps wrap to the end of the list: ((h - 1) % len) was a
+           negative index, so ◀ returned undefined and the key fell through to
+           the app next door. */
+        var i = ((h + (n || 0)) % list.length + list.length) % list.length;
+        return list[i];
     }
 
     /* True when this app's name is a service the catalogue knows: the caller

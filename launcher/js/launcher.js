@@ -576,14 +576,12 @@
        next title of the same app, exactly as the ten-second timer would have. */
     /* ◀ ▶ in full screen: the other titles of the app on the wall, rather than
        the app next door. The art changes at once, its trailer two seconds later. */
-    var lastStep = 0;
     function stepShow(dir) {
         var app = apps[nav.index];
         if (!app || mode !== "full") return false;
-        /* The remote repeats a held arrow: one title per press, not three. */
-        var now = Date.now();
-        if (now - lastStep < 260) return true;
-        lastStep = now;
+        /* Every press moves one title, at once: the old 260 ms gate swallowed
+           presses the remote had already sent, which is what made ◀ ▶ feel
+           delayed and left the title a step behind the picture. */
         if (APL.trailer) APL.trailer.stop(true);
         if (APL.live && APL.live.hasSource && APL.live.hasSource(app) && app._liveItems && app._liveItems.length) {
             var list = app._liveItems, n = ((app._liveN || 0) + dir + list.length) % list.length;
@@ -595,7 +593,7 @@
         var pick = null;
         try { pick = APL.appArt && APL.appArt.next ? APL.appArt.next(app, rotN + dir) : null; } catch (e) {}
         if (!pick || !pick.url) return false;
-        rotN = Math.max(0, rotN + dir);
+        rotN += dir;                              /* may be negative: next() wraps */
         setPoster(app, pick);
         if (APL.trailer) APL.trailer.arm(app, trailerOver, pick);
         return true;
@@ -653,6 +651,7 @@
            has finished decoding: a fast scroll left the last show's name over the
            next show's picture. */
         posterInfo(pick);
+        warmNeighbours(app, rotN);
         var token = ++backdropToken;
         /* The picture AND the glass over it change together: the image is decoded
            and the pane baked before either is shown, so the dock, the pill and the
@@ -972,6 +971,10 @@
            TMDB, Plex or YouTube is an <img> revealed once its decode is done, so
            it can never be painted a band at a time. */
         showPicture(next, item.bg, function (pic) {
+            /* Two quick ◀ presses reuse the same layer: an answer for the title
+               before this one must not fade it in, or its picture lands under
+               the new title. */
+            if (!liveShown || liveShown.tag !== tag) return;
             if (bgActive === next) return;                 // already on screen
             /* The pane is ready before the picture is faded in, so the dock,
                the pill and the Control Center change with the backdrop instead
@@ -979,6 +982,7 @@
                one. A pane that cannot be made answers at once, so nothing is
                ever held back by glass. */
             var go = function () {
+                if (!liveShown || liveShown.tag !== tag) return;
                 if (bgActive === next) return;
                 fadeTo(next);
                 refreshGlass();
@@ -1046,6 +1050,26 @@
        same frame instead of after a decode. */
     var warmMap = {};
     function keepWarm(url, im) { if (url && im) warmMap[url] = im; }
+    /* The titles either side of the one on screen, fetched while it is up: the
+       next ◀ or ▶ finds its picture already decoded instead of waiting for it. */
+    function warmNeighbours(app, n) {
+        if (!APL.appArt || !APL.appArt.next) return;
+        setTimeout(function () {
+            var backs = [-1, 1, 2];
+            for (var i = 0; i < backs.length; i++) {
+                var p = null;
+                try { p = APL.appArt.next(app, n + backs[i]); } catch (e) {}
+                if (!p || !p.url || warmMap[p.url]) continue;
+                (function (url) {
+                    var im = new global.Image();
+                    im.src = url;
+                    if (im.decode) im.decode().then(function () { keepWarm(url, im); }, function () {});
+                    else keepWarm(url, im);
+                    if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(url);
+                })(p.url);
+            }
+        }, 80);
+    }
     function warmWall() {
         if (!APL.glass || !APL.glass.prefetch) return;
         if (!APL.sys.pref("cleanFrameBackdrops")) { warmActive = false; return; }
