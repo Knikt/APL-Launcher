@@ -671,7 +671,10 @@
             card.innerHTML = app.tileHtml;
         } else if (app.tile) {
             // inline style: a url() inside a CSS variable would be resolved from css/
-            card.style.background = "#111 center / cover no-repeat url('" + app.tile + "')";
+            /* No plate behind the artwork: the tile is drawn at its own shape,
+               and the corners it does not paint stay transparent, so the
+               backdrop shows there instead of a lighter rectangle. */
+            card.style.background = "transparent center / contain no-repeat url('" + app.tile + "')";
         } else if (app.icon) {
             // No logo in the catalog: the app's real, sharp icon, until
             // genart.js makes its tile.
