@@ -606,6 +606,28 @@
             return artOf(hit);
         }).catch(function () { return null; });
     }
+    /* The official title logo of a film or a series (TMDB, the same picture the cards lay over a
+       backdrop): the wall shows it in place of the name when one exists. */
+    function logoArt(title, year) {
+        if (!KEYS.tmdb || !title) return Promise.resolve("");
+        function pickLogo(list, lang) {
+            return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
+                .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
+        }
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&query=" + encodeURIComponent(title)).then(function (d) {
+            var found = (d.results || []).filter(function (r) { return r.media_type === "tv" || r.media_type === "movie"; });
+            var exact = found.filter(function (r) { return same(r.name || r.title, title) || same(r.original_name || r.original_title, title); });
+            var dated = exact.filter(function (r) { return year && String(r.first_air_date || r.release_date || "").substr(0, 4) === year; });
+            var hit = dated[0] || exact[0] || found[0];
+            if (!hit) return "";
+            var kind = hit.media_type === "tv" ? "tv" : "movie";
+            return getJson(TMDB + "/" + kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
+                var logo = pickLogo(im.logos, APL.lang) || pickLogo(im.logos, "en");
+                return logo ? IMG + big("w500") + logo.file_path : "";
+            });
+        }).catch(function () { return ""; });
+    }
+
     /* Like on Apple TV, the picture with the title already drawn on it: TMDB tags it with a language, the
        interface's language first. Else the textless background, with the title logo laid over it (widgets.js). */
     /* A card is about a quarter of the screen wide: 1280 px is sharp on a page drawn in 4K, where the
@@ -648,6 +670,7 @@
 
     APL.live = {
         searchArt: searchArt,
+        logoOf: logoArt,
         findImdb: findImdb,
         itemsFor: itemsFor,
         itemsNow: itemsNow,

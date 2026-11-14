@@ -138,7 +138,6 @@
            used to spare apps with artwork or a shelf of their own, which left
            the setting doing nothing on most of the wall; those shelves are
            handed over instead (see startBackdrops). */
-        if (APL.sys.pref("cleanFrameBackdrops") !== true) return null;
         /* A fallback, never a replacement: an app with a Top Shelf of its own -
            What You're Watching, What's Popular (TMDB), Plex, Spotify, and the
            players' Continue Watching (Stremio, Nuvio, Hot Player, APL TV) - keeps
@@ -152,13 +151,48 @@
         try { return APL.appArt.pick(app); } catch (e) { return null; }
     }
 
+    /* The title as the service prints it: its own logo when one is at hand, the
+       name otherwise. The logo is an <img> inside the title line, sized like the
+       text it replaces. */
+    function titleShow(text, logo) {
+        var t = dom.shelfTitle;
+        if (!logo) { t.textContent = text || ""; return; }
+        t.textContent = "";
+        var im = document.createElement("img");
+        im.className = "shelfinfo__logo";
+        im.alt = text || "";
+        im.src = logo;
+        t.appendChild(im);
+    }
+    /* TMDB has the official title logo for a film or a series; the catalogue's
+       picks do not carry one, so it is looked up as they come up and kept. */
+    var logoWanted = "", logoCache = {};
+    function logoOf(pick) {
+        if (!pick || !pick.title || !APL.live || !APL.live.logoOf) return;
+        var key = pick.title + "|" + (pick.year || "");
+        logoWanted = key;
+        if (logoCache[key] !== undefined) {
+            if (logoCache[key]) titleShow(pick.title, logoCache[key]);
+            return;
+        }
+        APL.live.logoOf(pick.title, pick.year).then(function (art) {
+            var url = art || "";
+            logoCache[key] = url;
+            /* Another title went up while this answer was coming: leave it alone. */
+            if (logoWanted !== key || !url) return;
+            pick.logo = url;
+            titleShow(pick.title, url);
+        }, function () {});
+    }
+
     /* Title and year under the poster, where the Top Shelf puts its own. */
     function posterInfo(pick) {
         if (!pick || !pick.title) { shelfInfo(null); return; }
         var meta = [];
         if (pick.year) meta.push(String(pick.year));
         if (pick.kind) meta.push(pick.kind);
-        shelfInfo({ poster: true, title: pick.title, meta: meta.join(" · ") });
+        shelfInfo({ poster: true, title: pick.title, logo: pick.logo, meta: meta.join(" · ") });
+        logoOf(pick);
     }
 
     /* Logo + name in the centre, like the provided artwork (sharp Tizen icon, never blurred). */
@@ -967,7 +1001,7 @@
         var has = !!(item && (item.type || item.poster || (item.title && item.sub)));
         dom.shelfInfo.classList.toggle("is-visible", has);
         if (!has) return;
-        dom.shelfTitle.textContent = item.title;
+        titleShow(item.title, item.logo);
         dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
             : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
         openHint();
@@ -1365,21 +1399,6 @@
        its Top Shelf straight back, without a restart. */
     function startBackdrops() {
         if (!APL.appArt || !APL.appArt.start) return;
-        APL.sys.onPref("cleanFrameBackdrops", function (v) {
-            dropLayers();
-            if (v) {
-                APL.appArt.start(function () {
-                    var app = apps[nav.index];
-                    if (app && mode !== "grid") setBackdrop(app, true);
-                });
-                return;
-            }
-            var app = apps[lastFocus];
-            if (!app || mode === "grid") return;
-            setBackdrop(app, true);                              // the app's artwork, not a poster
-            startLive(app);                                      // its own shelf, straight away
-        });
-        if (APL.sys.pref("cleanFrameBackdrops") !== true) return;
         APL.appArt.start(function () {
             var app = apps[nav.index];
             if (app && mode !== "grid") setBackdrop(app);
