@@ -238,10 +238,8 @@
         stop();
         if (!pref("trailers")) return;
         if (!KEYS.tmdb) return;
-        if (!pick) {
-            if (!APL.appArt || !APL.appArt.pick) return;
-            try { pick = APL.appArt.pick(app); } catch (e) {}
-        }
+        /* No title on the wall means no trailer: the app's own first pick is not
+           a title the viewer is looking at. */
         if (!pick || !pick.title) return;
         var mine = ++token;
         timer = global.setTimeout(function () {
