@@ -1112,6 +1112,10 @@
             if (!APL.live.hasSource(app)) return;
             try {
                 APL.live.itemsNow(app).then(function (items) {
+                    if (!items || !items.length) return;
+                    /* Kept on the app: startLive() shows the first one at once and
+                       its list, not a sheet of light, fills the screen. */
+                    if (!app._liveItems) { app._liveItems = items; app._liveN = 0; }
                     for (var j = 0; items && j < 2 && j < items.length; j++) {
                         if (!items[j] || !items[j].bg) continue;
                         var im = new global.Image();
@@ -1147,33 +1151,39 @@
     function startLive(app) {
         stopLive();
         if (!APL.live || !APL.live.hasSource(app)) return;
-        /* Warmed at start-up: no need to wait for the pause that avoids a fetch
-           per press while scrolling. */
+        var shown = false;
+        function show(items) {
+            if (shown) return;
+            shown = true;
+            if (!items || !items.length || apps[nav.index] !== app) return;
+            if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
+            var n = 0;
+            app._liveItems = items;
+            app._liveN = 0;
+            setLiveBackdrop(app, items[0], 0, items, 0);
+            warmNext(items, 1);
+            if (APL.trailer) APL.trailer.arm(app, trailerOver, items[0]);
+            liveRotate = setInterval(function () {
+                if (mode === "grid") return;                 // paused under the grid
+                /* A trailer owns the screen: the title must not slide out
+                   from under it. The slide waits for the next tick once the
+                   video is gone. */
+                if (APL.trailer && APL.trailer.busy && APL.trailer.busy()) return;
+                if (apps[nav.index] !== app) { stopLive(); return; }
+                n = (n + 1) % items.length;
+                app._liveN = n;
+                setLiveBackdrop(app, items[n], n, items, 0);
+                warmNext(items, n + 1);
+                if (APL.trailer) APL.trailer.arm(app, trailerOver, items[n]);
+            }, LIVE_ROTATE_MS);
+        }
+        /* The items were fetched at start-up (warmShelf) and their pictures are
+           in memory: the backdrop is shown at once, no pause, no sheet of light
+           in between. */
+        if (app._liveItems && app._liveItems.length) { show(app._liveItems); return; }
         liveTimer = setTimeout(function () {
-            APL.live.itemsNow(app).then(function (items) {
-                if (!items || apps[nav.index] !== app) return;
-                if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
-                var n = 0;
-                app._liveItems = items;
-                app._liveN = 0;
-                setLiveBackdrop(app, items[0], 0, items, 0);
-                warmNext(items, 1);
-                if (APL.trailer) APL.trailer.arm(app, trailerOver, items[0]);
-                liveRotate = setInterval(function () {
-                    if (mode === "grid") return;                 // paused under the grid
-                    /* A trailer owns the screen: the title must not slide out
-                       from under it. The slide waits for the next tick once the
-                       video is gone. */
-                    if (APL.trailer && APL.trailer.busy && APL.trailer.busy()) return;
-                    if (apps[nav.index] !== app) { stopLive(); return; }
-                    n = (n + 1) % items.length;
-                    app._liveN = n;
-                    setLiveBackdrop(app, items[n], n, items, 0);
-                    warmNext(items, n + 1);
-                    if (APL.trailer) APL.trailer.arm(app, trailerOver, items[n]);
-                }, LIVE_ROTATE_MS);
-            });
-        }, app._liveItems && app._liveItems.length ? 40 : 650);
+            APL.live.itemsNow(app).then(show, function () {});
+        }, 650);
     }
 
     var bgTimer = null, lastFocus = 0;
