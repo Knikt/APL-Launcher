@@ -134,7 +134,11 @@
             return;
         }
         if (glow) glow.parentNode.removeChild(glow);
-        layer.style.background = artOf(app) ? "#000" : backdropFor(app);
+        /* Not #000: a layer prepared for an app whose picture arrives later was
+           an opaque black rectangle over the one on screen - the black stage seen
+           while scrolling. Transparent lets the last picture stay until this
+           app's own is in place. */
+        layer.style.background = artOf(app) ? "transparent" : backdropFor(app);
     }
 
     /* ---------- dynamic backdrops (app-art.js) ---------- */
@@ -499,9 +503,13 @@
         if (pick && pick.url) { setPoster(app, pick, force); return; }
         currentPick = null;
         currentPickApp = "";
+        var image = artOf(app);
+        /* Nothing to put up yet - a live shelf still fetching, the trending list
+           still on its way: the picture already on screen stays rather than a
+           black stage, and this app's own art replaces it when it lands. */
+        if (!image && bgActive.dataset.app) return;
         if (bgActive.dataset.poster) bgActive._stale = true;      // removed once it has faded out
         stopRotate();
-        var image = artOf(app);
         wantBlur(image && (image === app.bg ? app.bgBlur || app.bg : image), app, image && (image === app.bg ? app.bgBlur || null : image));
         var token = ++backdropToken;
         if (apps.indexOf(app) < DOCK_SIZE) {
