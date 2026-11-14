@@ -227,7 +227,7 @@ html, body {
 }
 
 /* Top Shelf movie title and rating: on the left, without touching the hint in the center */
-.shelfinfo { position: fixed; left: 90px; top: calc(var(--dock-top) - 133px); width: 1240px; z-index: 9; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); transition: opacity 220ms ease; }
+.shelfinfo { position: fixed; left: 90px; top: calc(var(--dock-top) - 215px); width: 1240px; z-index: 9; color: #fff; opacity: 0; pointer-events: none; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.85); transition: opacity 220ms ease; }
 .shelfinfo.is-visible { opacity: 1; }
 .mode-grid .shelfinfo, .has-wdg .shelfinfo { opacity: 0; }
 .mode-full .shelfinfo { top: 910px; width: 1200px; }

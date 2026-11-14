@@ -561,8 +561,21 @@
             if (APL.trailer) APL.trailer.arm(app, trailerOver, list[n]);
             return true;
         }
-        /* No catalogue: an app without a Top Shelf of its own has nothing to
-           step through, and the arrows move to the app next door. */
+        /* The shelf has not answered yet (or was never started in this mode):
+           ask for this app's own titles now, so the first ◀ or ▶ still moves
+           within the app instead of leaving it. */
+        if (APL.live && APL.live.hasSource && APL.live.hasSource(app) && APL.live.itemsNow) {
+            APL.live.itemsNow(app).then(function (items) {
+                if (!items || !items.length || apps[nav.index] !== app) return;
+                app._liveItems = items;
+                app._liveN = dir < 0 ? items.length - 1 : 0;
+                setLiveBackdrop(app, items[app._liveN], app._liveN, items, 0);
+                if (APL.trailer) APL.trailer.arm(app, trailerOver, items[app._liveN]);
+            }, function () {});
+            return true;
+        }
+        /* An app with no shelf of its own has no other title to show, so the
+           arrows move to the app next door. */
         return false;
     }
 
