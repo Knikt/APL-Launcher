@@ -691,7 +691,17 @@
             lastPicks[app.id] = pick;
             startRotate(app);
         };
+        /* A warmed picture is already decoded and its pane already baked
+           (glass.prefetch): it goes on screen now, and the lens is asked for in
+           the background. Waiting for that answer is what left the sheet of light
+           up for a moment before the picture. */
+        var warm = warmMap[pick.url];
         whenDecoded(pick.url, function (im) {
+            if (warm) {
+                apply();
+                if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, function () {}, im);
+                return;
+            }
             /* Baked from the element that is about to be shown, so the picture and
                the pane land together rather than the pane a second later. */
             if (APL.glass && APL.glass.prepare) APL.glass.prepare(pick.url, apply, im); else apply();
