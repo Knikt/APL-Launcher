@@ -219,11 +219,14 @@
         }, FADE);
     }
 
-    function stop() {
+    /* cut: out at once, with no dissolve. Stepping to another title must not
+       leave the last video fading over the new art. */
+    function stop(cut) {
         token++;
         clearTimeout(timer);
         timer = 0;
-        fade();
+        if (cut) { clearTimeout(endTimer); endTimer = 0; hideNow(); }
+        else fade();
     }
 
     /* pick: the title on the wall, when the wall has already slid past the app's

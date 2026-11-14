@@ -71,9 +71,10 @@
     function black() { return APL.sys.pref("shelfArt") === "black"; }
     function artOf(app) {
         if (black()) return null;
-        /* A title's backdrop is known (and prefetched): the generated sheet of
-           light must never stand in for it, not even for a frame. */
-        if (app && backdropPick(app)) return null;
+        /* A title's backdrop is known (and prefetched) - or the app has a Top
+           Shelf of its own (fanart, YouTube), warmed at start-up: the generated
+           sheet of light must never stand in for either, not even for a frame. */
+        if (app && (backdropPick(app) || (APL.live && APL.live.hasSource && APL.live.hasSource(app)))) return null;
         return app.bg;
     }
     function plain(app) { return black() && !app.shelfHtml; }
@@ -535,8 +536,15 @@
     var ROTATE_MS = 10000, rotTimer = null, rotN = 0;
     /* The title actually on the wall, per app: the trailer must follow it, not
        the app's first pick, now that ◀ ▶ and the rotation change it. */
-    var currentPick = null, currentPickApp = "";
-    function pickOnWall(app) { return app && currentPickApp === app.id ? currentPick : null; }
+    var currentPick = null, currentPickApp = "", lastPicks = {};
+    /* The title on the wall for this app: its live shelf item when it has one,
+       otherwise the last poster painted - the rotated one, not the first pick. */
+    function pickOnWall(app) {
+        if (!app) return null;
+        if (app._liveItems && app._liveItems.length) return app._liveItems[app._liveN || 0];
+        if (lastPicks[app.id]) return lastPicks[app.id];
+        return currentPickApp === app.id ? currentPick : null;
+    }
     function stopRotate() { clearTimeout(rotTimer); rotTimer = null; }
     /* The backdrop is left alone while something is over it: the Control Center,
        a drawer, search, Settings, profiles. */
@@ -547,10 +555,15 @@
        next title of the same app, exactly as the ten-second timer would have. */
     /* ◀ ▶ in full screen: the other titles of the app on the wall, rather than
        the app next door. The art changes at once, its trailer two seconds later. */
+    var lastStep = 0;
     function stepShow(dir) {
         var app = apps[nav.index];
         if (!app || mode !== "full") return false;
-        if (APL.trailer) APL.trailer.stop();
+        /* The remote repeats a held arrow: one title per press, not three. */
+        var now = Date.now();
+        if (now - lastStep < 260) return true;
+        lastStep = now;
+        if (APL.trailer) APL.trailer.stop(true);
         if (APL.live && APL.live.hasSource && APL.live.hasSource(app) && app._liveItems && app._liveItems.length) {
             var list = app._liveItems, n = ((app._liveN || 0) + dir + list.length) % list.length;
             app._liveN = n;
@@ -614,6 +627,7 @@
            coming back from an overlay) must not repaint the picture while the
            Control Center or a drawer is over it. */
         if (!force && overlayOpen()) return;
+        lastPicks[app.id] = pick;                 // known before the decode: ▲ right after a slide plays this title
         var token = ++backdropToken;
         /* The picture AND the glass over it change together: the image is decoded
            and the pane baked before either is shown, so the dock, the pill and the
@@ -658,6 +672,7 @@
             posterInfo(pick);
             currentPick = pick;
             currentPickApp = app.id;
+            lastPicks[app.id] = pick;
             startRotate(app);
         };
         whenDecoded(pick.url, function (im) {
@@ -911,6 +926,7 @@
     function swapLive(app, item, n) {
         var tag = app.id + "#" + n;
         liveShown = { app: app, item: item, tag: tag };
+        lastPicks[app.id] = item;
         if (bgActive.dataset.app === tag) return;
         var next = (bgActive === dom.bgA) ? dom.bgB : dom.bgA;
         next.innerHTML = "";
@@ -1048,9 +1064,34 @@
        so the warm waits for it instead of giving up (it did, and nothing was
        ever fetched). */
     function warmSoon(tries) {
-        if (APL.glass && APL.glass.prefetch) { warmWall(); return; }
+        if (APL.glass && APL.glass.prefetch) { warmShelf(); warmWall(); return; }
         if ((tries || 0) > 40) return;
         global.setTimeout(function () { warmSoon((tries || 0) + 1); }, 250);
+    }
+
+    /* The dock's own Top Shelf pictures (fanart, TMDB, YouTube): fetched here so
+       the first app in focus already has them, independently of the JustWatch
+       setting. Two titles each, the one on screen and the one the rotation
+       shows next. */
+    var shelfWarmed = false;
+    function warmShelf() {
+        if (shelfWarmed || !APL.live || !APL.live.itemsNow) return;
+        shelfWarmed = true;
+        apps.slice(0, 8).forEach(function (app) {
+            if (!APL.live.hasSource(app)) return;
+            try {
+                APL.live.itemsNow(app).then(function (items) {
+                    for (var j = 0; items && j < 2 && j < items.length; j++) {
+                        if (!items[j] || !items[j].bg) continue;
+                        var im = new global.Image();
+                        im.src = items[j].bg;
+                        warmPics.push(im);
+                        if (warmPics.length > 24) warmPics.shift();
+                        if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(items[j].bg);
+                    }
+                }, function () {});
+            } catch (e) {}
+        });
     }
 
     /* browser checks read this, like APL.appArt.status() */
