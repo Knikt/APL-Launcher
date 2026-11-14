@@ -867,7 +867,16 @@
                 refreshGlass();
                 shelfInfo(item);
             };
-            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic); else go();
+            /* The picture goes up at once and the frosted pane catches up
+               behind it: waiting for the lens is what made a ◀ ▶ press feel
+               slow, one baked pane per title. */
+            go();
+            if (APL.glass && APL.glass.prepare) {
+                APL.glass.prepare(item.bg, function () {
+                    if (!liveShown || liveShown.tag !== tag) return;
+                    refreshGlass();
+                }, pic);
+            }
         });
     }
 
