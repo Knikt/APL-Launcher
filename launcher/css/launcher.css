@@ -29,7 +29,7 @@
     --dock-top: 783px;
     --dock-h: 225px;
     --gap-x: 50px;
-    --radius: 20px;
+    --radius: 34px;                           /* 22% of a 150 px tile, like the TV's own icons */
 }
 
 html, body {

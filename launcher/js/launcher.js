@@ -974,7 +974,7 @@
                 setLiveBackdrop(app, items[0], 0, items, 0);
                 warmNext(items, 1);
                 warmItems(items);
-            liveRotate = setInterval(function () {
+                liveRotate = setInterval(function () {
                     if (mode === "grid" || mode === "full") return;  // paused under the grid and in full screen
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
@@ -982,7 +982,7 @@
                     warmNext(items, n + 1);
                 }, LIVE_ROTATE_MS);
             });
-        }, 650);
+        }, app._liveItems && app._liveItems.length ? 60 : 150);
     }
 
     var bgTimer = null, lastFocus = 0;
