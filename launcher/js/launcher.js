@@ -976,7 +976,12 @@
                 refreshGlass();
                 shelfInfo(item);
             };
-            if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic); else go();
+            /* Warmed at start-up: the picture goes up now and the lens follows. */
+            if (warmMap[item.bg]) {
+                go();
+                if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, function () {}, pic);
+            } else if (APL.glass && APL.glass.prepare) APL.glass.prepare(item.bg, go, pic);
+            else go();
         });
     }
 
