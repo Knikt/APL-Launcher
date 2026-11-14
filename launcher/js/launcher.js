@@ -142,6 +142,9 @@
         im.alt = text || "";
         im.src = logo;
         t.appendChild(im);
+        t.classList.remove("is-swap");
+        void t.offsetWidth;                      // restart the animation
+        t.classList.add("is-swap");
     }
     /* TMDB has the official title logo for a film or a series; the catalogue's
        picks do not carry one, so it is looked up as they come up and kept. */
@@ -550,7 +553,13 @@
        next title of the same app, exactly as the ten-second timer would have. */
     /* ◀ ▶ in full screen: the other titles of the app on the wall, rather than
        the app next door. The art changes at once, its trailer two seconds later. */
+    var stepAt = 0;                         // last ◀ ▶: the lens waits until it is over
+    function glassSoon() {
+        clearTimeout(glassSoon._t);
+        glassSoon._t = setTimeout(function () { refreshGlass(); }, 240);
+    }
     function stepShow(dir) {
+        stepAt = Date.now();
         var app = apps[nav.index];
         if (!app || mode !== "full") return false;
         /* Every press moves one title, at once: the old 260 ms gate swallowed
@@ -822,6 +831,21 @@
 
     /* The artwork is loaded before being shown: an image that can't be found is skipped
        (on to the next item) instead of leaving a black screen. */
+    /* A shelf hands over its titles at once; their pictures are fetched and
+       decoded here, so the first ◀ ▶ is a swap and not a download. */
+    function warmItems(items) {
+        for (var i = 0; items && i < items.length && i < 10; i++) {
+            var it = items[i];
+            if (!it || !it.bg || it.ok || it.bad || it._warm) continue;
+            it._warm = true;
+            (function (item) {
+                var im = new Image();
+                im.onload = function () { item.ok = true; };
+                im.src = item.bg;
+            })(it);
+        }
+    }
+
     function setLiveBackdrop(app, item, n, items, tries) {
         if (item.bad) { if (items && (tries || 0) < items.length) setLiveBackdrop(app, items[(n + 1) % items.length], (n + 1) % items.length, items, (tries || 0) + 1); return; }
         if (item.ok) { swapLive(app, item, n); return; }
@@ -867,14 +891,16 @@
                 if (!liveShown || liveShown.tag !== tag) return;
                 if (bgActive === next) return;
                 fadeTo(next);
-                refreshGlass();
+                if ((Date.now() - stepAt) < 1500) glassSoon(); else refreshGlass();
                 shelfInfo(item);
             };
             /* The picture goes up at once and the frosted pane catches up
                behind it: waiting for the lens is what made a ◀ ▶ press feel
                slow, one baked pane per title. */
+            /* Stepping: no pane per title, one refresh once the arrows rest. */
+            var fast = (Date.now() - stepAt) < 1500;
             go();
-            if (APL.glass && APL.glass.prepare) {
+            if (!fast && APL.glass && APL.glass.prepare) {
                 APL.glass.prepare(item.bg, function () {
                     if (!liveShown || liveShown.tag !== tag) return;
                     refreshGlass();
@@ -947,7 +973,8 @@
                 var n = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
                 warmNext(items, 1);
-                liveRotate = setInterval(function () {
+                warmItems(items);
+            liveRotate = setInterval(function () {
                     if (mode === "grid" || mode === "full") return;  // paused under the grid and in full screen
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;

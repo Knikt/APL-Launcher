@@ -234,6 +234,11 @@ html, body {
 .shelfinfo__title { font-size: 44px; font-weight: 700; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The title's own logo, where TMDB has one: never stretched, never above the
    height the name would have taken. */
+.shelfinfo__title.is-swap { animation: titleSwap 240ms ease both; }
+@keyframes titleSwap {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+}
 .shelfinfo__logo { display: block; height: 120px; width: auto; max-width: 1320px; object-fit: contain; filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.8)); }
 .shelfinfo__open { display: none; margin-top: 14px; font-size: 24px; font-weight: 600; color: rgba(255, 255, 255, 0.95); }
 .mode-full .shelfinfo.can-open .shelfinfo__open { display: block; }

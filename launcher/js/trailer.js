@@ -181,8 +181,22 @@
         box.setAttribute("aria-hidden", "true");
         box.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) +
                   "?autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3" +
-                  "&disablekb=1&fs=0&cc_load_policy=0&loop=0";
+                  "&disablekb=1&fs=0&cc_load_policy=0&loop=0&enablejsapi=1";
         host.appendChild(box);
+        /* cc_load_policy only says "do not turn them on": a video whose captions
+           are on by default still shows them. The player's own API is the only
+           way to take the track away, and it needs the frame to have loaded. */
+        [900, 2000, 3500].forEach(function (ms) {
+            global.setTimeout(function () {
+                if (!box || !box.contentWindow) return;
+                try {
+                    box.contentWindow.postMessage(
+                        JSON.stringify({ event: "command", func: "unloadModule", args: ["captions"] }), "*");
+                    box.contentWindow.postMessage(
+                        JSON.stringify({ event: "command", func: "setOption", args: ["captions", "track", {}] }), "*");
+                } catch (e) {}
+            }, ms);
+        });
         /* Fading in once it is there avoids the grey rectangle of a frame that
            has not loaded yet; a block (an old engine, a network that answers
            nothing) simply never lights up and the picture stays. */
