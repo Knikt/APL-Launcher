@@ -29,7 +29,7 @@
     --dock-top: 783px;
     --dock-h: 225px;
     --gap-x: 50px;
-    --radius: 34px;                           /* 22% of a 150 px tile, like the TV's own icons */
+    --radius: 20px;
 }
 
 html, body {
@@ -884,9 +884,6 @@ html, body {
 .mode-grid .bg.is-motion { animation-play-state: paused; }
 .reduce-motion .bg.is-motion { animation: none; }
 
-.tile__card--art { box-shadow: none; background-color: transparent; }
-.tile__card--art::after { content: none; }
-.tile.is-focused .tile__card--art { box-shadow: none; }
 .tile__card--icon { overflow: hidden; }
 .tile__card--icon .tile__icon { position: relative; z-index: 1; }
 /* App Store icon: rounded square like an app, with a soft shadow */
