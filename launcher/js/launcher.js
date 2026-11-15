@@ -883,6 +883,35 @@
         next();
     }
 
+    /* The dock's row is at most seven apps, so at most seven pictures are kept:
+       when the Home Screen is up they are fetched once, one shelf at a time, so
+       the first visit to each app already has its backdrop instead of waiting for
+       it. The row is read each time, so a rearranged dock is what gets warmed. */
+    function warmDock() {
+        if (!APL.live || !APL.live.itemsNow || !APL.artCache) return;
+        var i = 0;
+        function next() {
+            while (i < apps.length && i < DOCK_SIZE) {
+                var app = apps[i++];
+                if (!app || !APL.live.hasSource(app) || APL.artCache.first(app.id)) continue;
+                (function (a) {
+                    global.setTimeout(function () {
+                        if (apps.indexOf(a) === -1 || apps.indexOf(a) >= DOCK_SIZE) { next(); return; }
+                        APL.live.itemsNow(a).then(function (items) {
+                            if (items && items.length && items[0] && items[0].bg) {
+                                APL.artCache.remember(a.id, items[0].bg);
+                                if (!APL.artCache.look(items[0].bg)) APL.artCache.keep(items[0].bg);
+                            }
+                            next();
+                        }, function () { next(); });
+                    }, 700);                    // one at a time: the dock's own pane still comes first
+                })(app);
+                return;
+            }
+        }
+        next();
+    }
+
     /* Only the apps of the dock's row are worth a picture of their own: they are
        the ones a press lands on. Asked at the moment it is needed, so moving an
        app into the row by hand takes effect at once, and one moved out stops
@@ -1413,6 +1442,7 @@
             buildList(list);
             watchPackages();
             setTimeout(preloadDock, 400);
+            setTimeout(warmDock, 1200);          // the row's own pictures, once it is on screen
             // Then a background search for missing artwork (new apps included)
             setTimeout(function () { if (APL.autoArt) APL.autoArt.run(allApps, render); }, 3500);
             showCcHint();
