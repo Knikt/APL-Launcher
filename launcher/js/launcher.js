@@ -365,12 +365,14 @@
        in over the old one, or appears at once under it while the old one fades out. Nothing moves and
        the stacking never changes: only the opacity, so no full-screen repaint (100 ms on the M8). */
     var FADE_MS = 300;
-    function fadeTo(next) {
+    function fadeTo(next, still) {
         var old = bgActive;
         /* The new picture slides in as it fades, whichever way round the two
            layers stack, so a change never pops - not for a new app, not for the
-           next title after ten seconds, not while stepping through the row. */
-        if (!next.classList.contains("is-motion")) {
+           next title after ten seconds. Stepping through the row keeps the slide
+           out: a moving full-screen layer under the dock's lens is the most
+           expensive thing the page can draw, and the press has to answer now. */
+        if (!still && !next.classList.contains("is-motion")) {
             next.classList.remove("is-slide");
             void next.offsetWidth;                                  // restart the animation
             next.classList.add("is-slide");
@@ -676,7 +678,9 @@
         } else if (app.icon) {
             // No logo in the catalog: the app's real, sharp icon, until
             // genart.js makes its tile.
-            card.style.background = app.accent || "linear-gradient(160deg, #3b3f4a 0%, #1b1d23 100%)";
+            /* The icon now covers the whole tile, so this fill is only what shows
+               for the instant before it decodes - not a plate around it. */
+            card.style.background = app.accent || "#111";
             card.classList.add("tile__card--icon");
             var img = document.createElement("img");
             img.className = "tile__icon" + (app.autoIcon ? " tile__icon--app" : "");
@@ -908,18 +912,18 @@
                of a second behind it - the poster of the last app under a new
                one. A pane that cannot be made answers at once, so nothing is
                ever held back by glass. */
+            var fast = (Date.now() - stepAt) < 1500;      // stepping: the arrows are still moving
             var go = function () {
                 if (!liveShown || liveShown.tag !== tag) return;
                 if (bgActive === next) return;
-                fadeTo(next);
-                if ((Date.now() - stepAt) < 1500) glassSoon(); else refreshGlass();
+                fadeTo(next, fast);
+                if (fast) glassSoon(); else refreshGlass();
                 shelfInfo(item);
             };
             /* The picture goes up at once and the frosted pane catches up
                behind it: waiting for the lens is what made a ◀ ▶ press feel
                slow, one baked pane per title. */
             /* Stepping: no pane per title, one refresh once the arrows rest. */
-            var fast = (Date.now() - stepAt) < 1500;
             go();
             if (!fast && APL.glass && APL.glass.prepare) {
                 APL.glass.prepare(item.bg, function () {
@@ -942,7 +946,16 @@
         titleShow(item.title, item.logo);
         /* A Top Shelf picture often arrives without its logo, and the fanart and
            TMDB backdrops are exactly the ones that need it: TMDB has it. */
-        if (!item.logo && item.title) logoOf(item.title, item.year || "");
+        /* No logo in the shelf data: TMDB has it, but that is two requests per
+           title, and ten of them in a second competed with the pictures being
+           fetched. While the arrows move the line stays empty; it fills once
+           they rest, on the title that is actually on the wall. */
+        clearTimeout(shelfInfo._logo);
+        if (!item.logo && item.title) {
+            var want = item.title, wantYear = item.year || "";
+            shelfInfo._logo = setTimeout(function () { logoOf(want, wantYear); },
+                (Date.now() - stepAt) < 1500 ? 420 : 0);
+        }
         dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
             : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
         openHint();
