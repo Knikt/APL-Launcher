@@ -148,6 +148,7 @@
        storage and drawn from there, so a step - and a launch - finds them ready.
        Forty-eight at most, newest kept; the store lives beside the lists. */
     var ART_DB = "apl-art", ART_STORE = "pics", ART_MAX = 48;
+    var ART_TTL = 6 * 3600 * 1000;              // the same six hours as the lists of titles
     var artUrls = {}, artDb = null, artHydrated = false;
 
     function artOpenDb(then) {
@@ -180,7 +181,9 @@
                 if (c) { found.push({ url: c.key, rec: c.value }); c.continue(); return; }
                 found.sort(function (a, b) { return ((b.rec && b.rec.t) || 0) - ((a.rec && a.rec.t) || 0); });
                 found.forEach(function (e, i) {
-                    if (i >= ART_MAX) { artDrop(e.url); return; }
+                    /* A picture kept from an older list is a picture of a show
+                       the app may not even open on any more: it goes. */
+                    if (i >= ART_MAX || Date.now() - ((e.rec && e.rec.t) || 0) > ART_TTL) { artDrop(e.url); return; }
                     if (e.rec && e.rec.blob) {
                         try { artUrls[e.url] = global.URL.createObjectURL(e.rec.blob); } catch (err) {}
                     }
@@ -207,11 +210,18 @@
        down here, so the wall can have it the moment that app takes the focus -
        before its shelf has even been asked for. */
     function artFirst(appId) {
-        try { return global.localStorage.getItem("apl.art.first." + appId) || ""; } catch (e) { return ""; }
+        var rec;
+        try { rec = JSON.parse(global.localStorage.getItem("apl.art.first." + appId) || "null"); } catch (e) { return ""; }
+        /* Six hours, like the list the address came from: an app whose shelf has
+           been refreshed since opens on whatever it shows now. The picture itself
+           is dropped by artHydrate; this is what stops a stale address being used
+           while the new one is on its way. */
+        if (!rec || !rec.u || Date.now() - (rec.t || 0) > ART_TTL) return "";
+        return rec.u;
     }
     function artRemember(appId, url) {
         if (!appId || !url || !/^https?:/i.test(url)) return;   // a data: picture is not an address to keep
-        try { global.localStorage.setItem("apl.art.first." + appId, url); } catch (e) {}
+        try { global.localStorage.setItem("apl.art.first." + appId, JSON.stringify({ u: url, t: Date.now() })); } catch (e) {}
     }
 
     APL.artCache = { look: artLook, keep: artKeep, first: artFirst, remember: artRemember };

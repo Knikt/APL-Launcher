@@ -849,7 +849,7 @@
            used to be fetched four at once, which meant the fifth title of a shelf
            was still a download, and that is what a step past it looked like. */
         if (!items || !items.length) return;
-        if (app && APL.artCache && APL.artCache.remember) APL.artCache.remember(app.id, items[0] && items[0].bg);
+        if (app && inTopRow(app) && APL.artCache && APL.artCache.remember) APL.artCache.remember(app.id, items[0] && items[0].bg);
         if (warmItems._items === items) return;                 // this shelf is already being warmed
         warmItems._items = items;
         var i = 0;
@@ -870,7 +870,7 @@
                         /* The first picture of an app is the one kept: it is what
                            the wall shows when that app takes the focus. The rest
                            are fetched for the row and left to the engine's cache. */
-                        if (item === items[0] && APL.artCache && !APL.artCache.look(item.bg)) APL.artCache.keep(item.bg);
+                        if (item === items[0] && inTopRow(app) && APL.artCache && !APL.artCache.look(item.bg)) APL.artCache.keep(item.bg);
                         then(true);
                     };
                     im.onerror = function () { then(false); };
@@ -881,6 +881,15 @@
             }
         }
         next();
+    }
+
+    /* Only the apps of the dock's row are worth a picture of their own: they are
+       the ones a press lands on. Asked at the moment it is needed, so moving an
+       app into the row by hand takes effect at once, and one moved out stops
+       being kept. */
+    function inTopRow(app) {
+        var i = app ? apps.indexOf(app) : -1;
+        return i !== -1 && i < DOCK_SIZE;
     }
 
     /* The picture as it is on the screen already (a blob kept from last time) or
@@ -1062,7 +1071,10 @@
            takes the focus, so no generated sheet of light is ever shown in its
            place while its shelf is fetched. */
         var kept = live && APL.artCache && APL.artCache.first ? APL.artCache.first(app.id) : "";
-        if (kept && APL.artCache.look(kept)) {
+        if (kept) {
+            /* The picture it kept, or its address while the store is still being
+               read: either way the wall has something to fade in at once, and the
+               generated sheet is never seen between two apps that both have one. */
             setLiveBackdrop(app, { bg: kept, ok: true }, "c", null, 0);
             startLive(app);
             return;
