@@ -222,15 +222,18 @@
         dom.bgBlur.appendChild(blurCanvas);
         return blurCanvas;
     }
-    function setBlur(src, app) {
+    function setBlur(src, app, decoded) {
         if (!dom.bgBlur) return;
         var token = ++blurToken;
-        if (!src) {
+        if (!src && !decoded) {
             dom.bgBlur.style.background = backdropFor(app);
             if (blurCanvas) blurCanvas.style.opacity = "0";
             return;
         }
-        var img = new Image();
+        /* The picture that is already on the screen is used when it is handed
+           over: its small copy was a second download, and the drawer waited for
+           it. Otherwise the 300 px copy is fetched. */
+        var img = (decoded && decoded.complete && decoded.naturalWidth) ? decoded : new Image();
         /* onload is not the whole bitmap. Drawing then left the blurred backdrop
            half filled, and the Control Center sometimes showed that banded blur
            of the app's backdrop instead of the picture. */
@@ -257,6 +260,7 @@
             c.style.opacity = "1";
             dom.bgBlur.style.background = "#05060a";
         }
+        if (img === decoded) { paintBlur(); return; }
         img.onload = function () {
             if (img.decode) img.decode().then(paintBlur, paintBlur);
             else paintBlur();
@@ -302,11 +306,11 @@
                the new one is set here, once it is known to be decoded. */
         });
     }
-    function flushBlur() {
+    function flushBlur(decoded) {
         if (!blurWanted) return;
         var b = blurWanted;
         blurWanted = null;
-        setBlur(b.src, b.app);
+        setBlur(b.src, b.app, decoded);
     }
 
     /* An image is only shown once decoded: the fade starts without a hitch. */
@@ -483,6 +487,10 @@
         var done = function () {
             if (token !== backdropToken) return;      // another app was chosen meanwhile
             showLayer(layer, app);
+            /* The drawer's blurred background is this picture, drawn now from the
+               very same bitmap: opening the drawer never has one to prepare. */
+            wantBlur(image, app);
+            flushBlur(pic);
             refreshGlass();
             warmNear(nav.index);      // the neighbours are already sliced: the next step waits for nothing
         };
@@ -1014,6 +1022,9 @@
                before this one must not fade it in, or its picture lands under
                the new title. */
             if (!liveShown || liveShown.tag !== tag) return;
+            /* Drawn here, before anything can return: the drawer's background must
+               be ready by the time the user opens it, whatever the wall did. */
+            flushBlur(pic);
             if (bgActive === next) return;                 // already on screen
             /* The pane is ready before the picture is faded in, so the dock,
                the pill and the Control Center change with the backdrop instead
@@ -1026,10 +1037,6 @@
                 if (bgActive === next) return;
                 fadeTo(next, fast);
                 if (fast) glassSoon(); else refreshGlass();
-                /* Drawn now, while the wall is changing anyway: opening the grid
-                   or the drawer then has no picture to decode and can never show
-                   the one before. */
-                flushBlur();
                 shelfInfo(item);
             };
             /* The picture goes up at once and the frosted pane catches up
@@ -1517,6 +1524,7 @@
         applyPerf();
         APL.sys.onPref("visualEffects", applyPerf);
         applyTheme();
+        blurLayer();                 // the drawer's blurred canvas, made once, before it is needed
         APL.sys.onPref("appearance", applyTheme);
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
