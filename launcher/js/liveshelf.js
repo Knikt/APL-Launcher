@@ -203,7 +203,18 @@
     /* The picture to draw: the one on the screen if it is there, its address otherwise. */
     function artLook(url) { return (url && artUrls[url]) || ""; }
 
-    APL.artCache = { look: artLook, keep: artKeep };
+    /* One picture per app, and its name kept: an app's first backdrop is written
+       down here, so the wall can have it the moment that app takes the focus -
+       before its shelf has even been asked for. */
+    function artFirst(appId) {
+        try { return global.localStorage.getItem("apl.art.first." + appId) || ""; } catch (e) { return ""; }
+    }
+    function artRemember(appId, url) {
+        if (!appId || !url || !/^https?:/i.test(url)) return;   // a data: picture is not an address to keep
+        try { global.localStorage.setItem("apl.art.first." + appId, url); } catch (e) {}
+    }
+
+    APL.artCache = { look: artLook, keep: artKeep, first: artFirst, remember: artRemember };
     setTimeout(artHydrate, 0);
 
     function getJson(url) {

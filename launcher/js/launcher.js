@@ -588,7 +588,7 @@
                 if (!items || !items.length || apps[nav.index] !== app) return;
                 app._liveItems = items;
                 app._liveN = dir < 0 ? items.length - 1 : 0;
-                warmItems(items);
+                warmItems(items, app);
                 setLiveBackdrop(app, items[app._liveN], app._liveN, items, 0);
                 if (APL.trailer) APL.trailer.arm(app, trailerOver, items[app._liveN]);
             }, function () {});
@@ -843,12 +843,13 @@
        (on to the next item) instead of leaving a black screen. */
     /* A shelf hands over its titles at once; their pictures are fetched and
        decoded here, so the first ◀ ▶ is a swap and not a download. */
-    function warmItems(items) {
+    function warmItems(items, app) {
         /* Every title of the shelf, one after another: a ◀ ▶ press swaps a picture
            that is already fetched, so the step never waits for the network. They
            used to be fetched four at once, which meant the fifth title of a shelf
            was still a download, and that is what a step past it looked like. */
         if (!items || !items.length) return;
+        if (app && APL.artCache && APL.artCache.remember) APL.artCache.remember(app.id, items[0] && items[0].bg);
         if (warmItems._items === items) return;                 // this shelf is already being warmed
         warmItems._items = items;
         var i = 0;
@@ -865,7 +866,13 @@
                         if (ok) item.ok = true; else item.bad = true;
                         global.setTimeout(next, 160);           // one picture at a time: the page keeps drawing
                     };
-                    im.onload = function () { if (!APL.artCache || !APL.artCache.look(item.bg)) { if (APL.artCache) APL.artCache.keep(item.bg); } then(true); };
+                    im.onload = function () {
+                        /* The first picture of an app is the one kept: it is what
+                           the wall shows when that app takes the focus. The rest
+                           are fetched for the row and left to the engine's cache. */
+                        if (item === items[0] && APL.artCache && !APL.artCache.look(item.bg)) APL.artCache.keep(item.bg);
+                        then(true);
+                    };
                     im.onerror = function () { then(false); };
                     im.src = srcOf(item);
                     global.setTimeout(function () { then(true); }, 4000);   // a stalled file must not stop the rest
@@ -1017,7 +1024,7 @@
                 var n = 0;
                 setLiveBackdrop(app, items[0], 0, items, 0);
                 warmNext(items, 1);
-                warmItems(items);
+                warmItems(items, app);
                 liveRotate = setInterval(function () {
                     if (mode === "grid" || mode === "full") return;  // paused under the grid and in full screen
                     if (apps[nav.index] !== app) { stopLive(); return; }
@@ -1051,6 +1058,15 @@
            Dynamic Backdrops setting, for one). The shelf picture still has to
            start, or the shelf stays empty until the focus leaves and returns. */
         if (bgActive.dataset.app === app.id) { if (live) startLive(app); return; }
+        /* This app's backdrop is kept on the screen: it goes up the moment the app
+           takes the focus, so no generated sheet of light is ever shown in its
+           place while its shelf is fetched. */
+        var kept = live && APL.artCache && APL.artCache.first ? APL.artCache.first(app.id) : "";
+        if (kept && APL.artCache.look(kept)) {
+            setLiveBackdrop(app, { bg: kept, ok: true }, "c", null, 0);
+            startLive(app);
+            return;
+        }
         shelfInfo(null);
         // Full-screen artwork changed a fraction of a second after the focus: when
         // scrolling fast, a large image isn't decoded on every press.

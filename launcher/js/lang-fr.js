@@ -790,4 +790,25 @@ window.APL_LANG_FR = {
     "ISF Expert (Dark Room)": "Expert ISF (pièce sombre)",
     "Personalized Picture": "Image personnalisée",
     "LG deletes the apps installed in Developer Mode when its 1000 hours run out, this launcher included. The launcher renews them on its own, once a day, as the Developer Mode app's Extend button does.": "LG efface les apps installées en mode développeur quand ses 1000 heures sont écoulées, ce launcher compris. Le launcher les renouvelle tout seul, une fois par jour, comme le bouton Extend de l'app Developer Mode.",
+
+    /* Short labels the Settings screen offers as values. They read the same in
+       French, and they are written here all the same: a key that is missing is a
+       value the French screen has to look up and never finds. */
+    "Apps": "Apps",
+    "Audio": "Audio",
+    "Auto": "Auto",
+    "Balance": "Balance",
+    "Gamma": "Gamma",
+    "Normal": "Normal",
+    "Sources": "Sources",
+    "Type": "Type",
+    "Version": "Version",
+    "Version {v}": "Version {v}",
+    "Version {v} available": "Version {v} disponible",
+    "Visible": "Visible",
+    "2 minutes": "2 minutes",
+    "5 minutes": "5 minutes",
+    "10 minutes": "10 minutes",
+    "15 minutes": "15 minutes",
+    "30 minutes": "30 minutes",
 };
