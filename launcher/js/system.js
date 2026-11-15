@@ -40,6 +40,7 @@
         screensaverClockMove: 0,    // minutes between two corners of the screen saver's clock, 0 = it stays put
         uiSounds: true,             // small navigation clicks, like on Apple TV
         hiddenApps: [],
+        appIcons: {},               // Change Icon (hold OK on an app): { app id: tile picture } for the whole screen (launcher.js)
         appOrder: [],
         sourceDevices: {},          // device chosen for each input (Sources screen)
         sourcePorts: null,          // the screen's HDMI ports, read through Vetro (sources.js)

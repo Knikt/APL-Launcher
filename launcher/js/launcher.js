@@ -686,7 +686,11 @@
         var card = document.createElement("div");
         card.className = "tile__card";
 
-        if (app.tileHtml) {
+        var chosen = iconOf(app);
+        if (chosen) {
+            // Change Icon (hold OK): the picture chosen for this app
+            card.style.background = "#111 center / cover no-repeat url('" + asset(chosen) + "')";
+        } else if (app.tileHtml) {
             card.innerHTML = app.tileHtml;
         } else if (app.tile) {
             // inline style: a url() inside a CSS variable would be resolved from css/
@@ -1245,6 +1249,11 @@
        it launches anyway. */
     var TUBE = /^(TizenTube|TizenBrew)$/;
     var SAMSUNG_YOUTUBE = ["com.samsung.tv.cobalt-yt", "111299001912"];
+    /* TizenTube's own app (TizenTube Cobalt, the way its makers now ship it), not TizenBrew's module.
+       Installed, it is the TizenTube tile: in the place of the one that goes through TizenBrew
+       (buildList, applySavedOrder), and what the remote's TizenTube button opens (openById). */
+    var TUBE_APP = /^xvvl3S1TT1\./;
+    function ownTube(list) { return list.filter(function (a) { return TUBE_APP.test(a.id); })[0] || null; }
     function launchTube(id) {
         var done = false;
         function go() {
@@ -1264,7 +1273,7 @@
 
     /* Settings › Apps: closes the apps left open behind the launcher. Only Home Screen apps
        and the big video apps: never a screen service. TizenTube stays ready (20 s from cold). */
-    var KEEP_OPEN = /^(APLauncher\.|apl\.launcher\.|xvvl3S1bvH\.|vetrotvapp)/;
+    var KEEP_OPEN = /^(APLauncher\.|apl\.launcher\.|xvvl3S1bvH\.|xvvl3S1TT1\.|vetrotvapp)/;
     var VIDEO_APPS = ["org.tizen.netflix-app", "org.tizen.primevideo", "HEPsqFNie0.tvplusstandalone"];   // their tile carries a different id
     function memoryLeft() {
         if (APL.sys.memoryLeft) return APL.sys.memoryLeft();        // LG (webos-system.js)
@@ -1554,10 +1563,11 @@
         // needs: the app it goes through. when: set up on this installation only.
         // Another platform keeps the tiles it can open (android.js: no Sources, its own home for Smart Hub)
         virtuals = virtuals || (APL.platform && APL.platform.virtualApps ? APL.platform.virtualApps(virtualApps()) : virtualApps());
+        var own = ownTube(list);       // TizenTube's own app: the TizenTube tile (it is first among favs)
         var usable = virtuals.filter(function (v) {
+            if (own && v.id === "apl.tizentube") return false;
             return (!v.needs || list.some(function (a) { return a.id === v.needs; })) && (!v.when || v.when());
-        })
-            .concat(APL.sources ? APL.sources.homeTiles() : []);              // inputs pinned to the Home Screen
+        }).concat(APL.sources ? APL.sources.homeTiles() : []);              // inputs pinned to the Home Screen
         var tube = usable.filter(function (v) { return v.id === "apl.tizentube"; });
         defaultOrder = tube.concat(favs, usable.filter(function (v) { return tube.indexOf(v) === -1; }), rest, APL.folders.all().map(APL.folders.asApp));
         allApps = applySavedOrder(defaultOrder);
@@ -1595,6 +1605,9 @@
         saved.forEach(function (id, i) { pos[id] = i; });
         // A layout from before these tiles: TizenTube first, Overscan in place of Internet
         if (!("apl.tizentube" in pos)) pos["apl.tizentube"] = -1;
+        // TizenTube's own app, newly installed: in the TizenTube tile's place, not at the end
+        var own = ownTube(list);
+        if (own && !(own.id in pos)) pos[own.id] = pos["apl.tizentube"];
         var browser = saved.indexOf("org.tizen.browser");
         if (browser !== -1 && !("org.apps2samsung.overscan" in pos)) pos["org.apps2samsung.overscan"] = browser;
         // Only once: AquaPlay moves up into the dock (its widgets show there) in place of TizenBrew,
@@ -1639,6 +1652,7 @@
             return;
         }
         items.push({ label: APL.t("Move to Folder"), icon: "grid", run: function () { chooseFolder(app, anchor); } });
+        items.push({ label: APL.t("Change Icon"), icon: "photo", run: function () { chooseIcon(app); } });
         if (app.id !== "apl.settings") {
             items.push({ label: APL.t("Hide App"), icon: "eyeOff", run: function () { hideApp(app); } });
         }
@@ -1648,6 +1662,91 @@
             items.push({ label: APL.t("Delete App"), icon: "trash", destructive: true, run: function () { confirmDelete(app); } });
         }
         APL.contextMenu.open(el.querySelector(".tile__card") || el, items);
+    }
+
+    /* ---------- Change Icon (hold OK) ----------
+       Another picture for an app's tile, among the launcher's own: every logo of the catalogue
+       and the few tiles it draws itself. TizenTube with YouTube's own logo was asked for on
+       Reddit. Kept for the whole screen (the appIcons setting, by app id); Original gives the
+       app its own tile back. The Top Shelf stays the app's. */
+    var OWN_TILES = [
+        { name: "TizenTube", tile: "images/tile-tizentube.png" },
+        { name: "TizenBrew", tile: "images/tile-tizenbrew.png" },
+        { name: "Internet", tile: "images/tile-internet.png" },
+        { name: "Hot IPTV", tile: "images/tile-hotiptv.png" }
+    ];
+    function iconOf(app) { return app && !app.folder ? (APL.sys.pref("appIcons") || {})[app.id] || "" : ""; }
+    /* The picture a tile shows: the chosen one, else the app's own (folders.js, profiles.js). */
+    APL.tileOf = function (app) { var p = iconOf(app); return p ? asset(p) : app && app.tile; };
+
+    function iconChoices() {
+        var seen = {}, list = [];
+        (global.APL_CATALOG || []).concat(OWN_TILES).forEach(function (c) {
+            if (!c.tile || seen[c.tile]) return;
+            seen[c.tile] = true;
+            list.push({ name: APL.t(c.name || c.key || ""), tile: c.tile });     // Settings: Réglages in French
+        });
+        return list.sort(function (a, b) { return a.name.localeCompare(b.name, APL.locale, { sensitivity: "base" }); });
+    }
+
+    function chooseIcon(app) {
+        var box = document.createElement("div");
+        box.className = "ipicker";
+        box.innerHTML = '<h2 class="ipicker__title"></h2><div class="ipicker__scroll"><div class="ipicker__grid"></div></div>';
+        box.firstChild.textContent = APL.t("Icon for “{app}”", { app: app.name });
+        var grid = box.querySelector(".ipicker__grid"), items = [], now = iconOf(app), at = 0;
+        function item(name, paint, path) {
+            var it = document.createElement("div"), art = document.createElement("div"), label = document.createElement("div");
+            it.className = "ipicker__item" + (path === now ? " is-current" : "");
+            art.className = "ipicker__art";
+            label.className = "ipicker__name";
+            paint(art);
+            label.textContent = name;
+            it.appendChild(art);
+            it.appendChild(label);
+            it._path = path;
+            if (path === now) at = items.length;
+            grid.appendChild(it);
+            items.push(it);
+        }
+        // The app's own tile first, as the Home Screen draws it without a choice
+        item(APL.t("Original"), function (art) {
+            if (app.tileHtml) { art.innerHTML = app.tileHtml; return; }
+            if (app.tile) { art.style.backgroundImage = "url('" + app.tile + "')"; return; }
+            art.style.background = app.accent || "#2a2a2e";
+            if (!app.icon) { art.appendChild(letter(app.name)); return; }
+            var img = document.createElement("img");
+            img.alt = "";
+            img.src = app.icon;
+            art.appendChild(img);
+        }, "");
+        iconChoices().forEach(function (c) {
+            item(c.name, function (art) { art.style.backgroundImage = "url('" + asset(c.tile) + "')"; }, c.tile);
+        });
+        document.body.appendChild(box);
+        // The grid scrolls to keep the chosen row on screen (3rd row at the lowest): launcher.css .ipicker
+        var ROW = 204;
+        var pick = new APL.Nav({
+            onFocus: function (i, t) {
+                grid.style.transform = "translateY(" + (-Math.max(0, Math.round(t.offsetTop / ROW) - 2) * ROW) + "px)";
+            },
+            onSelect: function (i, t) {
+                var cur = APL.sys.pref("appIcons") || {}, next = {}, k;
+                for (k in cur) if (Object.prototype.hasOwnProperty.call(cur, k) && k !== app.id) next[k] = cur[k];
+                if (t._path) next[app.id] = t._path;
+                APL.sys.setPref("appIcons", next);
+                done();
+                render();
+            },
+            onBack: done
+        });
+        function done() {
+            APL.popNav(pick);
+            if (box.parentNode) box.parentNode.removeChild(box);
+        }
+        pick.setTiles(items);
+        pick.focus(at);
+        APL.pushNav(pick);
     }
 
     function chooseFolder(app, anchor) {
@@ -1932,6 +2031,9 @@
         });
     }
     function openById(id) {
+        // The remote's TizenTube button (APL Overlay asks for apl.tizentube): TizenTube's own app when installed
+        var own = id === "apl.tizentube" && ownTube(allApps);
+        if (own) id = own.id;
         for (var i = 0; i < allApps.length; i++) if (allApps[i].id === id) { APL.goHome(); APL.openApp(allApps[i]); return; }
     }
     global.addEventListener("appcontrol", function () {

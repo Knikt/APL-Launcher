@@ -98,6 +98,21 @@ class Bridge(private val ctx: Context, private val host: Host) {
         return start(i.putExtra(key, value))
     }
 
+    /* ---------- Android TV's Watch Next row (WatchNext.kt): the Top Shelf's cards for every app ---------- */
+    @JavascriptInterface fun watchNextAllowed(): Boolean = WatchNext.allowed(app)
+    @JavascriptInterface fun watchNextSupported(): Boolean = WatchNext.supported()
+    @JavascriptInterface fun watchNext(): String = WatchNext.read(app)
+    @JavascriptInterface fun openWatchNext(pkg: String, id: String): Boolean = id.toLongOrNull()?.let { WatchNext.open(app, pkg, it) } ?: false
+    /* Android's own question, once ("Allow APL Launcher to access your TV listings?"); the answer comes back as
+       the event "listings" */
+    @JavascriptInterface
+    fun requestWatchNext(): Boolean {
+        val a = MainActivity.current ?: return false
+        if (!WatchNext.supported() || WatchNext.allowed(app)) return false
+        Web.onMain { try { a.requestPermissions(arrayOf(WatchNext.PERMISSION), MainActivity.REQUEST_LISTINGS) } catch (e: Exception) { Log.w(Web.TAG, "listings: $e") } }
+        return true
+    }
+
     /* APL TV's Top Shelf: what you were watching and your last channel. On Samsung and LG it is the file
        /tmp/apltv-shelf.json; on Android APL TV keeps it and hands it to APL Launcher only (its ShelfProvider
        checks this app's signing certificate). "" without APL TV, with an older APL TV, or before it wrote one. */

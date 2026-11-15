@@ -106,8 +106,8 @@ It always gives the latest version. Install it, then open APL Launcher: it asks 
 
 ```sh
 adb connect <tv-ip>
-adb install -r apl-launcher-v1.1.4-android.apk
-adb install -r apl-launcher-home-button-v1.1.4-android.apk
+adb install -r apl-launcher-v1.2.0-android.apk
+adb install -r apl-launcher-home-button-v1.2.0-android.apk
 ```
 
 Then open APL Launcher once. More, including the Home button: [docs/android.md](docs/android.md).

@@ -204,6 +204,8 @@ if ($ModuleApk) {
     # Its Control Center over the app in front: "draw over other apps" (also in the TV's Settings › Apps › Special app access)
     Adb @('-s', $serial, 'shell', 'appops', 'set', $AppId, 'SYSTEM_ALERT_WINDOW', 'allow') | Out-Null
 }
+# What You're Watching: the apps' Watch Next row (Nuvio's Continue Watching…), Android 11+; else Android asks once
+Adb @('-s', $serial, 'shell', 'pm', 'grant', $AppId, 'android.permission.READ_TV_LISTINGS') | Out-Null
 # The API keys: the published .apk has none and can't be changed here (it is signed with APL Launcher's key), so
 # they go to the app itself (KeysReceiver.kt, which only adb and the system may call). Never written to the log.
 $keyArgs = @()

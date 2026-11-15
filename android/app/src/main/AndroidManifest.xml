@@ -24,6 +24,9 @@
     <!-- Sleep Timer: on time, whatever app is in front -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- The apps' Continue Watching in the Top Shelf: Android TV's Watch Next row (WatchNext.kt, Android 11+). Android
+         asks once, or APL Launcher Setup gives it with adb. -->
+    <uses-permission android:name="android.permission.READ_TV_LISTINGS" />
     <!-- Optional (docs/android.md): the Control Center over the app in front, and the apps used lately in the
          App Switcher -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
@@ -52,6 +55,8 @@
         </intent>
         <!-- APL TV's Top Shelf (its ShelfProvider) -->
         <provider android:authorities="com.knikt.apltv.shelf" />
+        <!-- Android TV's programs: the Watch Next row -->
+        <provider android:authorities="android.media.tv" />
         <!-- APL Launcher Home Button: installed, and the commands sent to it -->
         <package android:name="com.knikt.apllauncher.home" />
     </queries>

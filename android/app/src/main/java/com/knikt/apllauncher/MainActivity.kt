@@ -26,6 +26,7 @@ class MainActivity : Activity(), Bridge.Host {
         const val EXTRA_ACTION = "apl_action"
         const val EXTRA_HOME = "apl_home"          // Home pressed (APL Launcher Home Button), where Android keeps its own launcher on it
         const val REQUEST_HOME = 7
+        const val REQUEST_LISTINGS = 8         // READ_TV_LISTINGS: the apps' Watch Next row (WatchNext.kt)
         @Volatile var current: MainActivity? = null
         @Volatile var resumed = false
 
@@ -130,6 +131,11 @@ class MainActivity : Activity(), Bridge.Host {
         }
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(r, f, Context.RECEIVER_NOT_EXPORTED) else registerReceiver(r, f)
         packages = r
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, results: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, results)
+        if (requestCode == REQUEST_LISTINGS) Web.event(web, "listings", if (WatchNext.allowed(this)) "true" else "false")
     }
 
     @Deprecated("Android's own result API")
