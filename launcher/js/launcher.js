@@ -999,7 +999,10 @@
         next.innerHTML = "";
         next.dataset.app = tag;
         motion(next);
-        wantBlur(item.bgSmall || null, app, null);
+        /* The grid's blurred background is this picture. A kept one has no small
+           copy beside it, and asking for nothing left the last app's blur in
+           place: the drawer then opened on a picture that was no longer there. */
+        wantBlur(item.bgSmall || item.bg || null, app, null);
         /* The picture from TMDB, Plex or YouTube is an <img> revealed once its
            decode is done, so it can never be painted a band at a time. */
         showPicture(next, srcOf(item), function (pic) {
@@ -1019,6 +1022,10 @@
                 if (bgActive === next) return;
                 fadeTo(next, fast);
                 if (fast) glassSoon(); else refreshGlass();
+                /* Drawn now, while the wall is changing anyway: opening the grid
+                   or the drawer then has no picture to decode and can never show
+                   the one before. */
+                flushBlur();
                 shelfInfo(item);
             };
             /* The picture goes up at once and the frosted pane catches up
