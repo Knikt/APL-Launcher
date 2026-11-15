@@ -163,6 +163,24 @@
         return el;
     }
 
+    /* The picture is shown only once the player says it is playing. Before that
+       the player is on its thumbnail with its own play button drawn across the
+       middle of it, and no crop can take that out. */
+    function revealTrailer() {
+        var host = document.getElementById("trailerLayer");
+        if (box && host) host.classList.add("is-on");
+    }
+    if (global.addEventListener) {
+        global.addEventListener("message", function (e) {
+            if (!box || !e || e.source !== box.contentWindow) return;
+            var d = e.data;
+            try { d = typeof d === "string" ? JSON.parse(d) : d; } catch (err) { return; }
+            if (!d) return;
+            var state = d.info !== undefined ? d.info : (d.infoDelivery && d.infoDelivery.playerState);
+            if (state === 1 && (d.event === "onStateChange" || d.event === "infoDelivery")) revealTrailer();
+        });
+    }
+
     function playing() {
         var host = document.getElementById("trailerLayer");
         return !!(box && host && host.className.indexOf("is-on") >= 0);
@@ -209,10 +227,16 @@
                 } catch (e) {}
             }, ms);
         });
-        /* Fading in once it is there avoids the grey rectangle of a frame that
-           has not loaded yet; a block (an old engine, a network that answers
-           nothing) simply never lights up and the picture stays. */
-        global.setTimeout(function () { if (box && host) host.classList.add("is-on"); }, 450);
+        /* The player is asked to report its state; it answers on playing. */
+        [300, 1200].forEach(function (ms) {
+            global.setTimeout(function () {
+                if (!box || !box.contentWindow) return;
+                try { box.contentWindow.postMessage(JSON.stringify({ event: "listening", id: "apl" }), "*"); } catch (e) {}
+            }, ms);
+        });
+        /* A player that never reports (an old engine, a network that answers
+           nothing) lights up anyway rather than leaving the wall bare. */
+        global.setTimeout(function () { if (box) revealTrailer(); }, 3000);
         if (secs) {
             endTimer = global.setTimeout(function () {
                 /* The trailer is over: out, and the next title may slide in. */
