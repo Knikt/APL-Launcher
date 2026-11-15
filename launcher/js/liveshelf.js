@@ -141,6 +141,71 @@
         try { global.localStorage.setItem("apl.live." + k, JSON.stringify({ v: CACHE_VERSION, t: Date.now(), items: items })); } catch (e) {}
     }
 
+    /* ---------- the pictures themselves, kept on the screen ---------- */
+    /* The lists of titles stay 6 h, their pictures did not: every launch fetched
+       the same ten backdrops again, and a picture that is not there yet is a
+       download before it can be drawn. They are kept as blobs in the screen's own
+       storage and drawn from there, so a step - and a launch - finds them ready.
+       Forty-eight at most, newest kept; the store lives beside the lists. */
+    var ART_DB = "apl-art", ART_STORE = "pics", ART_MAX = 48;
+    var artUrls = {}, artDb = null, artHydrated = false;
+
+    function artOpenDb(then) {
+        if (!global.indexedDB) { then(null); return; }
+        if (artDb) { then(artDb); return; }
+        var req;
+        try { req = global.indexedDB.open(ART_DB, 1); } catch (e) { then(null); return; }
+        req.onupgradeneeded = function () {
+            var db = req.result;
+            if (!db.objectStoreNames.contains(ART_STORE)) db.createObjectStore(ART_STORE);
+        };
+        req.onsuccess = function () { artDb = req.result; then(artDb); };
+        req.onerror = function () { then(null); };
+    }
+    function artDrop(url) {
+        if (!artDb) return;
+        try { artDb.transaction(ART_STORE, "readwrite").objectStore(ART_STORE)["delete"](url); } catch (e) {}
+    }
+    /* Once, at start-up: every kept picture becomes an object URL in memory, so a
+       shelf can be shown from it without waiting for a single read. */
+    function artHydrate() {
+        artOpenDb(function (db) {
+            if (!db || artHydrated) return;
+            artHydrated = true;
+            var tx, store, cur, found = [];
+            try { tx = db.transaction(ART_STORE, "readonly"); store = tx.objectStore(ART_STORE); } catch (e) { return; }
+            cur = store.openCursor();
+            cur.onsuccess = function () {
+                var c = cur.result;
+                if (c) { found.push({ url: c.key, rec: c.value }); c.continue(); return; }
+                found.sort(function (a, b) { return ((b.rec && b.rec.t) || 0) - ((a.rec && a.rec.t) || 0); });
+                found.forEach(function (e, i) {
+                    if (i >= ART_MAX) { artDrop(e.url); return; }
+                    if (e.rec && e.rec.blob) {
+                        try { artUrls[e.url] = global.URL.createObjectURL(e.rec.blob); } catch (err) {}
+                    }
+                });
+            };
+        });
+    }
+    /* A picture that has just been fetched for the wall is kept for next time. */
+    function artKeep(url) {
+        if (!url || !/^https?:/i.test(url) || artUrls["!" + url]) return;
+        artUrls["!" + url] = true;
+        artOpenDb(function (db) {
+            if (!db) return;
+            global.fetch(url).then(function (r) { return r.ok ? r.blob() : null; }).then(function (b) {
+                if (!b) return;
+                try { db.transaction(ART_STORE, "readwrite").objectStore(ART_STORE).put({ blob: b, t: Date.now() }, url); } catch (e) {}
+            })["catch"](function () {});
+        });
+    }
+    /* The picture to draw: the one on the screen if it is there, its address otherwise. */
+    function artLook(url) { return (url && artUrls[url]) || ""; }
+
+    APL.artCache = { look: artLook, keep: artKeep };
+    setTimeout(artHydrate, 0);
+
     function getJson(url) {
         return global.fetch(url).then(function (r) {
             if (!r.ok) throw new Error("HTTP " + r.status);

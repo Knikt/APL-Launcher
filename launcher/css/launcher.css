@@ -239,7 +239,8 @@ html, body {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }
 }
-.shelfinfo__logo { display: block; height: 120px; width: auto; max-width: 1320px; object-fit: contain; filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.8)); }
+.shelfinfo__logo { display: block; height: 120px; width: auto; max-width: 1320px; object-fit: contain; filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.8)); opacity: 0; transition: opacity 260ms ease; }
+.shelfinfo__logo.is-in { opacity: 1; }
 .shelfinfo__open { display: none; margin-top: 14px; font-size: 24px; font-weight: 600; color: rgba(255, 255, 255, 0.95); }
 .mode-full .shelfinfo.can-open .shelfinfo__open { display: block; }
 .shelfinfo__meta { margin-top: 6px; font-size: 26px; font-weight: 500; color: rgba(255, 255, 255, 0.88); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1379,18 +1380,20 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
 
 .trailerlayer.is-on { opacity: 1; }
 
-/* Slightly larger than the layer, so the player's own corner branding falls
-   outside the frame: the video is cropped by a few per cent all round, which
-   nothing in the picture notices. */
+/* Larger than the layer, so the player's own corner branding falls outside the
+   frame: the video is cropped at the edges, which nothing in the picture
+   notices. The extra height goes to the bottom, where the player keeps its
+   progress bar, its title card and the "watch on YouTube" line - 6 % all round
+   left those in view, 12 % down the bottom takes them out. */
 .trailerlayer {
     overflow: hidden;
 }
 
 .trailerlayer > iframe {
     position: absolute;
-    top: -3%;
+    top: -2%;
     left: -3%;
     width: 106%;
-    height: 106%;
+    height: 112%;
     border: 0;
 }

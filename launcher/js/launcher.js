@@ -140,8 +140,13 @@
         var im = document.createElement("img");
         im.className = "shelfinfo__logo";
         im.alt = text || "";
+        /* The logo arrives a moment after the picture, its file a few hundred
+           kilobytes from TMDB: it fades in when it is there instead of popping
+           in half drawn. */
+        im.onload = function () { im.classList.add("is-in"); };
         im.src = logo;
         t.appendChild(im);
+        if (im.complete && im.naturalWidth) im.classList.add("is-in");
         t.classList.remove("is-swap");
         void t.offsetWidth;                      // restart the animation
         t.classList.add("is-swap");
@@ -860,9 +865,9 @@
                         if (ok) item.ok = true; else item.bad = true;
                         global.setTimeout(next, 160);           // one picture at a time: the page keeps drawing
                     };
-                    im.onload = function () { then(true); };
+                    im.onload = function () { if (!APL.artCache || !APL.artCache.look(item.bg)) { if (APL.artCache) APL.artCache.keep(item.bg); } then(true); };
                     im.onerror = function () { then(false); };
-                    im.src = item.bg;
+                    im.src = srcOf(item);
                     global.setTimeout(function () { then(true); }, 4000);   // a stalled file must not stop the rest
                 })(it);
                 return;
@@ -871,6 +876,11 @@
         next();
     }
 
+    /* The picture as it is on the screen already (a blob kept from last time) or
+       its address: a shelf that was seen before opens with no download at all. */
+    function srcOf(item) {
+        return (APL.artCache && item && APL.artCache.look(item.bg)) || (item && item.bg);
+    }
     function setLiveBackdrop(app, item, n, items, tries) {
         if (item.bad) { if (items && (tries || 0) < items.length) setLiveBackdrop(app, items[(n + 1) % items.length], (n + 1) % items.length, items, (tries || 0) + 1); return; }
         if (item.ok) { swapLive(app, item, n); return; }
@@ -878,7 +888,7 @@
         function shown() { item.ok = true; if (apps[nav.index] === app && mode !== "grid") swapLive(app, item, n); }
         im.onload = function () { if (im.decode) im.decode().then(shown, shown); else shown(); };
         im.onerror = function () { item.bad = true; if (apps[nav.index] === app) setLiveBackdrop(app, item, n, items, tries); };
-        im.src = item.bg;
+        im.src = srcOf(item);
     }
     var liveShown = null;                                 // the Top Shelf item on screen: in full screen, OK opens it if it can
     function openable(app) {
@@ -901,7 +911,7 @@
         wantBlur(item.bgSmall || null, app, null);
         /* The picture from TMDB, Plex or YouTube is an <img> revealed once its
            decode is done, so it can never be painted a band at a time. */
-        showPicture(next, item.bg, function (pic) {
+        showPicture(next, srcOf(item), function (pic) {
             /* Two quick ◀ presses reuse the same layer: an answer for the title
                before this one must not fade it in, or its picture lands under
                the new title. */

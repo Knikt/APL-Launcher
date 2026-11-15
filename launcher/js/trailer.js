@@ -186,6 +186,18 @@
         /* cc_load_policy only says "do not turn them on": a video whose captions
            are on by default still shows them. The player's own API is the only
            way to take the track away, and it needs the frame to have loaded. */
+        /* autoplay=1 is a request, not a promise: a player that starts paused
+           shows its play button and its whole chrome over the picture, so it is
+           told to play as well. Muted and inline, so no engine refuses it. */
+        [200, 900, 2000, 3500].forEach(function (ms) {
+            global.setTimeout(function () {
+                if (!box || !box.contentWindow) return;
+                try {
+                    box.contentWindow.postMessage(
+                        JSON.stringify({ event: "command", func: "playVideo", args: [] }), "*");
+                } catch (e) {}
+            }, ms);
+        });
         [900, 2000, 3500].forEach(function (ms) {
             global.setTimeout(function () {
                 if (!box || !box.contentWindow) return;
