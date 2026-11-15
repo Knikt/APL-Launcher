@@ -898,7 +898,7 @@ html, body {
    The rounded clip of the card shapes it, so the icon needs no frame of its own.
    The App Store icon keeps its own rounded square (it is drawn that way). */
 .tile__card--icon .tile__icon { position: relative; z-index: 1; width: 100%; height: 100%; max-width: none; object-fit: cover; }
-.tile__card--icon .tile__icon--app { width: auto; height: 74%; max-width: 82%; object-fit: contain; }
+.tile__card--icon .tile__icon--app { width: 100%; height: 100%; max-width: none; object-fit: cover; border-radius: 0; box-shadow: none; }
 /* App Store icon: rounded square like an app, with a soft shadow */
 .tile__icon--app { height: 74%; border-radius: 22%; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
 
@@ -1397,9 +1397,9 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
 
 .trailerlayer > iframe {
     position: absolute;
-    top: -2%;
+    top: -6%;
     left: -3%;
     width: 106%;
-    height: 112%;
+    height: 118%;
     border: 0;
 }

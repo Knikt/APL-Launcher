@@ -861,7 +861,10 @@
            used to be fetched four at once, which meant the fifth title of a shelf
            was still a download, and that is what a step past it looked like. */
         if (!items || !items.length) return;
-        if (app && inTopRow(app) && APL.artCache && APL.artCache.remember) APL.artCache.remember(app.id, items[0] && items[0].bg);
+        if (app && inTopRow(app) && APL.artCache && APL.artCache.remember) {
+            var pick = uniqueFor(app, items);
+            APL.artCache.remember(app.id, pick && pick.bg);
+        }
         if (warmItems._items === items) return;                 // this shelf is already being warmed
         warmItems._items = items;
         var i = 0;
@@ -910,9 +913,10 @@
                     global.setTimeout(function () {
                         if (apps.indexOf(a) === -1 || apps.indexOf(a) >= DOCK_SIZE) { next(); return; }
                         APL.live.itemsNow(a).then(function (items) {
-                            if (items && items.length && items[0] && items[0].bg) {
-                                APL.artCache.remember(a.id, items[0].bg);
-                                if (!APL.artCache.look(items[0].bg)) APL.artCache.keep(items[0].bg);
+                            var pick = uniqueFor(a, items);
+                            if (pick && pick.bg) {
+                                APL.artCache.remember(a.id, pick.bg);
+                                if (!APL.artCache.look(pick.bg)) APL.artCache.keep(pick.bg);
                             }
                             next();
                         }, function () { next(); });
@@ -922,6 +926,27 @@
             }
         }
         next();
+    }
+
+    /* The dock's row is a handful of pictures: two apps showing the same one looks
+       like a mistake. The app's own first title is taken, and if another app of
+       the row already keeps that very picture, the next title down is used. */
+    function uniqueFor(app, items) {
+        if (!items || !items.length) return null;
+        var taken = {}, i, a, u;
+        for (i = 0; i < apps.length && i < DOCK_SIZE; i++) {
+            a = apps[i];
+            if (!a || a === app) continue;
+            u = APL.artCache.first(a.id);
+            if (u) taken[u] = true;
+        }
+        for (i = 0; i < items.length && i < 6; i++) {
+            if (items[i] && items[i].bg && !taken[items[i].bg]) return items[i];
+        }
+        /* Nothing of its own: it keeps no picture rather than the picture of the
+           app next to it. Its shelf is asked for when it takes the focus, as any
+           app with nothing kept does. */
+        return null;
     }
 
     /* Only the apps of the dock's row are worth a picture of their own: they are
@@ -1350,6 +1375,9 @@
         bgActive.dataset.app = "";
         nav.setTiles(tiles);
         nav.focus(want);
+        /* The row may have just been rearranged, with apps in it that were never
+           on the screen before: they are warmed here, not only at start-up. */
+        global.setTimeout(warmDock, 900);
     }
 
     function createNav() {
@@ -1460,7 +1488,6 @@
             buildList(list);
             watchPackages();
             setTimeout(preloadDock, 400);
-            setTimeout(warmDock, 1200);          // the row's own pictures, once it is on screen
             // Then a background search for missing artwork (new apps included)
             setTimeout(function () { if (APL.autoArt) APL.autoArt.run(allApps, render); }, 3500);
             showCcHint();
