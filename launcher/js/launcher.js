@@ -863,7 +863,7 @@
         if (!items || !items.length) return;
         if (app && inTopRow(app) && APL.artCache && APL.artCache.remember) {
             var pick = uniqueFor(app, items);
-            APL.artCache.remember(app.id, pick && pick.bg);
+            APL.artCache.remember(app.id, pick && pick.bg, pick ? items.indexOf(pick) : 0);
         }
         if (warmItems._items === items) return;                 // this shelf is already being warmed
         warmItems._items = items;
@@ -915,7 +915,7 @@
                         APL.live.itemsNow(a).then(function (items) {
                             var pick = uniqueFor(a, items);
                             if (pick && pick.bg) {
-                                APL.artCache.remember(a.id, pick.bg);
+                                APL.artCache.remember(a.id, pick.bg, items.indexOf(pick));
                                 if (!APL.artCache.look(pick.bg)) APL.artCache.keep(pick.bg);
                             }
                             next();
@@ -926,6 +926,14 @@
             }
         }
         next();
+    }
+
+    /* Where the picture the wall is showing sits in the shelf that just answered. */
+    function indexOfKept(app, items) {
+        var kept = APL.artCache && APL.artCache.first ? APL.artCache.first(app.id) : "";
+        if (!kept || !items) return 0;
+        for (var i = 0; i < items.length; i++) if (items[i] && items[i].bg === kept) return i;
+        return 0;
     }
 
     /* The dock's row is a handful of pictures: two apps showing the same one looks
@@ -1102,9 +1110,21 @@
             APL.live.itemsNow(app).then(function (items) {
                 if (!items || apps[nav.index] !== app) return;
                 if (APL.widgets && APL.widgets.isShowing()) return;   // hidden by the cards: nothing to draw
-                var n = 0;
-                setLiveBackdrop(app, items[0], 0, items, 0);
-                warmNext(items, 1);
+                /* The wall is already showing this app's kept picture: the shelf
+                   starts on that same title, or the picture would change back to
+                   the first one a moment after it was drawn. */
+                var n = APL.artCache && APL.artCache.firstIndex ? APL.artCache.firstIndex(app.id) : 0;
+                if (!items[n] || (APL.artCache.first(app.id) && items[n].bg !== APL.artCache.first(app.id))) {
+                    n = indexOfKept(app, items);
+                }
+                if (n < 0 || n >= items.length) n = 0;
+                /* Kept on the app: a ◀ ▶ press then moves this list, with no shelf
+                   asked for again - that second request is what a step used to
+                   wait for. */
+                app._liveItems = items;
+                app._liveN = n;
+                setLiveBackdrop(app, items[n], n, items, 0);
+                warmNext(items, n + 1);
                 warmItems(items, app);
                 liveRotate = setInterval(function () {
                     if (mode === "grid" || mode === "full") return;  // paused under the grid and in full screen

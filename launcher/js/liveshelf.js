@@ -219,12 +219,20 @@
         if (!rec || !rec.u || Date.now() - (rec.t || 0) > ART_TTL) return "";
         return rec.u;
     }
-    function artRemember(appId, url) {
+    function artRemember(appId, url, index) {
         if (!appId || !url || !/^https?:/i.test(url)) return;   // a data: picture is not an address to keep
-        try { global.localStorage.setItem("apl.art.first." + appId, JSON.stringify({ u: url, t: Date.now() })); } catch (e) {}
+        try { global.localStorage.setItem("apl.art.first." + appId, JSON.stringify({ u: url, t: Date.now(), i: index || 0 })); } catch (e) {}
+    }
+    /* Which title of the shelf that picture is: the wall opens on it rather than on
+       the first one, so the picture does not change back a moment later. */
+    function artFirstIndex(appId) {
+        var rec;
+        try { rec = JSON.parse(global.localStorage.getItem("apl.art.first." + appId) || "null"); } catch (e) { return 0; }
+        if (!rec || Date.now() - (rec.t || 0) > ART_TTL) return 0;
+        return rec.i || 0;
     }
 
-    APL.artCache = { look: artLook, keep: artKeep, first: artFirst, remember: artRemember };
+    APL.artCache = { look: artLook, keep: artKeep, first: artFirst, firstIndex: artFirstIndex, remember: artRemember };
     setTimeout(artHydrate, 0);
 
     function getJson(url) {
