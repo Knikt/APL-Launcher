@@ -929,8 +929,10 @@
     }
 
     /* The dock's row is a handful of pictures: two apps showing the same one looks
-       like a mistake. The app's own first title is taken, and if another app of
-       the row already keeps that very picture, the next title down is used. */
+       like a mistake. The app's own first title is taken, and when another app of
+       the row already keeps that very picture, the next title of its shelf is
+       kept instead - the whole shelf is walked, so a real shelf always has one
+       more to offer. */
     function uniqueFor(app, items) {
         if (!items || !items.length) return null;
         var taken = {}, i, a, u;
@@ -940,13 +942,12 @@
             u = APL.artCache.first(a.id);
             if (u) taken[u] = true;
         }
-        for (i = 0; i < items.length && i < 6; i++) {
+        for (i = 0; i < items.length; i++) {
             if (items[i] && items[i].bg && !taken[items[i].bg]) return items[i];
         }
-        /* Nothing of its own: it keeps no picture rather than the picture of the
-           app next to it. Its shelf is asked for when it takes the focus, as any
-           app with nothing kept does. */
-        return null;
+        /* Every title of the shelf is already on the wall of a neighbour: its own
+           first one is kept all the same, a picture being better than none. */
+        return items[0];
     }
 
     /* Only the apps of the dock's row are worth a picture of their own: they are
