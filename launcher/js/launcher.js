@@ -151,6 +151,17 @@
         void t.offsetWidth;                      // restart the animation
         t.classList.add("is-swap");
     }
+    /* The title as words, for what has no logo to draw: same line, same height,
+       same fade, so the wall reads the same whichever kind of title it holds. */
+    function titleWords(text) {
+        var t = dom.shelfTitle;
+        t.textContent = text || "";
+        if (!text) return;
+        t.classList.remove("is-swap");
+        void t.offsetWidth;
+        t.classList.add("is-swap");
+    }
+
     /* TMDB has the official title logo for a film or a series; the catalogue's
        picks do not carry one, so it is looked up as they come up and kept. */
     var logoWanted = "", logoCache = {};
@@ -683,9 +694,10 @@
         } else if (app.icon) {
             // No logo in the catalog: the app's real, sharp icon, until
             // genart.js makes its tile.
-            /* The icon now covers the whole tile, so this fill is only what shows
-               for the instant before it decodes - not a plate around it. */
-            card.style.background = app.accent || "#111";
+            /* Tizen icons are as often transparent as not: any fill behind one
+               shows as a rectangle around it, which is the plate that was still
+               there behind the icons. The tile is the icon, and nothing else. */
+            card.style.background = "transparent";
             card.classList.add("tile__card--icon");
             var img = document.createElement("img");
             img.className = "tile__icon" + (app.autoIcon ? " tile__icon--app" : "");
@@ -1006,10 +1018,15 @@
            fetched. While the arrows move the line stays empty; it fills once
            they rest, on the title that is actually on the wall. */
         clearTimeout(shelfInfo._logo);
-        if (!item.logo && item.title) {
+        if (!item.logo && item.title && item.type) {
             var want = item.title, wantYear = item.year || "";
             shelfInfo._logo = setTimeout(function () { logoOf(want, wantYear); },
                 (Date.now() - stepAt) < 1500 ? 420 : 0);
+        } else if (!item.logo && item.title) {
+            /* A video on YouTube, an album, a game: nothing draws its title, and
+               the video's own name is all it has. It was left to the small line
+               under the title (26 px, the channel), which read as a caption. */
+            titleWords(item.title);
         }
         dom.shelfMeta.textContent = item.meta !== undefined ? item.meta
             : (item.type ? APL.live.metaOf(item) : (item.sub || ""));
@@ -1100,14 +1117,15 @@
            takes the focus, so no generated sheet of light is ever shown in its
            place while its shelf is fetched. */
         var kept = live && APL.artCache && APL.artCache.first ? APL.artCache.first(app.id) : "";
-        if (kept) {
-            /* The picture it kept, or its address while the store is still being
-               read: either way the wall has something to fade in at once, and the
-               generated sheet is never seen between two apps that both have one. */
+        if (kept && APL.artCache.look(kept)) {
+            /* The picture is on the screen already: it goes up at once, so two
+               apps that both have one only ever fade into each other. */
             setLiveBackdrop(app, { bg: kept, ok: true }, "c", null, 0);
             startLive(app);
             return;
         }
+        /* Nothing kept yet (the first launch, or an app whose six hours are up):
+           the sheet of light holds the wall while it is fetched, as before. */
         shelfInfo(null);
         // Full-screen artwork changed a fraction of a second after the focus: when
         // scrolling fast, a large image isn't decoded on every press.

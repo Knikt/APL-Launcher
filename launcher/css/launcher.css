@@ -242,7 +242,7 @@ html, body {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }
 }
-.shelfinfo__logo { display: block; height: 120px; width: auto; max-width: 1320px; object-fit: contain; filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.8)); opacity: 0; transition: opacity 320ms ease-out; }
+.shelfinfo__logo { display: block; height: 120px; width: auto; max-width: 1320px; object-fit: contain; flex: 0 0 auto; filter: drop-shadow(0 3px 14px rgba(0, 0, 0, 0.8)); opacity: 0; transition: opacity 320ms ease-out; }
 .shelfinfo__logo.is-in { opacity: 1; }
 .shelfinfo__open { display: none; margin-top: 14px; font-size: 24px; font-weight: 600; color: rgba(255, 255, 255, 0.95); }
 .mode-full .shelfinfo.can-open .shelfinfo__open { display: block; }
@@ -888,7 +888,10 @@ html, body {
 .mode-grid .bg.is-motion { animation-play-state: paused; }
 .reduce-motion .bg.is-motion { animation: none; }
 
-.tile__card--icon { overflow: hidden; }
+/* No fill, no shadow, no sheen: anything drawn behind a transparent icon is a
+   rectangle with the icon's outline in the middle of it. */
+.tile__card--icon { overflow: hidden; background: transparent !important; box-shadow: none; }
+.tile__card--icon::after { content: none; }
 /* An app with no catalogue artwork: its real icon is the tile, edge to edge, as
    on tvOS. Kept at 68 % with the card's colour around it, the icon sat inside a
    rectangle of that colour - the plate that was still showing behind the icons.
