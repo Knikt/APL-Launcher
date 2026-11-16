@@ -411,8 +411,7 @@
             return;
         }
         if (pic) pic.parentNode.removeChild(pic);
-        var warm = preloads[url];
-        var quick = (low && low !== url && !(warm && warm._ok)) ? low : url;
+        var quick = (low && low !== url) ? low : url;
         pic = document.createElement("img");
         pic.alt = "";
         pic.decoding = "sync";
@@ -1247,11 +1246,11 @@
         if (!items || !items.length) return;
         var item = items[i % items.length];
         if (!item || !item.bg) return;
-        /* Both pictures of the title that is coming: the small one for the wall
-           and the big one behind it. Both are in memory when the rotation or a
-           step asks for them, so the change is a paint. */
+        /* The small copy of the title that is coming, decoded before it is asked
+           for: the step then paints instead of decoding. The big one is not kept
+           decoded in memory - it is a few megabytes each and it only replaces the
+           small one once it is ready, which no one sees. */
         preload(lowOf(item.bg));
-        preload(item.bg);
         if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(item.bg);
     }
 
