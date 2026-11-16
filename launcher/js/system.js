@@ -110,17 +110,31 @@
        back and the page loads once more with them. A real first start has no copy, so nothing comes back. */
     var COPY_DB = "apl-settings-copy", COPY_KEYS = /^apl\.(prefs|profiles)(\.|$)/;
     var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
-    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false;
+    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false, copyTries = 0;
+
+    /* The connection is reopened whenever the browser closes it under us (a screen
+       that clears its storage, a browser that restarts it): with a cached closed
+       connection every write for the rest of the session threw, in silence, and
+       the copy stopped following the settings. IndexedDB on a 6.5 panel is also
+       slow to answer and can refuse outright: nothing here may throw into the
+       start-up or hold it back. */
     function copyOpen() {
         if (copyDb) return copyDb;
         copyDb = new Promise(function (resolve, reject) {
             if (!global.indexedDB) { reject(new Error("no IndexedDB")); return; }
-            var rq = global.indexedDB.open(COPY_DB, 1);
-            rq.onupgradeneeded = function () { rq.result.createObjectStore("kv"); };
-            rq.onsuccess = function () { resolve(rq.result); };
-            rq.onerror = function () { reject(rq.error); };
+            var rq;
+            try { rq = global.indexedDB.open(COPY_DB, 1); } catch (e) { reject(e); return; }
+            rq.onupgradeneeded = function () { try { rq.result.createObjectStore("kv"); } catch (e) {} };
+            rq.onsuccess = function () {
+                var db = rq.result;
+                db.onclose = function () { copyDb = null; };
+                db.onversionchange = function () { try { db.close(); } catch (e) {} copyDb = null; };
+                resolve(db);
+            };
+            rq.onerror = function () { reject(rq.error || new Error("open")); };
+            rq.onblocked = function () { reject(new Error("blocked")); };
         });
-        copyDb.catch(function () {});
+        copyDb["catch"](function () { copyDb = null; });     // the next call tries again
         return copyDb;
     }
     function copyLater() {
@@ -128,19 +142,38 @@
         /* A quarter of a second, not one and a half: a screen unplugged straight
            after a change kept the copy from before it, and the setting was gone
            when the power came back. */
-        copyTimer = setTimeout(copyFlush, 250);
+        copyTimer = setTimeout(copyFlush, 280);
+    }
+    function copyWrite(batch) {
+        return copyOpen().then(function (db) {
+            return new Promise(function (resolve, reject) {
+                var tx;
+                try { tx = db.transaction("kv", "readwrite"); } catch (e) { reject(e); return; }
+                tx.oncomplete = function () { resolve(); };
+                tx.onerror = function () { reject(tx.error || new Error("write")); };
+                tx.onabort = function () { reject(tx.error || new Error("abort")); };
+                var store = tx.objectStore("kv"), keys = Object.keys(batch);
+                for (var i = 0; i < keys.length; i++) {
+                    if (batch[keys[i]] === null) store["delete"](keys[i]); else store.put(batch[keys[i]], keys[i]);
+                }
+            });
+        });
     }
     function copyFlush() {
         if (copyHold) return;                       // the copy is being read back: it must not be written over first
         var batch = copyPending;
         copyPending = {};
         if (!Object.keys(batch).length) return;
-        copyOpen().then(function (db) {
-            var store = db.transaction("kv", "readwrite").objectStore("kv");
-            Object.keys(batch).forEach(function (k) {
-                if (batch[k] === null) store.delete(k); else store.put(batch[k], k);
-            });
-        }).catch(function () {});
+        copyWrite(batch).then(function () { copyTries = 0; }, function () {
+            /* One more try on a fresh connection, a second later. After three the
+               batch is let go rather than retrying for the life of the session. */
+            copyTries++;
+            if (copyTries > 2) { copyTries = 0; return; }
+            copyDb = null;
+            Object.keys(batch).forEach(function (k) { if (!(k in copyPending)) copyPending[k] = batch[k]; });
+            clearTimeout(copyTimer);
+            copyTimer = setTimeout(copyFlush, 1000);
+        });
     }
     function copyDrop(k) { copyPending[k] = null; copyLater(); }
     /* Everything local storage has, written to the copy: the first start with this
@@ -159,7 +192,9 @@
     function copyStored() {
         return copyOpen().then(function (db) {
             return new Promise(function (resolve) {
-                var out = {}, rq = db.transaction("kv", "readonly").objectStore("kv").openCursor();
+                var out = {}, rq;
+                try { rq = db.transaction("kv", "readonly").objectStore("kv").openCursor(); }
+                catch (e) { resolve(out); return; }
                 rq.onsuccess = function () { var c = rq.result; if (c) { out[c.key] = c.value; c["continue"](); } else resolve(out); };
                 rq.onerror = function () { resolve(out); };
             });
@@ -175,37 +210,57 @@
        the copy is put back and the page loads once more with it. */
     function copyCheck() {
         copyHold = true;
-        copyStored().then(function (saved) {
-            var keys = Object.keys(saved).filter(function (k) {
-                return (COPY_KEYS.test(k) || k === COPY_REV) && typeof saved[k] === "string";
-            });
-            if (!keys.length) { copyHold = false; copyAll(); return; }   // no copy yet: local storage makes one
-            var there = Number(saved[COPY_REV] || 0), here = 0;
-            try { here = Number(global.localStorage.getItem(COPY_REV) || 0); } catch (e) { here = 0; }
-            /* Only what the copy can actually fill: a key this code never wrote
-               there (an older copy) must not reload the page for nothing. */
-            var partial = false;
-            try {
-                var cur = (load("apl.profiles", {}) || {}).current;
-                ["apl.prefs", "apl.profiles", cur ? "apl.prefs." + cur : ""].forEach(function (k) {
-                    if (k && !global.localStorage.getItem(k) && keys.indexOf(k) >= 0) partial = true;
+        var answered = false;
+        function release() {
+            if (answered) return;
+            answered = true;
+            copyHold = false;
+            copyFlush();
+        }
+        /* A storage that never answers must not hold the Home Screen back: after
+           three seconds the copy is left for the next start. */
+        var watchdog = setTimeout(release, 3000);
+        try {
+            copyStored().then(function (saved) {
+                clearTimeout(watchdog);
+                if (answered) return;               // the start has already gone on without it
+                answered = true;
+                var keys = Object.keys(saved || {}).filter(function (k) {
+                    return (COPY_KEYS.test(k) || k === COPY_REV) && typeof saved[k] === "string";
                 });
-            } catch (e) {}
-            /* A minute of slack: two clocks that disagree must not cause a restore. */
-            var behind = !!there && there > here + 60000;
-            if (!storageLost && !partial && !behind) { copyHold = false; copyAll(); return; }
-            var again = false;
-            try { again = !!global.sessionStorage.getItem("apl.copyRestored"); } catch (e) {}
-            if (String(global.name || "").indexOf("apl-copy-restored") !== -1) again = true;
-            /* Already put back once and still missing (a storage that refuses to be
-               written): the copy is kept as it is, never written over with this
-               start's defaults, which lost the settings for good. */
-            if (again) { copyPending = {}; copyHold = false; return; }
-            keys.forEach(function (k) { try { global.localStorage.setItem(k, saved[k]); } catch (e) {} });
-            try { global.sessionStorage.setItem("apl.copyRestored", "1"); } catch (e) {}
-            try { global.name = "apl-copy-restored"; } catch (e) {}
-            global.location.reload();
-        }, function () { copyHold = false; copyFlush(); });
+                if (!keys.length) { copyHold = false; copyAll(); return; }
+                var there = Number(saved[COPY_REV] || 0), here = 0;
+                try { here = Number(global.localStorage.getItem(COPY_REV) || 0); } catch (e) { here = 0; }
+                /* Only what the copy can actually fill: a key this code never wrote
+                   there (an older copy) must not reload the page for nothing. */
+                var partial = false;
+                try {
+                    var cur = (load("apl.profiles", {}) || {}).current;
+                    var want = ["apl.prefs", "apl.profiles", cur ? "apl.prefs." + cur : ""];
+                    for (var i = 0; i < want.length; i++) {
+                        if (want[i] && !global.localStorage.getItem(want[i]) && keys.indexOf(want[i]) >= 0) partial = true;
+                    }
+                } catch (e) {}
+                /* A minute of slack: two clocks that disagree must not cause a restore. */
+                var behind = !!there && there > here + 60000;
+                if (!storageLost && !partial && !behind) { copyHold = false; copyAll(); return; }
+                var again = false;
+                try { again = !!global.sessionStorage.getItem("apl.copyRestored"); } catch (e) {}
+                if (String(global.name || "").indexOf("apl-copy-restored") !== -1) again = true;
+                /* Already put back once and still missing (a storage that refuses to
+                   be written): the copy is kept as it is, never written over with this
+                   start's defaults, which lost the settings for good. */
+                if (again) { copyPending = {}; copyHold = false; return; }
+                var wrote = 0;
+                for (var j = 0; j < keys.length; j++) {
+                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); wrote++; } catch (e) {}
+                }
+                if (!wrote) { copyHold = false; return; }   // nothing could be written: leave the copy alone
+                try { global.sessionStorage.setItem("apl.copyRestored", "1"); } catch (e) {}
+                try { global.name = "apl-copy-restored"; } catch (e) {}
+                global.location.reload();
+            }, release);
+        } catch (e) { release(); }
     }
     /* A screen that is switched off has a moment between the change and the power
        going: the copy is written then, without waiting for its quarter second. */
