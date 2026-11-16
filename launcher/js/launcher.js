@@ -1639,6 +1639,7 @@
         blurLayer();                 // the drawer's blurred canvas, made once, before it is needed
         preheatDock();               // the dock's pictures, decoded while nothing is on screen
         global.setTimeout(preheatDock, 2000);   // once the kept pictures are read back
+        global.setTimeout(measureSpeed, 3000);  // and how fast this screen is
         APL.sys.onPref("appearance", applyTheme);
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
@@ -2106,7 +2107,28 @@
     /* Performance mode: no real-time blur or glass (which made the screen lag). */
     function applyPerf() {
         // Over an app there is no picture behind the glass to bend: the plain tiles
-        document.body.classList.toggle("perf", !!APL.ccOverlay || !APL.sys.pref("visualEffects"));
+        document.body.classList.toggle("perf", !!APL.ccOverlay || !!APL.slow || !APL.sys.pref("visualEffects"));
+    }
+
+    /* How fast this screen is, measured once, a few seconds after the Home Screen
+       is up: a panel that cannot hold 38 frames a second takes the cheap path by
+       itself (no live blur, no drifting artwork, shorter moves) instead of asking
+       its owner to find Settings › Appearance › Visual Effects. */
+    function measureSpeed() {
+        if (!global.requestAnimationFrame || APL.slow) return;
+        var t0 = 0, frames = 0;
+        function tick(t) {
+            if (!t0) t0 = t;
+            frames++;
+            if (t - t0 < 800) { global.requestAnimationFrame(tick); return; }
+            var ms = (t - t0) / frames;
+            if (ms > 26) {
+                APL.slow = true;
+                document.body.classList.add("slow");
+                applyPerf();
+            }
+        }
+        global.requestAnimationFrame(tick);
     }
 
     /* Tip shown on the first start-ups. */

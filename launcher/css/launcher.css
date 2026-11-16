@@ -1470,3 +1470,21 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
     height: 118%;
     border: 0;
 }
+
+/* ===================== SMOOTH ON A SLOW PANEL =====================
+   Measured at start-up (launcher.js measureSpeed): a television that cannot hold
+   38 frames a second gets the same screens with nothing that redraws on its own.
+   Only the timing and the drifting artwork change - every surface, every colour
+   and the baked glass stay exactly as they are. */
+.slow { --glass-ms: 240ms; }
+.slow .bg.is-motion { animation: none; }
+.slow .bg.is-slide { animation-duration: 240ms; }
+.slow .tile, .slow .tile__card, .slow .dock__item, .slow .status { transition-duration: 90ms; }
+/* Nothing drifts while a panel is over the wall: the artwork's slow move was
+   costing a full-screen transform every frame behind the Control Center. */
+.has-cc .bg.is-motion,
+.has-sources .bg.is-motion,
+.has-search .bg.is-motion,
+.has-settings .bg.is-motion,
+.has-profiles .bg.is-motion,
+.has-wdg .bg.is-motion { animation-play-state: paused; }
