@@ -116,7 +116,7 @@
     var COPY_SKIP = /^apl\.(bundle$|live\.)/;
     var COPY_MAX = 262144;                     // 256 KB per value: a restore stays quick
     var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
-    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false, copyTries = 0;
+    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false;
 
     /* The connection is reopened whenever the browser closes it under us (a screen
        that clears its storage, a browser that restarts it): with a cached closed
@@ -170,16 +170,10 @@
         var batch = copyPending;
         copyPending = {};
         if (!Object.keys(batch).length) return;
-        copyWrite(batch).then(function () { copyTries = 0; }, function () {
-            /* One more try on a fresh connection, a second later. After three the
-               batch is let go rather than retrying for the life of the session. */
-            copyTries++;
-            if (copyTries > 2) { copyTries = 0; return; }
-            copyDb = null;
-            Object.keys(batch).forEach(function (k) { if (!(k in copyPending)) copyPending[k] = batch[k]; });
-            clearTimeout(copyTimer);
-            copyTimer = setTimeout(copyFlush, 1000);
-        });
+        /* A batch that fails is not retried here: copySeen was not updated for it,
+           so the next sweep reads those keys out of local storage again and queues
+           them. Only the connection is dropped, so the next attempt reopens it. */
+        copyWrite(batch)["catch"](function () { copyDb = null; });
     }
     function copyDrop(k) { copyPending[k] = null; copyLater(); }
     /* Everything the launcher keeps, read out of local storage and written to the
@@ -263,7 +257,7 @@
                 } catch (e) {}
                 /* A minute of slack: two clocks that disagree must not cause a restore. */
                 var behind = !!there && there > here + 60000;
-                if (!storageLost && !partial && !behind) { copyHold = false; copySweep(); return; }
+                if (!partial && !behind) { copyHold = false; copySweep(); return; }
                 /* The guard is here to stop a reload loop, not to stop the next
                    restore: it used to live in window.name, which survives every
                    reload in the tab, so one restore in a session turned every
@@ -296,10 +290,7 @@
        (the Home Assistant connection when it is made, a picture's address when it
        is first seen): a sweep shortly after the start, then one every half
        minute, is what puts those in the copy without them knowing it exists. */
-    global.setTimeout(copySweep, 12000);
-    global.setInterval(copySweep, 30000);
-    var storageLost = false;
-    try { storageLost = global.localStorage.getItem("apl.prefs") === null && global.localStorage.getItem("apl.profiles") === null; } catch (e) {}
+    global.setInterval(copySweep, 20000);
 
     var prefs = load("apl.prefs", {});
     var household = load("apl.profiles", null);

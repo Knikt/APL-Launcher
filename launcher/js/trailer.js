@@ -34,6 +34,14 @@
     var heard = false;                 // the player answered at least once on this frame
     var frameToken = 0, attempt = 0, attemptTimer = 0;
     var ATTEMPT_MS = 2200;           // how long one way of showing the video is given
+    /* In order: the API on the canonical host, the same on the privacy host, then
+       a plain frame with no API at all - the one that plays when the handshake is
+       never answered. */
+    var TRIES = [
+        { api: true,  host: "www.youtube.com" },
+        { api: true,  host: "www.youtube-nocookie.com" },
+        { api: false, host: "www.youtube.com" }
+    ];
 
     function pref(k) {
         return APL.sys && APL.sys.pref ? APL.sys.pref(k) : null;
@@ -237,14 +245,14 @@
     function startAttempt(id) {
         var host = layer();
         if (!host || !id) return;
-        var api = attempt < 2;
-        var hostname = attempt === 1 ? "www.youtube-nocookie.com" : "www.youtube.com";
+        var plan = TRIES[attempt] || TRIES[TRIES.length - 1];
+        var api = plan.api;
         var mine = ++frameToken;
         clearTimeout(attemptTimer);
         attemptTimer = 0;
         heard = false;
         box = frameOf();
-        box.src = embedUrl(id, api, hostname);
+        box.src = embedUrl(id, api, plan.host);
         host.appendChild(box);
         if (api) {
             /* autoplay=1 is a request, not a promise: a player that starts paused

@@ -1689,8 +1689,9 @@
         APL.sys.onPref("visualEffects", applyPerf);
         applyTheme();
         blurLayer();                 // the drawer's blurred canvas, made once, before it is needed
-        preheatDock();               // the dock's pictures, decoded while nothing is on screen
-        global.setTimeout(preheatDock, 2000);   // once the kept pictures are read back
+        /* Once the kept pictures have been read back out of the store: before that
+           there is nothing to decode yet. */
+        global.setTimeout(preheatDock, 2000);
         global.setTimeout(measureSpeed, 3000);  // and how fast this screen is
         APL.sys.onPref("appearance", applyTheme);
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
