@@ -49,6 +49,11 @@
         dom.clock = $("clock");
         dom.toast = $("toast");
         dom.boot = $("boot");
+        /* Still up after twenty seconds: the line stops sweeping and sits still, so
+           a screen that is stuck reads as stuck rather than as loading forever. */
+        if (dom.boot) global.setTimeout(function () {
+            if (dom.boot && dom.boot.className.indexOf("is-hidden") < 0) dom.boot.classList.add("boot--slow");
+        }, 20000);
         bgActive = dom.bgA;
     }
 
@@ -1706,8 +1711,19 @@
             setTimeout(function () { bootCleanup(8); }, 25000);
             global.APL_BOOT_OK = true;          // the version (installed or updated) starts fine
             if (requestedAction()) runAction(requestedAction());   // opened for a specific reason: TizenTube, App Switcher…
-            setTimeout(function () { dom.boot.classList.add("is-hidden"); }, 120);
+            hideBoot();
         });
+    }
+
+    /* The start-up screen leaves once the Home Screen is really there - and not
+       before it has been up for a moment: a black frame that appears and goes in
+       a flash reads as a fault, a mark that stays a second reads as a start. The
+       time is counted from the navigation, so a slow load keeps it up for as long
+       as it is needed and a fast one still shows it for a second. */
+    function hideBoot() {
+        var nav = (global.performance && global.performance.now) ? global.performance.now() : 900;
+        var wait = Math.max(0, 900 - nav);
+        global.setTimeout(function () { if (dom.boot) dom.boot.classList.add("is-hidden"); }, wait + 120);
     }
 
     /* The Control Center over the apps (LG's Guide button, webos.js): nothing of the Home Screen, no app
@@ -1718,7 +1734,7 @@
         applyPerf();
         applyTheme();
         global.APL_BOOT_OK = true;
-        dom.boot.classList.add("is-hidden");
+        hideBoot();
         if (APL.controlCenter) APL.controlCenter.open();
     }
 
