@@ -92,7 +92,7 @@
     function save(k, v) {
         var text = JSON.stringify(v);
         try { global.localStorage.setItem(k, text); } catch (e) {}
-        if (!COPY_KEYS.test(k)) return;
+        if (!COPY_KEYS.test(k) || COPY_SKIP.test(k)) return;
         copyPending[k] = text;
         /* Stamped, so the copy can be told apart from local storage when a
            screen comes back from the wall with an older one of the two. */
@@ -108,7 +108,13 @@
        an IndexedDB write is on the disk once it is done. So each setting saved above is also written there
        a moment later, and at start-up, when local storage has none of them but the copy has, they are put
        back and the page loads once more with them. A real first start has no copy, so nothing comes back. */
-    var COPY_DB = "apl-settings-copy", COPY_KEYS = /^apl\.(prefs|profiles)(\.|$)/;
+    var COPY_DB = "apl-settings-copy", COPY_KEYS = /^apl\./;
+    /* Not settings: the downloaded launcher itself (large, and fetched again by the
+       updater), and the six-hour content lists — the apps' own Top Shelf rows,
+       which come back by themselves and would only make the copy big and the
+       restore slow on a panel with little flash. */
+    var COPY_SKIP = /^apl\.(bundle$|live\.)/;
+    var COPY_MAX = 262144;                     // 256 KB per value: a restore stays quick
     var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
     var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false, copyTries = 0;
 
@@ -176,17 +182,31 @@
         });
     }
     function copyDrop(k) { copyPending[k] = null; copyLater(); }
-    /* Everything local storage has, written to the copy: the first start with this
-       code, and whenever local storage is the newer of the two. */
-    function copyAll() {
+    /* Everything the launcher keeps, read out of local storage and written to the
+       copy. Most modules write straight into local storage (the Home Assistant
+       connection, the address of each app's picture, the chosen region) without
+       passing through save(), so the copy is swept rather than only fed by it.
+       Only what changed since the last sweep is written, so a sweep costs a walk
+       over the keys and nothing else. */
+    var copySeen = {};
+    function copySweep() {
+        var changed = 0;
         try {
             for (var i = 0; i < global.localStorage.length; i++) {
                 var k = global.localStorage.key(i);
-                if (COPY_KEYS.test(k)) copyPending[k] = global.localStorage.getItem(k);
+                if (!k || !COPY_KEYS.test(k) || COPY_SKIP.test(k) || k === COPY_REV) continue;
+                var v = global.localStorage.getItem(k);
+                if (typeof v !== "string" || v.length > COPY_MAX) continue;
+                if (copySeen[k] === v) continue;
+                copySeen[k] = v;
+                copyPending[k] = v;
+                changed++;
             }
-            copyPending[COPY_REV] = String(Date.now());
-            global.localStorage.setItem(COPY_REV, copyPending[COPY_REV]);
         } catch (e) {}
+        if (changed) {
+            copyPending[COPY_REV] = String(Date.now());
+            try { global.localStorage.setItem(COPY_REV, copyPending[COPY_REV]); } catch (e) {}
+        }
         copyFlush();
     }
     function copyStored() {
@@ -228,7 +248,7 @@
                 var keys = Object.keys(saved || {}).filter(function (k) {
                     return (COPY_KEYS.test(k) || k === COPY_REV) && typeof saved[k] === "string";
                 });
-                if (!keys.length) { copyHold = false; copyAll(); return; }
+                if (!keys.length) { copyHold = false; copySweep(); return; }
                 var there = Number(saved[COPY_REV] || 0), here = 0;
                 try { here = Number(global.localStorage.getItem(COPY_REV) || 0); } catch (e) { here = 0; }
                 /* Only what the copy can actually fill: a key this code never wrote
@@ -243,7 +263,7 @@
                 } catch (e) {}
                 /* A minute of slack: two clocks that disagree must not cause a restore. */
                 var behind = !!there && there > here + 60000;
-                if (!storageLost && !partial && !behind) { copyHold = false; copyAll(); return; }
+                if (!storageLost && !partial && !behind) { copyHold = false; copySweep(); return; }
                 /* The guard is here to stop a reload loop, not to stop the next
                    restore: it used to live in window.name, which survives every
                    reload in the tab, so one restore in a session turned every
@@ -255,7 +275,7 @@
                 if (last && Date.now() - last < 30000) { copyPending = {}; copyHold = false; return; }
                 var wrote = 0;
                 for (var j = 0; j < keys.length; j++) {
-                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); wrote++; } catch (e) {}
+                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); copySeen[keys[j]] = saved[keys[j]]; wrote++; } catch (e) {}
                 }
                 if (!wrote) { copyHold = false; return; }   // nothing could be written: leave the copy alone
                 try { global.sessionStorage.setItem("apl.copyRestoredAt", String(Date.now())); } catch (e) {}
@@ -266,12 +286,18 @@
     /* A screen that is switched off has a moment between the change and the power
        going: the copy is written then, without waiting for its quarter second. */
     if (global.addEventListener) {
-        global.addEventListener("pagehide", function () { copyHold = false; copyFlush(); });
-        global.addEventListener("beforeunload", function () { copyHold = false; copyFlush(); });
+        global.addEventListener("pagehide", function () { copyHold = false; copySweep(); });
+        global.addEventListener("beforeunload", function () { copyHold = false; copySweep(); });
         global.addEventListener("visibilitychange", function () {
-            if (global.document && global.document.hidden) copyFlush();
+            if (global.document && global.document.hidden) copySweep();
         });
     }
+    /* The modules that write straight into local storage do it at their own pace
+       (the Home Assistant connection when it is made, a picture's address when it
+       is first seen): a sweep shortly after the start, then one every half
+       minute, is what puts those in the copy without them knowing it exists. */
+    global.setTimeout(copySweep, 12000);
+    global.setInterval(copySweep, 30000);
     var storageLost = false;
     try { storageLost = global.localStorage.getItem("apl.prefs") === null && global.localStorage.getItem("apl.profiles") === null; } catch (e) {}
 
