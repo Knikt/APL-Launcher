@@ -423,9 +423,15 @@
             if (full.decode) full.decode().then(swap, function () {});
             else full.onload = swap;
         }
-        /* A small copy that has already been decoded once is painted in the same
-           frame: asking for its decode again was a frame of the old picture. */
-        if (seenPics[quick]) { done(); return; }
+        /* A small copy that has already been decoded once is painted at once:
+           asking for its decode again was a frame of the old picture. One frame
+           later, so the layer never fades in on an element that has not drawn
+           its bitmap yet (that is what a blank wall on a focus looked like). */
+        if (seenPics[quick]) {
+            if (global.requestAnimationFrame) global.requestAnimationFrame(function () { global.setTimeout(done, 0); });
+            else global.setTimeout(done, 0);
+            return;
+        }
         if (pic.decode) pic.decode().then(done, done);
         else { pic.onload = done; pic.onerror = done; }
     }
@@ -1128,6 +1134,12 @@
             /* Drawn here, before anything can return: the drawer's background must
                be ready by the time the user opens it, whatever the wall did. */
             flushBlur(pic);
+            /* The title, its logo and its rating follow the picture on the wall,
+               including when that picture was already there: leaving this to the
+               branch below left the title empty until the focus moved away and
+               back (a panel, or full screen and back, was what brought it). */
+            shelfInfo(item);
+            retryIfBlank(next, app, item, n, tag);
             if (bgActive === next) return;                 // already on screen
             /* The pane is ready before the picture is faded in, so the dock,
                the pill and the Control Center change with the backdrop instead
@@ -1154,6 +1166,28 @@
                 }, pic);
             }
         }, lowOf(item.bg));
+    }
+
+    /* An image that fails (a network answer that never comes, a file that cannot
+       be decoded on this panel) left its layer on screen and empty: the wall
+       stayed blank until the focus moved away and came back, which asked for the
+       picture again. It asks again by itself, twice, then lets the app's own
+       artwork take over. */
+    function retryIfBlank(layer, app, item, n, tag) {
+        global.setTimeout(function () {
+            if (!liveShown || liveShown.tag !== tag) return;
+            var im = layer.querySelector("img:not(.brandcard__icon)");
+            if (im && im.complete && im.naturalWidth) return;
+            item._tries = (item._tries || 0) + 1;
+            if (item._tries > 2) { item.bad = true; setBackdrop(app, true); return; }
+            delete item.ok;
+            delete item.bad;
+            /* The layer keeps the name of what it shows, and that name is what
+               told the next attempt it was already there. It is cleared so the
+               picture is asked for again. */
+            layer.dataset.app = "";
+            setLiveBackdrop(app, item, n, (app._liveItems && app._liveItems.length) ? app._liveItems : [item], 0);
+        }, 1600);
     }
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
