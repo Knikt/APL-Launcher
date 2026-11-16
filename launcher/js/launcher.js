@@ -368,6 +368,36 @@
        app before. The small copy (480 px, kept beside it) is decoded first and
        painted, then swapped for the big one in place, which no one sees because
        the bitmap is already decoded by then. */
+    var seenPics = {}, preloads = {}, preloadOrder = [];
+    /* A picture held decoded, out of sight, before it is asked for: the next title
+       of a shelf, usually. Its bitmap is then in memory and the element that shows
+       it paints in the frame it is added. */
+    function preload(url) {
+        if (!url || preloads[url]) return;
+        var im = new global.Image();
+        im.decoding = "sync";
+        preloads[url] = im;
+        preloadOrder.push(url);
+        /* Four at most: a decoded 1920 picture is a few megabytes each, and a
+           television is not a workstation. */
+        while (preloadOrder.length > 4) { var old = preloadOrder.shift(); if (old !== url) delete preloads[old]; }
+        if (im.decode) im.decode().then(function () { im._ok = true; }, function () {});
+        else im.onload = function () { im._ok = true; };
+        im.src = url;
+    }
+
+    /* The small copy of each dock app's kept picture, decoded once at start-up: on
+       a 6.5 screen the first step then has a bitmap to paint, not a decode. */
+    function preheatDock() {
+        if (!APL.artCache || !APL.artCache.first || !APL.artCache.low || !apps || !apps.length) return;
+        for (var i = 0; i < Math.min(apps.length, 7); i++) {
+            var a = apps[i];
+            if (!a) continue;
+            var u = APL.artCache.first(a.id);
+            if (u) preload(APL.artCache.low(u));
+        }
+    }
+
     function showPicture(layer, url, then, low) {
         var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
         if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
@@ -375,13 +405,15 @@
             return;
         }
         if (pic) pic.parentNode.removeChild(pic);
-        var quick = (low && low !== url) ? low : url;
+        var warm = preloads[url];
+        var quick = (low && low !== url && !(warm && warm._ok)) ? low : url;
         pic = document.createElement("img");
         pic.alt = "";
         pic.decoding = "sync";
         pic.src = quick;
         layer.appendChild(pic);
-        function done() { if (then) then(pic); }
+        var called = false;
+        function done() { if (called) return; called = true; seenPics[quick] = true; if (then) then(pic); }
         if (quick !== url) {
             /* The full picture is decoded off screen, then takes the element's
                place: setting a source whose bitmap is ready swaps in one frame. */
@@ -391,6 +423,9 @@
             if (full.decode) full.decode().then(swap, function () {});
             else full.onload = swap;
         }
+        /* A small copy that has already been decoded once is painted in the same
+           frame: asking for its decode again was a frame of the old picture. */
+        if (seenPics[quick]) { done(); return; }
         if (pic.decode) pic.decode().then(done, done);
         else { pic.onload = done; pic.onerror = done; }
     }
@@ -612,6 +647,10 @@
        otherwise the last poster painted - the rotated one, not the first pick. */
     function pickOnWall(app) {
         if (!app) return null;
+        /* The title actually on the wall wins. The rotation moves the picture on
+           by itself, and the trailer used to be armed with the number kept from
+           the last step: ▲ on the third show played the first one's trailer. */
+        if (liveShown && liveShown.app === app && liveShown.item) return liveShown.item;
         if (app._liveItems && app._liveItems.length) return app._liveItems[app._liveN || 0];
         if (lastPicks[app.id]) return lastPicks[app.id];
         return null;
@@ -1153,9 +1192,15 @@
        screen: the twenty-second change then lands on a slice that is already
        made, instead of the dock finishing a bake after the picture changed. */
     function warmNext(items, i) {
-        if (!APL.glass || !APL.glass.prefetch || !items || !items.length) return;
+        if (!items || !items.length) return;
         var item = items[i % items.length];
-        if (item && item.bg) APL.glass.prefetch(item.bg);
+        if (!item || !item.bg) return;
+        /* Both pictures of the title that is coming: the small one for the wall
+           and the big one behind it. Both are in memory when the rotation or a
+           step asks for them, so the change is a paint. */
+        preload(lowOf(item.bg));
+        preload(item.bg);
+        if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(item.bg);
     }
 
     /* A new full-screen image costs 100 ms: as rarely as possible, and never while navigating. */
@@ -1213,6 +1258,7 @@
                     if (document.hidden) return;                     // and behind an app: nobody sees it
                     if (apps[nav.index] !== app) { stopLive(); return; }
                     n = (n + 1) % items.length;
+                    app._liveN = n;                     // the wall moved: the trailer follows it
                     setLiveBackdrop(app, items[n], n, items, 0);
                     warmNext(items, n + 1);
                 }, LIVE_ROTATE_MS);
@@ -1591,6 +1637,8 @@
         APL.sys.onPref("visualEffects", applyPerf);
         applyTheme();
         blurLayer();                 // the drawer's blurred canvas, made once, before it is needed
+        preheatDock();               // the dock's pictures, decoded while nothing is on screen
+        global.setTimeout(preheatDock, 2000);   // once the kept pictures are read back
         APL.sys.onPref("appearance", applyTheme);
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
