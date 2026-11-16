@@ -92,7 +92,13 @@
     function save(k, v) {
         var text = JSON.stringify(v);
         try { global.localStorage.setItem(k, text); } catch (e) {}
-        if (COPY_KEYS.test(k)) copyLater(k, text);
+        if (!COPY_KEYS.test(k)) return;
+        copyPending[k] = text;
+        /* Stamped, so the copy can be told apart from local storage when a
+           screen comes back from the wall with an older one of the two. */
+        copyPending[COPY_REV] = String(Date.now());
+        try { global.localStorage.setItem(COPY_REV, copyPending[COPY_REV]); } catch (e) {}
+        copyLater();
     }
 
     /* ---------- a second copy of the settings, in IndexedDB ----------
@@ -103,6 +109,7 @@
        a moment later, and at start-up, when local storage has none of them but the copy has, they are put
        back and the page loads once more with them. A real first start has no copy, so nothing comes back. */
     var COPY_DB = "apl-settings-copy", COPY_KEYS = /^apl\.(prefs|profiles)(\.|$)/;
+    var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
     var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false;
     function copyOpen() {
         if (copyDb) return copyDb;
@@ -116,10 +123,12 @@
         copyDb.catch(function () {});
         return copyDb;
     }
-    function copyLater(k, text) {
-        copyPending[k] = text;
+    function copyLater() {
         clearTimeout(copyTimer);
-        copyTimer = setTimeout(copyFlush, 1500);
+        /* A quarter of a second, not one and a half: a screen unplugged straight
+           after a change kept the copy from before it, and the setting was gone
+           when the power came back. */
+        copyTimer = setTimeout(copyFlush, 250);
     }
     function copyFlush() {
         if (copyHold) return;                       // the copy is being read back: it must not be written over first
@@ -133,41 +142,79 @@
             });
         }).catch(function () {});
     }
-    function copyDrop(k) { copyLater(k, null); }
-    /* Everything already in local storage (the first start with this code, then once in a while) */
+    function copyDrop(k) { copyPending[k] = null; copyLater(); }
+    /* Everything local storage has, written to the copy: the first start with this
+       code, and whenever local storage is the newer of the two. */
     function copyAll() {
         try {
             for (var i = 0; i < global.localStorage.length; i++) {
                 var k = global.localStorage.key(i);
                 if (COPY_KEYS.test(k)) copyPending[k] = global.localStorage.getItem(k);
             }
+            copyPending[COPY_REV] = String(Date.now());
+            global.localStorage.setItem(COPY_REV, copyPending[COPY_REV]);
         } catch (e) {}
         copyFlush();
     }
-    function copyRestore() {
-        copyHold = true;
-        copyOpen().then(function (db) {
+    function copyStored() {
+        return copyOpen().then(function (db) {
             return new Promise(function (resolve) {
                 var out = {}, rq = db.transaction("kv", "readonly").objectStore("kv").openCursor();
                 rq.onsuccess = function () { var c = rq.result; if (c) { out[c.key] = c.value; c["continue"](); } else resolve(out); };
                 rq.onerror = function () { resolve(out); };
             });
-        }).then(function (saved) {
-            var keys = Object.keys(saved).filter(function (k) { return COPY_KEYS.test(k) && typeof saved[k] === "string"; });
-            /* Put back once per window: the mark is kept in sessionStorage, and in window.name when that
-               throws too, so a storage that stays empty can never reload the page over and over */
+        });
+    }
+    /* What the copy has is compared with what local storage has, at every start -
+       not only when local storage is empty. A screen that loses power can come
+       back with an older copy of its storage rather than none, which is why the
+       settings were sometimes kept and sometimes not; and it can come back with
+       only some of the keys, which left the Home Screen layout at its defaults
+       while the rest was still there. The copy carries the time it was written:
+       when it is newer than local storage, or when local storage has none of it,
+       the copy is put back and the page loads once more with it. */
+    function copyCheck() {
+        copyHold = true;
+        copyStored().then(function (saved) {
+            var keys = Object.keys(saved).filter(function (k) {
+                return (COPY_KEYS.test(k) || k === COPY_REV) && typeof saved[k] === "string";
+            });
+            if (!keys.length) { copyHold = false; copyAll(); return; }   // no copy yet: local storage makes one
+            var there = Number(saved[COPY_REV] || 0), here = 0;
+            try { here = Number(global.localStorage.getItem(COPY_REV) || 0); } catch (e) { here = 0; }
+            /* Only what the copy can actually fill: a key this code never wrote
+               there (an older copy) must not reload the page for nothing. */
+            var partial = false;
+            try {
+                var cur = (load("apl.profiles", {}) || {}).current;
+                ["apl.prefs", "apl.profiles", cur ? "apl.prefs." + cur : ""].forEach(function (k) {
+                    if (k && !global.localStorage.getItem(k) && keys.indexOf(k) >= 0) partial = true;
+                });
+            } catch (e) {}
+            /* A minute of slack: two clocks that disagree must not cause a restore. */
+            var behind = !!there && there > here + 60000;
+            if (!storageLost && !partial && !behind) { copyHold = false; copyAll(); return; }
             var again = false;
             try { again = !!global.sessionStorage.getItem("apl.copyRestored"); } catch (e) {}
             if (String(global.name || "").indexOf("apl-copy-restored") !== -1) again = true;
-            if (!keys.length) { copyHold = false; copyAll(); return; }
-            /* Already put back and still empty (the storage refuses to write): the copy is kept as it is. Writing
-               this start's defaults over it lost the settings for good. */
+            /* Already put back once and still missing (a storage that refuses to be
+               written): the copy is kept as it is, never written over with this
+               start's defaults, which lost the settings for good. */
             if (again) { copyPending = {}; copyHold = false; return; }
             keys.forEach(function (k) { try { global.localStorage.setItem(k, saved[k]); } catch (e) {} });
             try { global.sessionStorage.setItem("apl.copyRestored", "1"); } catch (e) {}
             try { global.name = "apl-copy-restored"; } catch (e) {}
             global.location.reload();
         }, function () { copyHold = false; copyFlush(); });
+    }
+    /* A screen that is switched off has a moment between the change and the power
+       going: the copy is written then, without waiting for its quarter second. */
+    if (global.addEventListener) {
+        global.addEventListener("pagehide", function () { copyHold = false; copyFlush(); });
+        global.addEventListener("beforeunload", function () { copyHold = false; copyFlush(); });
+        global.addEventListener("visibilitychange", function () {
+            if (global.document && global.document.hidden) copyFlush();
+        });
     }
     var storageLost = false;
     try { storageLost = global.localStorage.getItem("apl.prefs") === null && global.localStorage.getItem("apl.profiles") === null; } catch (e) {}
@@ -196,7 +243,8 @@
     });
 
     // Local storage came back empty (a screen switched off at the wall): the copy, if there is one, comes back
-    if (storageLost) copyRestore(); else setTimeout(copyAll, 10000);
+    copyCheck();
+    setTimeout(copyAll, 10000);
 
     function currentProfile() {
         for (var i = 0; i < household.list.length; i++) if (household.list[i].id === household.current) return household.list[i];
