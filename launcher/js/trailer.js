@@ -31,6 +31,7 @@
     var STORE = "apl.trailer.";
 
     var timer = 0, endTimer = 0, token = 0, box = null, last = null, onEnd = null, resolving = {};
+    var heard = false;                 // the player answered at least once on this frame
 
     function pref(k) {
         return APL.sys && APL.sys.pref ? APL.sys.pref(k) : null;
@@ -172,12 +173,18 @@
     }
     if (global.addEventListener) {
         global.addEventListener("message", function (e) {
-            if (!box || !e || e.source !== box.contentWindow) return;
+            if (!box || !e) return;
+            /* An engine that does not fill e.source still answers with the
+               player's own events, and this page has no other frame. */
+            if (e.source && e.source !== box.contentWindow) return;
             var d = e.data;
             try { d = typeof d === "string" ? JSON.parse(d) : d; } catch (err) { return; }
-            if (!d) return;
+            if (!d || !d.event) return;
+            heard = true;
+            /* 1 is playing, 3 is buffering: the player has left its thumbnail in
+               both, so its play button is gone. */
             var state = d.info !== undefined ? d.info : (d.infoDelivery && d.infoDelivery.playerState);
-            if (state === 1 && (d.event === "onStateChange" || d.event === "infoDelivery")) revealTrailer();
+            if ((state === 1 || state === 3) && (d.event === "onStateChange" || d.event === "infoDelivery")) revealTrailer();
         });
     }
 
@@ -197,9 +204,16 @@
         box.setAttribute("frameborder", "0");
         box.setAttribute("tabindex", "-1");
         box.setAttribute("aria-hidden", "true");
+        /* origin is not decoration: with enablejsapi but no origin, the player
+           ignores the commands posted to it on some engines (Tizen 6.5 among
+           them), so autoplay was never asked for a second time and the frame sat
+           on its thumbnail. It is the page's own address, as the API asks. */
+        var origin = String(global.location.origin || "");
+        if (!origin || origin === "null") origin = "https://www.youtube.com";
         box.src = "https://www.youtube-nocookie.com/embed/" + encodeURIComponent(id) +
                   "?autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3" +
-                  "&disablekb=1&fs=0&cc_load_policy=0&loop=0&enablejsapi=1";
+                  "&disablekb=1&fs=0&cc_load_policy=0&loop=0&enablejsapi=1" +
+                  "&origin=" + encodeURIComponent(origin);
         host.appendChild(box);
         /* cc_load_policy only says "do not turn them on": a video whose captions
            are on by default still shows them. The player's own API is the only
@@ -207,7 +221,7 @@
         /* autoplay=1 is a request, not a promise: a player that starts paused
            shows its play button and its whole chrome over the picture, so it is
            told to play as well. Muted and inline, so no engine refuses it. */
-        [200, 900, 2000, 3500].forEach(function (ms) {
+        [150, 400, 800, 1500, 2500, 4000, 6000, 8000].forEach(function (ms) {
             global.setTimeout(function () {
                 if (!box || !box.contentWindow) return;
                 try {
@@ -228,14 +242,16 @@
             }, ms);
         });
         /* The player is asked to report its state; it answers on playing. */
-        [300, 1200].forEach(function (ms) {
+        [300, 1200, 2600].forEach(function (ms) {
             global.setTimeout(function () {
                 if (!box || !box.contentWindow) return;
                 try { box.contentWindow.postMessage(JSON.stringify({ event: "listening", id: "apl" }), "*"); } catch (e) {}
             }, ms);
         });
-        /* A player that never reports (an old engine, a network that answers
-           nothing) lights up anyway rather than leaving the wall bare. */
+        /* An engine that does not answer the handshake is shown at once, as it
+           always was; one that answers waits for the picture to be moving. */
+        heard = false;
+        global.setTimeout(function () { if (box && !heard) revealTrailer(); }, 1400);
         global.setTimeout(function () { if (box) revealTrailer(); }, 3000);
         if (secs) {
             endTimer = global.setTimeout(function () {

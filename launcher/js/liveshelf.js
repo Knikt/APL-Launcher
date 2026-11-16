@@ -149,7 +149,7 @@
        Forty-eight at most, newest kept; the store lives beside the lists. */
     var ART_DB = "apl-art", ART_STORE = "pics", ART_MAX = 48;
     var ART_TTL = 6 * 3600 * 1000;              // the same six hours as the lists of titles
-    var artUrls = {}, artDb = null, artHydrated = false;
+    var artUrls = {}, artLows = {}, artDb = null, artHydrated = false;
 
     function artOpenDb(then) {
         if (!global.indexedDB) { then(null); return; }
@@ -167,13 +167,33 @@
         if (!artDb) return;
         try { artDb.transaction(ART_STORE, "readwrite").objectStore(ART_STORE)["delete"](url); } catch (e) {}
     }
+    /* A picture kept before the small copies existed: the small one is drawn once,
+       written beside it, and used from then on. */
+    function artUpgrade(list, db) {
+        if (!list.length || !db) return;
+        var url = list.shift(), req;
+        try { req = db.transaction(ART_STORE, "readonly").objectStore(ART_STORE).get(url); } catch (e) { return; }
+        req.onsuccess = function () {
+            var rec = req.result;
+            if (!rec || !rec.blob || rec.small) { global.setTimeout(function () { artUpgrade(list, db); }, 60); return; }
+            artShrink(rec.blob, function (small) {
+                if (small) {
+                    rec.small = small;
+                    try { db.transaction(ART_STORE, "readwrite").objectStore(ART_STORE).put(rec, url); } catch (e) {}
+                    try { artLows[url] = global.URL.createObjectURL(small); } catch (e) {}
+                }
+                global.setTimeout(function () { artUpgrade(list, db); }, 250);
+            });
+        };
+        req.onerror = function () { global.setTimeout(function () { artUpgrade(list, db); }, 250); };
+    }
     /* Once, at start-up: every kept picture becomes an object URL in memory, so a
        shelf can be shown from it without waiting for a single read. */
     function artHydrate() {
         artOpenDb(function (db) {
             if (!db || artHydrated) return;
             artHydrated = true;
-            var tx, store, cur, found = [];
+            var tx, store, cur, found = [], thin = [];
             try { tx = db.transaction(ART_STORE, "readonly"); store = tx.objectStore(ART_STORE); } catch (e) { return; }
             cur = store.openCursor();
             cur.onsuccess = function () {
@@ -187,9 +207,39 @@
                     if (e.rec && e.rec.blob) {
                         try { artUrls[e.url] = global.URL.createObjectURL(e.rec.blob); } catch (err) {}
                     }
+                    /* The small copy is what the wall draws while the big one is
+                       still decoding: a few kilobytes out of the screen's own
+                       storage, so a step never waits on a 1280 JPEG. */
+                    if (e.rec && e.rec.small) {
+                        try { artLows[e.url] = global.URL.createObjectURL(e.rec.small); } catch (err) {}
+                    } else if (e.rec && e.rec.blob) {
+                        thin.push(e.url);          // kept before the small copies existed
+                    }
                 });
+                /* Screens that already had pictures kept get their small copy now,
+                   one at a time, so the Home Screen is not held up by the work. */
+                artUpgrade(thin, db);
             };
         });
+    }
+    /* 480 px wide, as a JPEG: what a TV decodes in a few milliseconds. Drawn once,
+       here, in the background, never on the path of a step. */
+    function artShrink(blob, then) {
+        var img = new global.Image(), o;
+        try { o = global.URL.createObjectURL(blob); } catch (e) { then(null); return; }
+        img.onload = function () {
+            try {
+                var w = 480, h = Math.round(w * (img.naturalHeight || 1) / (img.naturalWidth || 1));
+                var c = document.createElement("canvas");
+                c.width = w; c.height = h;
+                c.getContext("2d").drawImage(img, 0, 0, w, h);
+                global.URL.revokeObjectURL(o);
+                if (!c.toBlob) { then(null); return; }
+                c.toBlob(function (small) { then(small || null); }, "image/jpeg", 0.72);
+            } catch (e) { global.URL.revokeObjectURL(o); then(null); }
+        };
+        img.onerror = function () { global.URL.revokeObjectURL(o); then(null); };
+        img.src = o;
     }
     /* A picture that has just been fetched for the wall is kept for next time. */
     function artKeep(url) {
@@ -199,12 +249,16 @@
             if (!db) return;
             global.fetch(url).then(function (r) { return r.ok ? r.blob() : null; }).then(function (b) {
                 if (!b) return;
-                try { db.transaction(ART_STORE, "readwrite").objectStore(ART_STORE).put({ blob: b, t: Date.now() }, url); } catch (e) {}
+                artShrink(b, function (small) {
+                    try { db.transaction(ART_STORE, "readwrite").objectStore(ART_STORE).put({ blob: b, small: small, t: Date.now() }, url); } catch (e) {}
+                });
             })["catch"](function () {});
         });
     }
     /* The picture to draw: the one on the screen if it is there, its address otherwise. */
     function artLook(url) { return (url && artUrls[url]) || ""; }
+    /* The small copy of the same address, when the screen has one. */
+    function artLow(url) { return (url && artLows[url]) || ""; }
 
     /* One picture per app, and its name kept: an app's first backdrop is written
        down here, so the wall can have it the moment that app takes the focus -
@@ -232,7 +286,7 @@
         return rec.i || 0;
     }
 
-    APL.artCache = { look: artLook, keep: artKeep, first: artFirst, firstIndex: artFirstIndex, remember: artRemember };
+    APL.artCache = { look: artLook, low: artLow, keep: artKeep, first: artFirst, firstIndex: artFirstIndex, remember: artRemember };
     setTimeout(artHydrate, 0);
 
     function getJson(url) {

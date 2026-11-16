@@ -362,21 +362,43 @@
        time the row was scrolled, not only on the first pass. An <img> whose
        decode has finished is painted whole. The layer keeps its own colour
        underneath and the glass reads the picture from the element (glass.js). */
-    function showPicture(layer, url, then) {
+    /* low: a small copy of the same picture, when the screen has one.
+       A 1280 JPEG takes a while to decode on a Tizen 6.5 panel, and until it
+       was ready the layer stayed on the last app's picture: scrolling showed the
+       app before. The small copy (480 px, kept beside it) is decoded first and
+       painted, then swapped for the big one in place, which no one sees because
+       the bitmap is already decoded by then. */
+    function showPicture(layer, url, then, low) {
         var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
         if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
             if (then) then(pic);                                 // the same picture, already decoded
             return;
         }
         if (pic) pic.parentNode.removeChild(pic);
+        var quick = (low && low !== url) ? low : url;
         pic = document.createElement("img");
         pic.alt = "";
         pic.decoding = "sync";
-        pic.src = url;
+        pic.src = quick;
         layer.appendChild(pic);
         function done() { if (then) then(pic); }
+        if (quick !== url) {
+            /* The full picture is decoded off screen, then takes the element's
+               place: setting a source whose bitmap is ready swaps in one frame. */
+            var full = new global.Image();
+            var swap = function () { if (pic && pic.getAttribute("src") !== url) pic.src = url; };
+            full.src = url;
+            if (full.decode) full.decode().then(swap, function () {});
+            else full.onload = swap;
+        }
         if (pic.decode) pic.decode().then(done, done);
         else { pic.onload = done; pic.onerror = done; }
+    }
+
+    /* The small copy the screen keeps of a picture, if it has one. */
+    function lowOf(url) {
+        if (!url || !APL.artCache || !APL.artCache.low) return "";
+        return APL.artCache.low(url) || "";
     }
 
     /* Drawing a full-screen image takes 100 ms on the M8, whatever the effect: the dock
@@ -562,7 +584,7 @@
             showPicture(dockLayer, image, function (pic) {
                 if (token !== backdropToken) return;
                 reveal(app, dockLayer, image, pic);
-            });
+            }, lowOf(image));
             return;
         }
         if (bgActive.dataset.app === app.id) return;
@@ -576,7 +598,7 @@
             showPicture(next, image, function (pic) {
                 if (token !== backdropToken) return;
                 reveal(app, next, image, pic);
-            });
+            }, lowOf(image));
         });
     }
 
@@ -1092,7 +1114,7 @@
                     refreshGlass();
                 }, pic);
             }
-        });
+        }, lowOf(item.bg));
     }
 
     /* Title and rating of the Top Shelf film or series (videos and games have none). */
