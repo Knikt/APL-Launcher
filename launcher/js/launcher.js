@@ -272,6 +272,7 @@
             if (painted) return;
             painted = true;
             if (token !== blurToken) return;              // another image was requested in the meantime
+            if (!img.naturalWidth || !img.naturalHeight) return;   // not decoded yet: nothing to draw
             var c = blurLayer(), ctx = c.getContext("2d"), w = c.width, h = c.height;
             var m = c._filters ? 14 : 0;                  // margin: no dark edge from the blur
             ctx.clearRect(0, 0, w, h);
@@ -398,7 +399,7 @@
         }
     }
 
-    function showPicture(layer, url, then, low) {
+    function showPicture(layer, url, then, low, revealNow) {
         var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
         if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
             if (then) then(pic);                                 // the same picture, already decoded
@@ -413,7 +414,12 @@
         pic.src = quick;
         layer.appendChild(pic);
         var called = false;
-        function done() { if (called) return; called = true; seenPics[quick] = true; if (then) then(pic); }
+        function done() { if (called) return; called = true; if (pic.naturalWidth) seenPics[quick] = true; if (then) then(pic); }
+        /* Nothing to lay under it (a picture host that cannot be kept, so no small
+           copy): the layer goes up at once on its own backdrop, and the picture
+           takes its place when it arrives, instead of the previous app's picture
+           staying there and reading as the wrong show. */
+        if (revealNow) global.setTimeout(done, 0);
         if (quick !== url) {
             /* The full picture is decoded off screen, then takes the element's
                place: setting a source whose bitmap is ready swaps in one frame. */
@@ -1126,6 +1132,13 @@
         wantBlur(item.bgSmall || item.bg || null, app, null);
         /* The picture from TMDB, Plex or YouTube is an <img> revealed once its
            decode is done, so it can never be painted a band at a time. */
+        /* What fills the wall while the big picture comes: the small copy kept
+           with it, else the app's own artwork (bundled, local, instant), else the
+           item's 300 px address. TMDB's image host refuses to be read (no
+           Access-Control-Allow-Origin), so those pictures can never be kept, and
+           without this the previous app's picture stayed on screen until the
+           1280 JPEG had decoded. */
+        var lowPic = lowOf(item.bg) || artOf(app) || item.bgSmall || "";
         showPicture(next, srcOf(item), function (pic) {
             /* Two quick ◀ presses reuse the same layer: an answer for the title
                before this one must not fade it in, or its picture lands under
@@ -1165,7 +1178,7 @@
                     refreshGlass();
                 }, pic);
             }
-        }, lowOf(item.bg));
+        }, lowPic, !lowPic);
     }
 
     /* An image that fails (a network answer that never comes, a file that cannot

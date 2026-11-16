@@ -241,9 +241,33 @@
         img.onerror = function () { global.URL.revokeObjectURL(o); then(null); };
         img.src = o;
     }
+    /* Some picture hosts answer an image without allowing one to be read: TMDB's
+       image.tmdb.org sends no Access-Control-Allow-Origin, so fetch() refuses it
+       on every visit and nothing can be kept from it. Asking again on every step
+       was a request per step that could never succeed; the host is remembered for
+       a week and left alone. */
+    var ART_NOCORS = "apl.art.nocors";
+    function noCorsList() {
+        try { return JSON.parse(global.localStorage.getItem(ART_NOCORS) || "{}") || {}; } catch (e) { return {}; }
+    }
+    function noCorsMark(url) {
+        var m = /^https?:\/\/([^\/]+)/i.exec(String(url || ""));
+        if (!m) return;
+        try {
+            var list = noCorsList();
+            list[m[1]] = Date.now();
+            global.localStorage.setItem(ART_NOCORS, JSON.stringify(list));
+        } catch (e) {}
+    }
+    function noCors(url) {
+        var m = /^https?:\/\/([^\/]+)/i.exec(String(url || ""));
+        if (!m) return false;
+        var t = noCorsList()[m[1]];
+        return !!t && (Date.now() - t) < 7 * 86400000;
+    }
     /* A picture that has just been fetched for the wall is kept for next time. */
     function artKeep(url) {
-        if (!url || !/^https?:/i.test(url) || artUrls["!" + url]) return;
+        if (!url || !/^https?:/i.test(url) || artUrls["!" + url] || noCors(url)) return;
         artUrls["!" + url] = true;
         artOpenDb(function (db) {
             if (!db) return;
@@ -252,7 +276,7 @@
                 artShrink(b, function (small) {
                     try { db.transaction(ART_STORE, "readwrite").objectStore(ART_STORE).put({ blob: b, small: small, t: Date.now() }, url); } catch (e) {}
                 });
-            })["catch"](function () {});
+            })["catch"](function () { noCorsMark(url); });
         });
     }
     /* The picture to draw: the one on the screen if it is there, its address otherwise. */

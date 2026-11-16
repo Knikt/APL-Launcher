@@ -244,20 +244,21 @@
                 /* A minute of slack: two clocks that disagree must not cause a restore. */
                 var behind = !!there && there > here + 60000;
                 if (!storageLost && !partial && !behind) { copyHold = false; copyAll(); return; }
-                var again = false;
-                try { again = !!global.sessionStorage.getItem("apl.copyRestored"); } catch (e) {}
-                if (String(global.name || "").indexOf("apl-copy-restored") !== -1) again = true;
-                /* Already put back once and still missing (a storage that refuses to
-                   be written): the copy is kept as it is, never written over with this
-                   start's defaults, which lost the settings for good. */
-                if (again) { copyPending = {}; copyHold = false; return; }
+                /* The guard is here to stop a reload loop, not to stop the next
+                   restore: it used to live in window.name, which survives every
+                   reload in the tab, so one restore in a session turned every
+                   later one off - and a storage wiped again a minute later was
+                   then never put back. Thirty seconds is longer than the reload
+                   needs and far shorter than a session. */
+                var last = 0;
+                try { last = Number(global.sessionStorage.getItem("apl.copyRestoredAt") || 0); } catch (e) {}
+                if (last && Date.now() - last < 30000) { copyPending = {}; copyHold = false; return; }
                 var wrote = 0;
                 for (var j = 0; j < keys.length; j++) {
                     try { global.localStorage.setItem(keys[j], saved[keys[j]]); wrote++; } catch (e) {}
                 }
                 if (!wrote) { copyHold = false; return; }   // nothing could be written: leave the copy alone
-                try { global.sessionStorage.setItem("apl.copyRestored", "1"); } catch (e) {}
-                try { global.name = "apl-copy-restored"; } catch (e) {}
+                try { global.sessionStorage.setItem("apl.copyRestoredAt", String(Date.now())); } catch (e) {}
                 global.location.reload();
             }, release);
         } catch (e) { release(); }
@@ -298,8 +299,13 @@
     });
 
     // Local storage came back empty (a screen switched off at the wall): the copy, if there is one, comes back
+    /* Nothing else writes the copy on its own: a ten-second "make sure it is
+       there" pass read local storage and pushed it into the copy, so a start that
+       had not restored yet (a slow storage, an empty one that was about to be
+       put back) could overwrite a good copy with this start's defaults. The copy
+       follows the settings through save() and is only ever seeded from local
+       storage when the copy is empty. */
     copyCheck();
-    setTimeout(copyAll, 10000);
 
     function currentProfile() {
         for (var i = 0; i < household.list.length; i++) if (household.list[i].id === household.current) return household.list[i];
