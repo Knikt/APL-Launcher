@@ -1472,34 +1472,28 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
 }
 
 /* ===================== SEARCH SHEET =====================
-   One sheet over the whole stage: a full-size frozen backdrop, a scrim, the
-   letter keyboard on the left, the answers on the right. No filter and no
-   blur runs on this path - the backdrop is a picture, the scrim darkens it. */
+   Laid out from the Apple TV's own search: the wordmark at the left, the
+   tabs in a glass capsule with the magnifier at its right end, the field
+   and the abc / ABC / #+- segments filling the left column, a text-only
+   six-column keyboard under them, and wide cards in threes on the right.
+
+   Every size is the Apple TV's, scaled from its 1140 px layout to the
+   1920 px stage (x1.684): the field 84 px tall, the segments 64, the keys
+   42 px type on a 66 px row, the cards 418 x 235 at 14 px radius.
+
+   The glass is flat translucency and static highlights, so no filter runs
+   on the stage. Opening and closing match the Control Center: the dim
+   fades, the sheet arrives from above and settles with the same spring. */
 
 .srch {
     position: fixed;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0;
     z-index: 38;
-    display: flex;
-    flex-direction: column;
     opacity: 0;
     pointer-events: none;
-    transform: scale(1.02) translate3d(0, -8px, 0);
-    transition: opacity 190ms cubic-bezier(0.16, 1, 0.3, 1),
-                transform 210ms cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 220ms ease;
 }
-
-.srch.is-open {
-    opacity: 1;
-    pointer-events: auto;
-    transform: none;
-}
-
-.srch__scrim {
-    position: absolute;
-    inset: 0;
-    background: rgba(6, 9, 12, 0.55);
-}
+.srch.is-open { opacity: 1; pointer-events: auto; }
 
 .srch__glass {
     position: absolute;
@@ -1512,368 +1506,347 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
     z-index: 0;
     pointer-events: none;
 }
-
 .srch__glass[hidden] { display: none !important; }
 
-/* No artwork behind the launcher: the sheet still needs a ground. */
+.srch__scrim {
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    z-index: 1;
+    background: rgba(6, 9, 12, 0.55);
+    opacity: 0;
+    transition: opacity 220ms ease;
+}
+.srch.is-open .srch__scrim { opacity: 1; }
 .srch:not(.has-art) .srch__scrim { background: rgba(6, 9, 12, 0.92); }
 
 .srch__sheet {
     position: relative;
-    z-index: 1;
-    flex: 1;
-    min-height: 0;
+    z-index: 2;
+    height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 48px 96px 40px 118px;
+    padding: 34px 40px 40px 81px;
+    opacity: 0;
+    transform: translateY(-14px) scale(0.985);
+    transform-origin: 50% 0;
+    transition: opacity 200ms ease, transform 260ms var(--spring, ease);
 }
+.srch.is-open .srch__sheet { opacity: 1; transform: none; }
 
-/* ---------- head ---------- */
+/* ---------- the bar across the top ---------- */
 
-.srch__head {
+.srch__top {
     flex: none;
     height: 96px;
     display: flex;
     align-items: center;
-    gap: 22px;
-    margin-bottom: 34px;
+    gap: 34px;
+    margin-bottom: 22px;
+}
+.srch__brand {
+    font-size: 34px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: rgba(255, 255, 255, 0.90);
 }
 
+.srch__nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 48px;
+    background: linear-gradient(180deg, rgba(64, 66, 72, 0.55), rgba(36, 38, 44, 0.55));
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 10px 28px rgba(0, 0, 0, 0.20);
+}
+.srch__tabs { display: flex; align-items: center; gap: 2px; }
+.srch__tab {
+    height: 76px;
+    line-height: 76px;
+    padding: 0 30px;
+    border-radius: 38px;
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+    color: rgba(255, 255, 255, 0.58);
+    transition: transform 160ms var(--ease), background 160ms ease, color 160ms ease;
+}
+.srch__tab.is-active { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.srch__tab.is-focused { background: #fff; color: #111; transform: scale(1.04); }
+
 .srch__mark {
-    width: 48px;
-    height: 48px;
+    width: 76px;
+    height: 76px;
     flex: none;
+    margin-left: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: rgba(255, 255, 255, 0.82);
+    border-radius: 50%;
+    color: #111;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: inset 0 1px 0 #fff, 0 8px 22px rgba(0, 0, 0, 0.22);
+}
+
+/* ---------- the body ---------- */
+
+.srch__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 73px;
+}
+
+.srch__left {
+    flex: none;
+    width: 432px;
+    display: flex;
+    flex-direction: column;
 }
 
 .srch__field {
-    flex: 1;
-    min-width: 0;
-    height: 96px;
+    height: 84px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 14px;
+    padding: 0 18px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(70, 72, 78, 0.62), rgba(40, 42, 48, 0.62));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.30),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+        0 12px 30px rgba(0, 0, 0, 0.22);
 }
-
+.srch__glyph { flex: none; display: flex; color: rgba(255, 255, 255, 0.70); }
 .srch__text {
-    font-size: 44px;
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 36px;
     line-height: 1;
-    font-weight: 700;
-    letter-spacing: -1px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: #fff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: #fff;
 }
-
-.srch__text.is-empty { color: rgba(255, 255, 255, 0.52); }
-
+.srch__text.is-empty { color: rgba(255, 255, 255, 0.45); }
 .srch__caret {
-    width: 4px;
-    height: 46px;
+    width: 3px;
+    height: 39px;
     flex: none;
+    margin-right: auto;
     border-radius: 2px;
     background: #fff;
     opacity: 0.9;
     animation: srch-caret 1100ms steps(1) infinite;
 }
-
 @keyframes srch-caret {
     0%, 49% { opacity: 0.9; }
     50%, 100% { opacity: 0; }
 }
-
 .srch__spin {
-    width: 34px;
-    height: 34px;
+    width: 26px;
+    height: 26px;
     flex: none;
     border-radius: 50%;
     border: 3px solid rgba(255, 255, 255, 0.22);
     border-top-color: rgba(255, 255, 255, 0.92);
     animation: srch-spin 900ms linear infinite;
 }
-
-.srch__spin[hidden] { display: none !important; }
-
 @keyframes srch-spin { to { transform: rotate(360deg); } }
 
-/* ---------- body ---------- */
-
-.srch__body {
-    flex: 1;
-    min-height: 0;
-    /* A grid, not a flex row: the keyboard column is fixed and the results
-       take the rest, so three cards can never push past the stage. */
+/* abc / ABC / #+-: one track across the whole column, three equal cells */
+.srch__modes {
+    width: 100%;
+    height: 64px;
+    margin-top: 18px;
     display: grid;
-    grid-template-columns: 596px minmax(0, 1fr);
-    gap: 56px;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(48, 50, 56, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.srch__mode {
+    height: 62px;
+    line-height: 62px;
+    text-align: center;
+    font-size: 26px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.62);
+    transition: background 160ms ease, color 160ms ease;
+}
+.srch__mode.is-active { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.srch__mode.is-focused { background: #fff; color: #111; }
+
+/* The keys are type on the glass, not tiles: six even columns, as on the
+   Apple TV, so the letters keep the same rhythm as the field above. */
+.srch__keys { margin-top: 22px; }
+.srch__grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px 0;
+}
+.srch__key {
+    height: 66px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 42px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.96);
+    transition: transform 150ms var(--ease), background 150ms ease, color 150ms ease;
+}
+.srch__key.is-focused {
+    background: #fff;
+    color: #111;
+    transform: scale(1.04);
+}
+.srch__foot {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+}
+.srch__key--space {
+    grid-column: span 3;
+    height: 56px;
+    background: rgba(48, 50, 56, 0.45);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+.srch__key--icon { height: 56px; }
+.srch__key--clear {
+    grid-column: span 2;
+    height: 56px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.86);
 }
 
-.srch__left {
-    width: auto;
-    min-width: 0;
-    flex: none;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 22px;
-}
+/* ---------- the cards on the right ---------- */
 
 .srch__right {
     flex: 1;
     min-width: 0;
-    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    /* a third row fades under the edge instead of ending in a cut */
+    -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 calc(100% - 26px), transparent 100%);
+    mask-image: linear-gradient(180deg, #000 0%, #000 calc(100% - 26px), transparent 100%);
+}
+.srch__right::-webkit-scrollbar { display: none; }
+.srch__rows { width: 100%; display: flex; flex-direction: column; gap: 44px; }
+.srch__section { width: 100%; min-width: 0; }
+
+.srch__h {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 12px;
+}
+
+.srch__row {
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    position: relative;
-}
-
-/* ---------- tabs ---------- */
-
-.srch__tabs {
-    flex: none;
-    height: 62px;
-    display: flex;
-    gap: 6px;
-    padding: 4px;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.08);
-}
-
-.srch__tab {
-    flex: 1;
-    height: 54px;
-    border: 0;
-    border-radius: 12px;
-    background: none;
-    color: rgba(255, 255, 255, 0.78);
-    font: 600 26px/54px inherit;
-    text-align: center;
-    cursor: pointer;
-    transition: background 140ms linear, color 140ms linear, transform 200ms var(--ease, ease);
-}
-
-.srch__tab.is-active {
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
-}
-
-.srch__tab.is-focused {
-    background: rgba(255, 255, 255, 0.22);
-    color: #fff;
-    transform: scale(1.04);
-}
-
-/* ---------- keyboard ---------- */
-
-.srch__keys {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: repeat(9, 1fr);
-    grid-auto-rows: 78px;
-    gap: 10px;
-    align-content: start;
-}
-
-.srch__key {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.10);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
-    color: #fff;
-    font-size: 28px;
-    font-weight: 600;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: transform 200ms var(--ease, ease), background 140ms linear, color 140ms linear;
-}
-
-.srch__key.is-focused {
-    background: #f5f5f7;
-    color: #1c1c1e;
-    transform: scale(1.06);
-    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.34);
-}
-
-.srch__key--wide { grid-column: span 3; font-size: 22px; text-transform: none; }
-.srch__key--space { grid-column: span 3; }
-
-/* ---------- results ---------- */
-
-.srch__grid {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    /* The three columns share what the keyboard leaves: at 1920 the sheet is
-       padding + 596 + gap + 3 columns, and fixed 373px cards pushed the third
-       one off the right edge of the stage. */
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-auto-rows: min-content;
-    gap: 30px 34px;
-    align-content: start;
+    gap: 20px;
     overflow: hidden;
 }
 
-.srch__tile {
-    width: auto;
-    display: flex;
-    flex-direction: column;
-    cursor: pointer;
-    transition: transform 200ms var(--ease, ease);
+.srch__card {
+    flex: 0 0 calc((100% - 40px) / 3);      /* three across, the rest slide */
+    min-width: 0;
+    transition: transform 160ms var(--ease);
 }
+.srch__card.is-focused { transform: scale(1.02); }
 
 .srch__art {
     position: relative;
-    width: auto;
-    height: 186px;
-    border-radius: 20px;
+    width: 100%;
+    height: 0;
+    padding-top: 56.25%;                     /* 16:9, one rounded plate */
+    border-radius: 14px;
     overflow: hidden;
-    background: rgba(24, 26, 34, 0.55);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.42);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 200ms var(--ease, ease), box-shadow 200ms linear;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
-
 .srch__art img {
+    position: absolute;
+    top: 0; left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block;
 }
-
-.srch__art--app img {
-    width: 112px;
-    height: 112px;
-    object-fit: contain;
-    border-radius: 24px;
+.srch__art > span { position: absolute; top: 0; right: 0; bottom: 0; left: 0; }
+.srch__art--app img.srch__icon--app { object-fit: contain; padding: 26px; }
+.srch__art--app .srch__glyph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
 }
-
-/* An app's own tile is 5:3, its icon is square, and one it has neither of
-   shows the apps glyph: a card is never an empty frame. */
-.srch__art--app img.srch__icon--tile { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
-.srch__art--app img.srch__icon--app { width: 112px; height: 112px; }
-.srch__vtile { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
-.srch__vtile .vtile { width: 100%; height: 100%; border-radius: 0; }
-.srch__glyph { display: flex; align-items: center; justify-content: center; color: rgba(255, 255, 255, 0.88); }
+.srch__vtile { display: flex; align-items: center; justify-content: center; }
 
 .srch__cap {
     display: flex;
-    align-items: center;
+    align-items: baseline;
     gap: 10px;
-    min-width: 0;
-    margin-top: 11px;
+    margin-top: 8px;
     padding: 0 2px;
+    min-width: 0;
 }
-
 .srch__name {
     flex: 0 1 auto;
     min-width: 0;
-    font-size: 19px;
-    line-height: 23px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.92);
+    font-size: 22px;
+    line-height: 26px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.90);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-/* Two films called Dune are told apart by the year beside the name. */
 .srch__year {
     flex: none;
-    font-size: 15px;
-    line-height: 23px;
+    font-size: 18px;
+    line-height: 26px;
     font-weight: 500;
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.48);
 }
-
 .srch__badge {
     flex: none;
     margin-left: auto;
-    padding: 3px 10px;
-    border-radius: 8px;
+    padding: 2px 8px;
+    border-radius: 6px;
     background: rgba(255, 255, 255, 0.14);
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     letter-spacing: 0.2px;
     color: rgba(255, 255, 255, 0.85);
 }
-
-.srch__tile.is-focused .srch__art {
-    transform: scale(1.04);
-    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.55);
-}
-
-.srch__tile.is-focused .srch__art::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85);
-}
-
-.srch__tile.is-focused .srch__name { color: #fff; }
-
-/* ---------- Search: the tabs ---------- */
-
-/* All / Movies / Shows / Apps: bigger, bolder, centred, and the plate turns
-   white under the focus so the remote's left/right is unmistakable. */
-.srch__tabs { height: 76px; }
-.srch__tab {
-    font-size: 30px;
-    font-weight: 700;
-    line-height: 68px;
-    letter-spacing: 0.2px;
-    text-align: center;
-}
-.srch__tab.is-focused {
-    background: #f5f5f7;
-    color: #1c1c1e;
-    transform: scale(1.02);
-}
-
-/* ============================================================
-   Focus is white
-
-   body.glass .cc__t is more specific than .cc__t.is-focused, so the
-   glass tint used to win over the focus plate on a selected Control
-   Center tile and the selection came out brown. The plate now wins:
-   white, black text, no lens.
-   ============================================================ */
-
-body.glass .cc__t.is-focused,
-body.glass .cc__t--round.is-focused,
-body.glass .cc__t--round.is-focused.is-on {
-    background: #f5f5f7;
-    color: #1c1c1e;
-}
-body.glass .cc__t.is-focused .cc__title { color: #1c1c1e; }
-body.glass .cc__t.is-focused .cc__sub { color: #6e6e73; }
-body.glass .cc__t.is-focused > .cg__glass { display: none; }
-
-/* A focused row of the Settings list, and the app menu, keep the same rule. */
-body.glass .srow.is-focused { background: #f5f5f7; color: #1d1d1f; }
+.srch__card.is-focused .srch__art { box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.92); }
+.srch__card.is-focused .srch__name { color: #fff; }
 
 .srch__empty {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 40%;
-    text-align: center;
+    margin-top: 10px;
     font-size: 26px;
-    color: rgba(255, 255, 255, 0.55);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.5);
 }
 
-.srch__empty[hidden] { display: none !important; }
-
-@media (prefers-reduced-motion: reduce) {
-    .srch, .srch__tile, .srch__key, .srch__tab, .cg__glass { transition: none; }
-    .srch__caret { animation: none; }
-}
+.reduce-motion .srch,
+.reduce-motion .srch__scrim,
+.reduce-motion .srch__sheet,
+.reduce-motion .srch__tab,
+.reduce-motion .srch__key,
+.reduce-motion .srch__card { transition: none; }
+.reduce-motion .srch__caret { animation: none; }

@@ -1,21 +1,20 @@
 /* ============================================================
    search.js — Search over the apps, films and shows.
 
-   One query, three answers: the apps installed on the screen, the films
-   and the series TMDB finds for it, and the service that carries each one
-   in this country (TMDB's watch providers for the screen's own region).
-   A card names a service only when TMDB lists one there; a title with no
-   offer stays in the row without a badge, and OK on it says which app
-   would be needed instead of opening something else.
+   Laid out like the Apple TV's own search: a field over a six-column
+   keyboard (abc / ABC / #+-) on the left, and the answers as rows of
+   wide cards under a heading on the right. The apps installed on the
+   screen are one of those rows, beside the films and the series, so a
+   search finds "Netflix" and "Dune" in the same place.
 
-   Apps sit with the films and shows, in the All tab and in their own.
+   Films and shows come from TMDB, in the interface's language, with the
+   service that carries each one in the screen's own region (TMDB's watch
+   providers). The key is the one the Top Shelf already uses
+   (keys.local.js); without it the sheet still searches and opens apps.
 
-   Films and shows need the TMDB key the Top Shelf already uses
-   (keys.local.js). Without it the sheet still searches and opens apps.
-
-   The sheet is one frozen backdrop behind a scrim — no live filter. The
-   picture it draws is the full-size one from the wall: the baked glass is
-   a small image, and stretched over the whole stage it read as pixelated.
+   The backdrop is the drawer's own blur - the 192 px canvas the launcher
+   keeps of the wall - so the sheet sits on the same soft frost as the
+   rest of the interface, with no filter running on the stage.
 
    Public surface:
      APL.search.open() / close() / isOpen()
@@ -45,9 +44,10 @@
 
     function t(s, v) { return APL.t ? APL.t(s, v) : s; }
 
-    function el(tag, cls) {
+    function el(tag, cls, text) {
         var e = document.createElement(tag);
         if (cls) e.className = cls;
+        if (text !== undefined) e.textContent = text;
         return e;
     }
 
@@ -64,11 +64,6 @@
             var xhr = new global.XMLHttpRequest();
             xhr.open((opts && opts.method) || "GET", url, true);
             xhr.timeout = (opts && opts.timeout) || 7000;
-            if (opts && opts.headers) {
-                for (var k in opts.headers) {
-                    if (Object.prototype.hasOwnProperty.call(opts.headers, k)) xhr.setRequestHeader(k, opts.headers[k]);
-                }
-            }
             xhr.onreadystatechange = function () {
                 if (xhr.readyState !== 4) return;
                 if (xhr.status >= 200 && xhr.status < 300) {
@@ -80,7 +75,7 @@
             };
             xhr.ontimeout = function () { finish(new Error("timeout"), null); };
             xhr.onerror = function () { finish(new Error("network"), null); };
-            xhr.send((opts && opts.body) || null);
+            xhr.send(null);
         } catch (e) { finish(e, null); }
     }
 
@@ -143,6 +138,10 @@
                         media: media,
                         title: r.title || r.name || "",
                         year: year,
+                        /* A wide card, like the Apple TV's rows: the backdrop
+                           when TMDB has one, the poster otherwise. */
+                        art: r.backdrop_path ? IMG + "w780" + r.backdrop_path
+                             : (r.poster_path ? IMG + "w342" + r.poster_path : ""),
                         poster: r.poster_path ? IMG + "w342" + r.poster_path : "",
                         type: media === "movie" ? "movie" : "show",
                         provider: "",
@@ -280,15 +279,31 @@
 
     /* ---------- the sheet ---------- */
 
-    var root, fieldTextEl, spinEl, tabsEl, keysEl, gridEl, emptyEl, glassEl, nav;
-    var isOpen = false, query = "", tab = "all", answer = null, seq = 0, typing = 0, spinOn = 0;
+    var root, fieldEl, fieldTextEl, spinEl, tabsEl, modesEl, keysEl, rowsEl, emptyEl, glassEl, nav;
+    var isOpen = false, query = "", tab = "all", mode = "abc", answer = null, seq = 0, typing = 0;
     var TABS = [
         { k: "all", label: "All" },
         { k: "movies", label: "Movies" },
         { k: "shows", label: "Shows" },
         { k: "apps", label: "Apps" }
     ];
-    var ROWS = ["abcdefghi", "jklmnopqr", "stuvwxyz", "0123456789"];
+    var MODES = [
+        { k: "abc", label: "abc" },
+        { k: "ABC", label: "ABC" },
+        { k: "num", label: "#+-" }
+    ];
+    /* Six columns, letters then digits, as on the Apple TV's keyboard. */
+    var KEYS_ROWS = {
+        abc: ["abcdef", "ghijkl", "mnopqr", "stuvwx", "yz1234", "567890"],
+        ABC: ["ABCDEF", "GHIJKL", "MNOPQR", "STUVWX", "YZ1234", "567890"],
+        num: ["123456", "7890-+", "!?@#&*", "()/.,'"]
+    };
+
+    function mag(size) {
+        return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" ' +
+            'stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+            '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.4 15.4 21 21"/></svg>';
+    }
 
     function buildDom() {
         root = el("section", "srch");
@@ -300,34 +315,45 @@
         root.appendChild(glassEl);
 
         var sheet = el("div", "srch__sheet");
-        var head = el("div", "srch__head");
+
+        /* The bar across the top: the tabs in one glass pill, the magnifier
+           on its own at the right, as the Apple TV has them. */
+        var top = el("div", "srch__top");
+        top.appendChild(el("span", "srch__brand", t("Search")));
+        var bar = el("div", "srch__nav");
+        tabsEl = el("div", "srch__tabs");
+        bar.appendChild(tabsEl);
         var mark = el("span", "srch__mark");
-        /* The icon set has no magnifier, so the sheet draws its own. */
-        mark.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="none" ' +
-            'stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
-            '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.4 15.4 21 21"/></svg>';
-        head.appendChild(mark);
-        var field = el("span", "srch__field");
-        fieldTextEl = el("span", "srch__text");
-        field.appendChild(fieldTextEl);
-        field.appendChild(el("i", "srch__caret"));
-        head.appendChild(field);
-        spinEl = el("span", "srch__spin");
-        spinEl.hidden = true;
-        head.appendChild(spinEl);
-        sheet.appendChild(head);
+        mark.innerHTML = mag(30);
+        bar.appendChild(mark);
+        top.appendChild(bar);
+        sheet.appendChild(top);
 
         var body = el("div", "srch__body");
         var left = el("div", "srch__left");
-        tabsEl = el("div", "srch__tabs");
-        left.appendChild(tabsEl);
+
+        fieldEl = el("div", "srch__field");
+        var glyph = el("span", "srch__glyph");
+        glyph.innerHTML = mag(34);
+        fieldEl.appendChild(glyph);
+        fieldTextEl = el("span", "srch__text");
+        fieldEl.appendChild(fieldTextEl);
+        fieldEl.appendChild(el("i", "srch__caret"));
+        spinEl = el("span", "srch__spin");
+        spinEl.hidden = true;
+        fieldEl.appendChild(spinEl);
+        left.appendChild(fieldEl);
+
+        modesEl = el("div", "srch__modes");
+        left.appendChild(modesEl);
+
         keysEl = el("div", "srch__keys");
         left.appendChild(keysEl);
         body.appendChild(left);
 
         var right = el("div", "srch__right");
-        gridEl = el("div", "srch__grid");
-        right.appendChild(gridEl);
+        rowsEl = el("div", "srch__rows");
+        right.appendChild(rowsEl);
         emptyEl = el("div", "srch__empty");
         emptyEl.hidden = true;
         right.appendChild(emptyEl);
@@ -347,13 +373,35 @@
             onFocus: function (i, node) {
                 var list = nav.tiles, k;
                 for (k = 0; k < list.length; k++) list[k].classList.toggle("is-focused", k === i);
-                if (node && node._item) syncGlass();
+                reveal(node);
             }
         });
 
         buildTabs();
+        buildModes();
         buildKeys();
         paintField();
+    }
+
+    /* The rows are one row deep, as on the Apple TV: moving along a row
+       slides it under the heading instead of leaving the sheet. */
+    function reveal(node) {
+        if (!node || !node._item) return;
+        var row = node.parentNode;
+        if (row && row.classList && row.classList.contains("srch__row")) {
+            var nr = node.getBoundingClientRect(), rr = row.getBoundingClientRect();
+            var scale = row.clientWidth ? rr.width / row.clientWidth : 1;
+            if (!scale) scale = 1;
+            if (nr.left < rr.left) row.scrollLeft += (nr.left - rr.left) / scale;
+            else if (nr.right > rr.right) row.scrollLeft += (nr.right - rr.right) / scale;
+        }
+        var right = document.querySelector(".srch__right");
+        if (!right) return;
+        var cr = node.getBoundingClientRect(), br = right.getBoundingClientRect();
+        var k = right.clientHeight ? br.height / right.clientHeight : 1;
+        if (!k) k = 1;
+        if (cr.top < br.top) right.scrollTop += (cr.top - br.top) / k - 8;
+        else if (cr.bottom > br.bottom) right.scrollTop += (cr.bottom - br.bottom) / k + 8;
     }
 
     function buildTabs() {
@@ -368,30 +416,45 @@
         }
     }
 
+    function buildModes() {
+        var i, b;
+        modesEl.innerHTML = "";
+        for (i = 0; i < MODES.length; i++) {
+            b = el("div", "srch__mode");
+            b.textContent = MODES[i].label;
+            b._mode = MODES[i].k;
+            if (MODES[i].k === mode) b.classList.add("is-active");
+            modesEl.appendChild(b);
+        }
+    }
+
     function buildKeys() {
-        var r, c, b, k;
+        var rows = KEYS_ROWS[mode] || KEYS_ROWS.abc, r, c, b, k, grid;
         keysEl.innerHTML = "";
-        for (r = 0; r < ROWS.length; r++) {
-            for (c = 0; c < ROWS[r].length; c++) {
-                k = ROWS[r].charAt(c);
-                b = el("div", "srch__key");
-                b.textContent = k;
+        grid = el("div", "srch__grid");
+        for (r = 0; r < rows.length; r++) {
+            for (c = 0; c < rows[r].length; c++) {
+                k = rows[r].charAt(c);
+                b = el("div", "srch__key", k);
                 b._key = k;
-                keysEl.appendChild(b);
+                grid.appendChild(b);
             }
         }
-        b = el("div", "srch__key srch__key--space");
-        b.textContent = t("Space");
+        keysEl.appendChild(grid);
+        var foot = el("div", "srch__foot");
+        b = el("div", "srch__key srch__key--space", t("SPACE"));
         b._key = " ";
-        keysEl.appendChild(b);
-        b = el("div", "srch__key srch__key--wide");
-        b.textContent = t("Delete");
+        foot.appendChild(b);
+        b = el("div", "srch__key srch__key--icon");
+        b.innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+            'stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 5H9l-6 7 6 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/>' +
+            '<path d="m13 9 5 6M18 9l-5 6"/></svg>';
         b._key = "\b";
-        keysEl.appendChild(b);
-        b = el("div", "srch__key srch__key--wide");
-        b.textContent = t("Clear");
+        foot.appendChild(b);
+        b = el("div", "srch__key srch__key--clear", t("CLEAR"));
         b._key = "__clear";
-        keysEl.appendChild(b);
+        foot.appendChild(b);
+        keysEl.appendChild(foot);
     }
 
     function paintField() {
@@ -400,37 +463,51 @@
             fieldTextEl.textContent = query;
             fieldTextEl.classList.remove("is-empty");
         } else {
-            fieldTextEl.textContent = t("Search apps, films, shows");
+            fieldTextEl.textContent = t("Search");
             fieldTextEl.classList.add("is-empty");
         }
     }
 
-    function chosen() {
-        var out = [], i;
-        if (!answer) return out;
-        if (tab === "all" || tab === "apps") {
-            for (i = 0; i < answer.apps.length; i++) {
-                out.push({ type: "app", app: answer.apps[i], title: answer.apps[i].name || "" });
-            }
+    /* ---------- the rows on the right ---------- */
+
+    function appCards() {
+        var out = [], i, a, list = (answer && answer.apps) || [];
+        for (i = 0; i < list.length; i++) {
+            a = list[i];
+            out.push({ type: "app", app: a, title: a.name || "", year: "", providerName: "" });
         }
-        if (tab === "all" || tab === "movies") out = out.concat(answer.movies || []);
-        if (tab === "all" || tab === "shows") out = out.concat(answer.shows || []);
         return out;
     }
 
-    function tileFor(item) {
-        var node = el("div", "srch__tile"), art = el("span", "srch__art"), img = el("img");
+    function sectionsFor() {
+        var out = [], q = query ? query : "";
+        if (!answer) return out;
+        /* The opened sheet is the Apple TV's: the two trending rows, nothing
+           else. Apps join the answer once something is typed, or on their
+           own tab, so a search always finds them. */
+        if (tab === "apps" || (tab === "all" && q)) {
+            out.push({ title: t("Apps"), items: appCards() });
+        }
+        if (tab === "all" || tab === "movies") {
+            out.push({ title: q ? t("Movies") : t("Trending Movies"), items: answer.movies || [] });
+        }
+        if (tab === "all" || tab === "shows") {
+            out.push({ title: q ? t("TV Shows") : t("Trending TV Shows"), items: answer.shows || [] });
+        }
+        return out;
+    }
+
+    function cardFor(item) {
+        var card = el("div", "srch__card");
+        var art = el("div", "srch__art");
+        var img = el("img");
         img.setAttribute("alt", "");
+        img.setAttribute("loading", "lazy");
         if (item.type === "app") {
-            /* An app carries its own tile or icon, or a drawn glyph: never an
-               empty <img>, which showed a broken picture where it should be. */
             var app = item.app || {};
             art.className = "srch__art srch__art--app";
-            if (app.tile) {
-                img.className = "srch__icon--tile";
-                img.src = app.tile;
-                art.appendChild(img);
-            } else if (app.icon) {
+            if (app.tile) { img.src = app.tile; art.appendChild(img); }
+            else if (app.icon) {
                 img.className = "srch__icon--app";
                 img.src = app.icon;
                 img.onerror = function () { if (img.parentNode) img.parentNode.removeChild(img); };
@@ -440,59 +517,64 @@
                 wrap.innerHTML = app.tileHtml;
                 art.appendChild(wrap);
             } else if (APL.icon) {
-                var glyph = el("span", "srch__glyph");
-                glyph.innerHTML = APL.icon("apps", 96, 1.5);
-                art.appendChild(glyph);
+                var g = el("span", "srch__glyph");
+                g.innerHTML = APL.icon("apps", 96, 1.5);
+                art.appendChild(g);
             }
+        } else if (item.art) {
+            img.src = item.art;
+            art.appendChild(img);
         } else {
-            if (item.poster) { img.src = item.poster; art.appendChild(img); }
-            else art.textContent = String(item.title || "").charAt(0);
+            art.textContent = String(item.title || "").charAt(0);
         }
-        node.appendChild(art);
-        var cap = el("span", "srch__cap");
-        var name = el("span", "srch__name");
-        name.textContent = item.title || "";
+        card.appendChild(art);
+
+        var cap = el("div", "srch__cap");
+        var name = el("span", "srch__name", item.title || "");
         cap.appendChild(name);
-        /* Two films can share a name (Dune, 1984 and 2021): the year is what
-           tells them apart in the row. */
-        if (item.year) {
-            var yr = el("span", "srch__year");
-            yr.textContent = item.year;
-            cap.appendChild(yr);
-        }
+        if (item.year) cap.appendChild(el("span", "srch__year", item.year));
         var label = item.providerName || PROVIDER_NAMES[item.provider] || "";
-        if (label) {
-            var badge = el("span", "srch__badge");
-            badge.textContent = label;
-            cap.appendChild(badge);
-        }
-        node.appendChild(cap);
-        node._item = item;
-        return node;
+        if (label) cap.appendChild(el("span", "srch__badge", label));
+        card.appendChild(cap);
+
+        card._item = item;
+        return card;
     }
 
     function rebuild() {
-        var list = chosen(), i, old = nav.tiles[nav.index], at = 0, nodes = [], all, prev = nav.index;
-        gridEl.innerHTML = "";
-        for (i = 0; i < list.length; i++) {
-            nodes.push(tileFor(list[i]));
-            gridEl.appendChild(nodes[nodes.length - 1]);
+        var sections = sectionsFor(), old = nav.tiles[nav.index], at = 0, cards = [], all, i, j, s, sec, head, row;
+        rowsEl.innerHTML = "";
+        for (i = 0; i < sections.length; i++) {
+            s = sections[i];
+            if (!s.items.length) continue;
+            sec = el("div", "srch__section");
+            head = el("div", "srch__h", s.title);
+            sec.appendChild(head);
+            row = el("div", "srch__row");
+            for (j = 0; j < s.items.length; j++) {
+                var card = cardFor(s.items[j]);
+                row.appendChild(card);
+                cards.push(card);
+            }
+            row.scrollLeft = 0;
+            sec.appendChild(row);
+            rowsEl.appendChild(sec);
         }
-        emptyEl.hidden = nodes.length > 0 || !answer || !answer.done;
+        emptyEl.hidden = cards.length > 0 || !answer || !answer.done;
         emptyEl.textContent = (answer && answer.note) || t("Nothing found");
 
         all = [].slice.call(tabsEl.children)
-            .concat([].slice.call(keysEl.children))
-            .concat(nodes);
+            .concat([].slice.call(modesEl.children))
+            .concat([].slice.call(keysEl.querySelectorAll(".srch__key")))
+            .concat(cards);
         for (i = 0; i < all.length; i++) if (all[i] === old) at = i;
-        /* The answers arrive in waves and each one redraws the sheet: the focus
-           follows the tile the eye is on, or the same index, never back to the
-           first tab under the viewer. */
-        if (!old) at = Math.max(0, Math.min(prev, all.length - 1));
+        if (!old) at = 0;
         nav.setTiles(all);
         nav.focus(at);
         syncGlass();
     }
+
+    /* ---------- typing ---------- */
 
     function type(k) {
         if (k === "__clear") query = "";
@@ -508,11 +590,8 @@
         typing = global.setTimeout(function () { search(query); }, 320);
     }
 
-    /* One spinner, not a count: a newer query replaces the older one, and only
-       the query that is still current may switch it off. */
     function busy(on) {
-        spinOn = on ? 1 : 0;
-        if (spinEl) spinEl.hidden = !spinOn;
+        if (spinEl) spinEl.hidden = !on;
     }
 
     function search(q) {
@@ -531,6 +610,7 @@
         if (!node) return;
         if (node._key) { type(node._key); return; }
         if (node._tab) { tab = node._tab; buildTabs(); rebuild(); return; }
+        if (node._mode) { mode = node._mode; buildModes(); buildKeys(); rebuild(); return; }
         if (node._item) openItem(node._item);
     }
 
@@ -569,22 +649,74 @@
         }
     }
 
-    /* ---------- glass ---------- */
+    /* ---------- the backdrop ---------- */
 
-    /* The sheet is the whole stage, so its backdrop is the picture itself at
-       full size: the launcher's baked glass is a 480 px blur, and stretched
-       over the stage it read as pixelated. The scrim does the darkening. */
+    /* The drawer's blur: the 192 px canvas the launcher keeps of the wall for
+       its own panels. Soft, and already drawn - nothing is filtered here. */
+    function blurSrc() {
+        var c = document.querySelector(".bgblur__canvas");
+        if (!c) return "";
+        try { return c.toDataURL("image/png"); } catch (e) { return ""; }
+    }
+
+    function wallSrc() {
+        var wall = document.querySelector(".bg img");
+        try {
+            if (wall && wall.naturalWidth >= 1280) return wall.currentSrc || wall.src || "";
+        } catch (e) {}
+        return "";
+    }
+
+    var glassKey = "";
+
+    /* The drawer's canvas is the wall at 192 px with no blur of its own (the
+       drawer blurs it in CSS). Here the blur is baked once into a 320 px
+       canvas, so the sheet gets the same frost with no filter on the stage. */
+    function baked(wall, canvas) {
+        var w = 320, h = 180, c = document.createElement("canvas"), ctx;
+        c.width = w;
+        c.height = h;
+        ctx = c.getContext("2d");
+        if (!ctx) return "";
+        try { ctx.filter = "blur(9px)"; } catch (e) {}
+        try {
+            if (wall) ctx.drawImage(wall, 0, 0, w, h);
+            else if (canvas) ctx.drawImage(canvas, 0, 0, w, h);
+        } catch (e) { return ""; }
+        try { return c.toDataURL("image/png"); } catch (e) { return ""; }
+    }
+
     function syncGlass() {
         if (!glassEl) return;
-        var src = "", wall = document.querySelector(".bg img");
-        try {
-            if (wall && wall.naturalWidth >= 1280 && (wall.currentSrc || wall.src)) src = wall.currentSrc || wall.src;
-        } catch (e) {}
-        if (!src && APL.glass) src = APL.glass.src() || "";
+        var wall = document.querySelector(".bg img");
+        var canvas = document.querySelector(".bgblur__canvas");
+        var wallOk = false;
+        try { wallOk = !!(wall && wall.naturalWidth >= 1280); } catch (e) {}
+        var k = (wallOk ? (wall.currentSrc || wall.src) : "") + "|" + (canvas ? canvas.width : 0);
+        if (k !== glassKey) {
+            glassKey = k;
+            glassKey_src = baked(wallOk ? wall : null, canvas) || blurSrc();
+        }
+        var src = glassKey_src || "";
         if (src && glassEl.getAttribute("src") !== src) glassEl.setAttribute("src", src);
         glassEl.hidden = !src;
         root.classList.toggle("has-art", !!src);
     }
+    var glassKey_src = "";
+
+    /* ---------- the magnifier at the top left ---------- */
+
+    /* launcher.css draws it and hides it behind a panel: in full screen it
+       reads "▲ Search", where ▲ opens the sheet. */
+    function addHint() {
+        if (document.querySelector(".search-hint")) return;
+        var h = el("div", "search-hint");
+        h.innerHTML = '<span class="search-hint__chevron"></span>' + (APL.icon ? APL.icon("search", 30, 2.4) : "");
+        h.appendChild(el("span", "search-hint__text", APL.t("Search")));
+        document.body.appendChild(h);
+    }
+    if (document.body) addHint();
+    else document.addEventListener("DOMContentLoaded", addHint);
 
     /* ---------- open / close ---------- */
 
@@ -605,16 +737,21 @@
         isOpen = true;
         query = "";
         tab = "all";
+        mode = "abc";
         answer = null;
         paintField();
         buildTabs();
+        buildModes();
+        buildKeys();
         root.classList.add("is-open");
+        document.body.classList.add("has-search");
         APL.pushNav(nav);
         document.addEventListener("keydown", onType);
         search("");
         nav.focus(0);
-        syncGlass();
-        if (APL.glassAfter) APL.glassAfter(root);
+                    glassKey = "";
+            syncGlass();
+            if (APL.glassAfter) APL.glassAfter(root);
     }
 
     function close() {
@@ -623,6 +760,7 @@
         seq++;                                       /* drop answers still in flight */
         document.removeEventListener("keydown", onType);
         root.classList.remove("is-open");
+        document.body.classList.remove("has-search");
         APL.popNav(nav);
     }
 
