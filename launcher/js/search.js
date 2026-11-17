@@ -621,26 +621,44 @@
     /* ---------- opening a result ---------- */
 
     function appFor(item) {
-        var all = installed(), want = String(item.providerName || PROVIDER_NAMES[item.provider] || "").toLowerCase(), i, a;
+        var all = installed(), want = providerKey(item.providerName) || item.provider || "", i, a;
+        if (!want) want = providerKey(PROVIDER_NAMES[item.provider] || "");
         for (i = 0; i < all.length; i++) {
             a = all[i];
-            if (item.provider && a.key === item.provider) return a;
-            if (want && String(a.name || "").toLowerCase().indexOf(want) >= 0) return a;
+            if (a.key === want || a.id === want) return a;
+            if (providerKey(a.key) === want || providerKey(a.name) === want) return a;
         }
         return null;
     }
 
-    /* A title's page inside the service, where the service takes one. These
-       are the apps' own search links: TMDB has no Netflix or Prime id, so the
-       exact title is what the app is handed, and it opens on that title. */
-    var DEEP = {
-        netflix: function (item) { return "nflx://www.netflix.com/search?q=" + encodeURIComponent(item.title); },
-        jiohotstar: function (item) { return "hotstar://search?q=" + encodeURIComponent(item.title); },
-        youtube: function (item) { return "vnd.youtube://results?search_query=" + encodeURIComponent(item.title); }
-    };
+    /* The show's page inside the app, not its front door. Netflix and Prime
+       address a title by their own id; TMDB carries none, so where an id is
+       not known the app is handed the title in its search, which opens on the
+       show itself. The id fields are what a catalogue lookup would fill. */
+    function deepUri(app, item) {
+        var enc = encodeURIComponent(item.title || "");
+        var pk = providerKey(app && (app.key || app.id)) || providerKey(app && app.name) || item.provider || "";
+        if (pk === "netflix") {
+            return item.netflixId ? "nflx://www.netflix.com/title/" + item.netflixId
+                                  : "nflx://www.netflix.com/search?q=" + enc;
+        }
+        if (pk === "hotstar") {
+            return item.hotstarId ? "hotstar://content/" + item.hotstarId
+                                  : "hotstar://search?q=" + enc;
+        }
+        if (pk === "primevideo") {
+            return item.primeId ? "https://app.primevideo.com/detail?gti=" + item.primeId
+                                : "https://app.primevideo.com/search?phrase=" + enc;
+        }
+        if (pk === "youtube") {
+            return item.youtubeId ? "vnd.youtube://" + item.youtubeId
+                                  : "vnd.youtube://results?search_query=" + enc;
+        }
+        return "";
+    }
 
     function openDeep(app, item) {
-        var uri = DEEP[app.key] ? DEEP[app.key](item) : "";
+        var uri = deepUri(app, item);
         var tz = global.tizen;
         if (!uri || !tz || !tz.application || !tz.application.launchAppControl) return false;
         try {
