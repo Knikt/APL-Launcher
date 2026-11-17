@@ -201,3 +201,23 @@ body.glass .scard.is-focused .scard__art--glass .cg__glass::after { background: 
 /* The screen's light mode (launcher.js applyPerf) no longer hides the pane: the
    glass is a frozen slice baked once per picture, so it costs nothing on the
    animation path and is not something Visual Effects should take away. */
+
+/* The search sheet dims the screen like the Control Center, so its glass gets
+   the same treatment: the measured shade over the slice, then a little light,
+   and a hairline that follows the radius. */
+body.glass .srch__field .cg__glass::after,
+body.glass .srch__nav .cg__glass::after,
+body.glass .srch__modes .cg__glass::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04) 46%, rgba(255, 255, 255, 0.03) 100%),
+        linear-gradient(rgba(0, 0, 0, var(--glass-shade, 0.45)), rgba(0, 0, 0, var(--glass-shade, 0.45)));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), inset 0 0 0 1.5px rgba(255, 255, 255, 0.06);
+}
+body.glass.theme-light .srch__field .cg__glass::after,
+body.glass.theme-light .srch__nav .cg__glass::after,
+body.glass.theme-light .srch__modes .cg__glass::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.35) 46%, rgba(255, 255, 255, 0.42) 100%),
+        linear-gradient(rgba(232, 233, 240, var(--glass-veil, 0.55)), rgba(232, 233, 240, var(--glass-veil, 0.55)));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}

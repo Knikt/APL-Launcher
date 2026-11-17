@@ -47,7 +47,10 @@
         ".status",            /* the clock and avatar pill */
         ".search-hint",       /* the magnifier across from it: the same pill */
         ".cc__t",
-        ".scard__art--glass"
+        ".scard__art--glass",
+        ".srch__field",       /* the search sheet's own glass: the same slices */
+        ".srch__nav",
+        ".srch__modes"
     ];
 
     /* LG (APL.platform.directGlass): a pane is kept for good, and what changes with the picture changes
@@ -601,6 +604,7 @@
         if (all || !DIRECT) return document.querySelectorAll(TARGETS.join(","));
         var sel = ".dock,.status,.search-hint";
         if (document.querySelector(".cc.is-open")) sel += ",.cc__t";
+        if (document.querySelector(".srch.is-open")) sel += ",.srch__field,.srch__nav,.srch__modes";
         if (document.querySelector(".sources.is-open")) sel += ",.scard__art--glass";
         return document.querySelectorAll(sel);
     }
