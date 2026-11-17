@@ -181,9 +181,14 @@
         var host = document.getElementById("trailerLayer");
         if (box && host) host.classList.add("is-on");
     }
+    /* The only pages allowed to say "playing": the player's own two hosts. The
+       listener used to take a message with no source from anywhere, so any page
+       loaded in this window could have spoken for the trailer. */
+    var YT_ORIGINS = { "https://www.youtube.com": 1, "https://www.youtube-nocookie.com": 1 };
     if (global.addEventListener) {
         global.addEventListener("message", function (e) {
             if (!box || !e) return;
+            if (!YT_ORIGINS[String(e.origin || "")]) return;
             /* An engine that does not fill e.source still answers with the
                player's own events, and this page has no other frame. */
             if (e.source && e.source !== box.contentWindow) return;

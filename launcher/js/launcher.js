@@ -408,10 +408,19 @@
         layer.appendChild(pic);
         var called = false;
         function done() { if (called) return; called = true; if (pic.naturalWidth) seenPics[quick] = true; if (then) then(pic); }
-        /* Nothing to lay under it (an app with no artwork of its own): the layer
-           goes up at once on its own backdrop, and the picture takes its place when
-           it arrives, instead of the previous app's picture staying there and
-           reading as the wrong show. */
+        /* A bitmap that has already been decoded once (preloaded for the title
+           that comes next, or painted a moment ago) is on screen at once: asking
+           for its decode again was a frame of the old picture. One frame later, so
+           the layer never fades in on an element that has not drawn its bitmap yet
+           (that is what a blank wall on a focus looked like). */
+        if (quick === url && (seenPics[url] || (preloads[url] && preloads[url]._ok))) {
+            if (global.requestAnimationFrame) global.requestAnimationFrame(function () { global.setTimeout(done, 0); });
+            else global.setTimeout(done, 0);
+            return;
+        }
+        /* Nothing to lay under it (no artwork of its own, and the picture not drawn
+           yet): the layer goes up at once on its own backdrop, instead of the
+           previous app's picture staying there and reading as the wrong show. */
         if (revealNow) global.setTimeout(done, 0);
         if (quick !== url) {
             /* The full picture is decoded off screen, then takes the element's
@@ -421,16 +430,6 @@
             full.src = url;
             if (full.decode) full.decode().then(swap, function () {});
             else full.onload = swap;
-        }
-        /* A bitmap that has already been decoded once (preloaded for the title
-           that comes next, or painted a moment ago) is on screen at once: asking
-           for its decode again was a frame of the old picture. One frame later, so
-           the layer never fades in on an element that has not drawn its bitmap yet
-           (that is what a blank wall on a focus looked like). */
-        if (seenPics[quick]) {
-            if (global.requestAnimationFrame) global.requestAnimationFrame(function () { global.setTimeout(done, 0); });
-            else global.setTimeout(done, 0);
-            return;
         }
         if (pic.decode) pic.decode().then(done, done);
         else { pic.onload = done; pic.onerror = done; }
@@ -1120,11 +1119,16 @@
         wantBlur(item.bgSmall || item.bg || null, app, null);
         /* The picture from TMDB, Plex or YouTube is an <img> revealed once its
            decode is done, so it can never be painted a band at a time. */
-        /* What fills the wall while the big picture is decoded: the app's own
-           artwork (bundled, local, instant), else the item's 300 px address. Without
-           this the previous app's picture stayed on screen until the 1280 JPEG had
-           decoded, which read as the wrong show. */
-        var place = artOf(app) || item.bgSmall || "";
+        /* What fills the wall while a picture that is not drawn yet is decoded: the
+           app's own artwork (bundled, local, instant), else the item's 300 px
+           address. Without it the previous app's picture stayed on screen until the
+           1280 JPEG had decoded, which read as the wrong show.
+           Not when the picture is already decoded: rotating the wall inside one app
+           comes through here with item.ok, and standing the app's artwork under it
+           faded the wall to that artwork between two titles and then cut to the
+           picture - and the drawer's blur was drawn from the artwork, because the
+           picture was not on its element yet when the blur was baked. */
+        var place = item.ok ? "" : (artOf(app) || item.bgSmall || "");
         showPicture(next, srcOf(item), function (pic) {
             /* Two quick ◀ presses reuse the same layer: an answer for the title
                before this one must not fade it in, or its picture lands under
@@ -1164,7 +1168,7 @@
                     refreshGlass();
                 }, pic);
             }
-        }, place, !place);
+        }, place, !item.ok && !place);
     }
 
     /* An image that fails (a network answer that never comes, a file that cannot

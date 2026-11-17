@@ -120,7 +120,7 @@
     var COPY_SKIP = /^apl\.(bundle$|live\.|webos\.|ccSeen$|copyRestored)/;
     var COPY_MAX = 262144;                     // 256 KB per value: a restore stays quick
     var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
-    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false, copySweepTimer = 0;
+    var copyDb = null, copyPending = {}, copySeen = {}, copyTimer = null, copyHold = false, copySweepTimer = 0;
 
     /* The connection is reopened whenever the browser closes it under us (a screen
        that clears its storage, a browser that restarts it): with a cached closed
@@ -181,13 +181,20 @@
     }
     function copyFlush() {
         if (copyHold) return;                       // the copy is being read back: it must not be written over first
-        var batch = copyPending;
+        var batch = copyPending, keys = Object.keys(batch);
         copyPending = {};
-        if (!Object.keys(batch).length) return;
-        /* A batch that fails is not retried here: the next sweep reads local
-           storage again and queues what it finds. Only the connection is dropped,
-           so the next attempt reopens it. */
-        copyWrite(batch)["catch"](function () { copyDb = null; });
+        if (!keys.length) return;
+        /* A batch that fails is not retried here: what it carried is not written
+           down as written below, so the next sweep queues it again. Only the
+           connection is dropped, so the next attempt reopens it. */
+        copyWrite(batch).then(function () {
+            /* What the copy holds now, so a sweep queues only what has changed
+               since. Every value used to be queued on every hide, which on a TV is
+               every time an app opens, the generated artwork included. */
+            for (var i = 0; i < keys.length; i++) {
+                if (batch[keys[i]] === null) delete copySeen[keys[i]]; else copySeen[keys[i]] = batch[keys[i]];
+            }
+        })["catch"](function () { copyDb = null; });
     }
     function copyDrop(k) { copyPending[k] = null; copyLater(); }
     /* Everything the launcher keeps, read out of local storage and written to the
@@ -195,7 +202,8 @@
        connection, the address of each app's picture, the chosen region) without
        passing through save(), so the copy is swept rather than only fed by it - a
        walk over the keys after a change, and at the moment the page is hidden or
-       closed, which is when the power can go. */
+       closed, which is when the power can go - and only the values that are not in
+       the copy already are queued. */
     function copySweep() {
         var changed = 0;
         try {
@@ -204,6 +212,7 @@
                 if (!k || !COPY_KEYS.test(k) || COPY_SKIP.test(k) || k === COPY_REV) continue;
                 var v = global.localStorage.getItem(k);
                 if (typeof v !== "string" || v.length > COPY_MAX) continue;
+                if (copySeen[k] === v) continue;               // already in the copy, unchanged
                 copyPending[k] = v;
                 changed++;
             }
@@ -280,7 +289,8 @@
                 if (last && Date.now() - last < 30000) { copyPending = {}; copyHold = false; return; }
                 var wrote = 0;
                 for (var j = 0; j < keys.length; j++) {
-                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); wrote++; } catch (e) {}
+                    /* The copy is what put these back, so they are already in it. */
+                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); copySeen[keys[j]] = saved[keys[j]]; wrote++; } catch (e) {}
                 }
                 if (!wrote) { copyHold = false; return; }   // nothing could be written: leave the copy alone
                 try { global.sessionStorage.setItem("apl.copyRestoredAt", String(Date.now())); } catch (e) {}
