@@ -897,6 +897,73 @@
         }).catch(function () { return null; });
     }
 
+    /* ---------- Universal Search ----------
+       What the screen's services stream in its country (TMDB/JustWatch), for search.js:
+       a title, its year, its picture and the services that have it. The service is named
+       by the catalog's key, so search.js matches it with the app that is installed.
+       No key (PC preview): a few open films, with the demo services. */
+    var PROVIDER_OF = {};
+    (function () {
+        for (var k in TMDB_PROVIDERS) {
+            if (!Object.prototype.hasOwnProperty.call(TMDB_PROVIDERS, k)) continue;
+            String(TMDB_PROVIDERS[k]).split("|").forEach(function (id) { PROVIDER_OF[id] = k; });
+        }
+    })();
+    var DEMO_SEARCH = [
+        ["Sintel", "2010", "/msqeiEyIRpPAtrCeRGFNZQ9tkJL.jpg", "primevideo", "Prime Video"],
+        ["Big Buck Bunny", "2008", "/xtdybjRRZ15mCrPOvEld305myys.jpg", "netflix", "Netflix"],
+        ["Sprite Fright", "2021", "/aCMT1okuiKFnyKHdCOez66rJKyT.jpg", "appletv", "Apple TV"],
+        ["Charge", "2022", "/hwvuivrtKFA4tPkW81txs7oKJOx.jpg", "primevideo", "Prime Video"],
+        ["Tears of Steel", "2012", "/fOy6SL5Zs2PFcNXwqEPIDPrLB1q.jpg", "netflix", "Netflix"],
+        ["Cosmos Laundromat", "2015", "/f2wABsgj2lIR2dkDEfBZX8p4Iyk.jpg", "appletv", "Apple TV"]
+    ];
+    function demoSearch(q) {
+        return DEMO_SEARCH.filter(function (d) { return d[0].toLowerCase().indexOf(q) !== -1; }).map(function (d, i) {
+            return { id: "demo" + i, kind: "movie", title: d[0], year: d[1], backdrop: IMG + "w300" + d[2],
+                     poster: "", providers: [{ key: d[3], name: d[4] }] };
+        });
+    }
+    function providersOf(r) {
+        var kind = r.media_type === "movie" ? "movie" : "tv";
+        var out = {
+            id: r.id, kind: kind, title: r.title || r.name || "",
+            year: String(r.release_date || r.first_air_date || "").substr(0, 4),
+            backdrop: r.backdrop_path ? IMG + "w300" + r.backdrop_path : "",
+            poster: r.poster_path ? IMG + "w342" + r.poster_path : "",
+            providers: []
+        };
+        return getJson(TMDB + "/" + kind + "/" + r.id + "/watch/providers?api_key=" + KEYS.tmdb).then(function (j) {
+            var reg = (j.results || {})[REGION] || {};
+            (reg.flatrate || []).forEach(function (p) {
+                var key = PROVIDER_OF[p.provider_id];
+                if (key) out.providers.push({
+                    key: key,
+                    name: p.provider_name,
+                    link: p.link || (p.tmdb_id ? "tmdb://" + kind + "/" + r.id : "")
+                });
+            });
+            return out;
+        }, function () { return out; });
+    }
+    function searchTitles(q) {
+        q = String(q || "").trim().toLowerCase();
+        if (q.length < 2) return Promise.resolve([]);
+        if (!KEYS.tmdb) return Promise.resolve(demoSearch(q));
+        var key = "srch." + REGION + "." + q, hit = cacheGet(key);
+        if (hit) return Promise.resolve(hit);
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale +
+                       "&include_adult=false&query=" + encodeURIComponent(q)).then(function (j) {
+            var list = (j.results || []).filter(function (r) {
+                return (r.media_type === "movie" || r.media_type === "tv") && (r.backdrop_path || r.poster_path);
+            }).slice(0, 6);
+            return Promise.all(list.map(providersOf)).then(function (rows) {
+                var out = rows.filter(function (r) { return r.providers.length; });
+                if (out.length) cachePut(key, out);
+                return out;
+            });
+        }, function () { return []; });
+    }
+
     // Once Vetro is up (system.js checks it at 4 s): the first app in focus already has its own rows
     if (!APL.sys.PREVIEW) setTimeout(refreshHub, 6000);
 
@@ -904,6 +971,7 @@
         searchArt: searchArt,
         logoOf: logoArt,
         findImdb: findImdb,
+        searchTitles: searchTitles,
         itemsFor: itemsFor,
         itemsNow: itemsNow,
         noteOf: noteOf,
