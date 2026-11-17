@@ -190,12 +190,14 @@
     function providerKey(name) {
         var n = String(name || "").toLowerCase();
         if (n.indexOf("netflix") >= 0) return "netflix";
-        if (n.indexOf("prime video") >= 0 || n.indexOf("amazon") >= 0) return "primevideo";
+        if (n.indexOf("prime video") >= 0 || n.indexOf("amazon") >= 0 || n === "primevideo") return "primevideo";
         if (n.indexOf("hotstar") >= 0 || n.indexOf("jio") >= 0) return "hotstar";
         if (n.indexOf("disney") >= 0) return "disneyplus";
-        if (n.indexOf("apple tv") >= 0) return "appletv";
+        if (n.indexOf("apple tv") >= 0 || n === "appletv" || n === "apltv" || n === "apple") return "appletv";
         if (n.indexOf("sony") >= 0 && n.indexOf("liv") >= 0) return "sonyliv";
         if (n === "max" || n.indexOf("hbo") >= 0) return "hbomax";
+        if (n.indexOf("paramount") >= 0) return "paramount";
+        if (n.indexOf("youtube") >= 0) return "youtube";
         return "";
     }
 
@@ -631,28 +633,45 @@
         return null;
     }
 
-    /* The show's page inside the app, not its front door. Netflix and Prime
-       address a title by their own id; TMDB carries none, so where an id is
-       not known the app is handed the title in its search, which opens on the
-       show itself. The id fields are what a catalogue lookup would fill. */
+    /* The show's page inside the app, not its front door. Each app is handed a
+       URL on its own host - the form its TV app claims - so the system routes
+       it there rather than to a browser. A title id, where the catalogue gives
+       one, goes straight to the title's page; otherwise the app is handed the
+       title in its own search, which opens on the show. */
     function deepUri(app, item) {
         var enc = encodeURIComponent(item.title || "");
         var pk = providerKey(app && (app.key || app.id)) || providerKey(app && app.name) || item.provider || "";
         if (pk === "netflix") {
-            return item.netflixId ? "nflx://www.netflix.com/title/" + item.netflixId
-                                  : "nflx://www.netflix.com/search?q=" + enc;
-        }
-        if (pk === "hotstar") {
-            return item.hotstarId ? "hotstar://content/" + item.hotstarId
-                                  : "hotstar://search?q=" + enc;
+            return item.netflixId ? "https://www.netflix.com/title/" + item.netflixId + "?source=30"
+                                  : "https://www.netflix.com/search?q=" + enc;
         }
         if (pk === "primevideo") {
             return item.primeId ? "https://app.primevideo.com/detail?gti=" + item.primeId
                                 : "https://app.primevideo.com/search?phrase=" + enc;
         }
+        if (pk === "hotstar") {
+            return item.hotstarId ? "https://www.hotstar.com/in/shows/" + (item.hotstarSlug || "show") + "/" + item.hotstarId
+                                  : "https://www.hotstar.com/in/search?q=" + enc;
+        }
         if (pk === "youtube") {
-            return item.youtubeId ? "vnd.youtube://" + item.youtubeId
-                                  : "vnd.youtube://results?search_query=" + enc;
+            return item.youtubeId ? "https://www.youtube.com/watch?v=" + item.youtubeId
+                                  : "https://www.youtube.com/results?search_query=" + enc;
+        }
+        if (pk === "appletv") {
+            return item.appleId ? "https://tv.apple.com/" + (item.appleSlug || "show") + "/" + item.appleId
+                                : "https://tv.apple.com/search?term=" + enc;
+        }
+        if (pk === "hbomax") {
+            return item.hboId ? "https://play.hbomax.com/video/watch/" + item.hboId
+                              : "https://play.hbomax.com/search?q=" + enc;
+        }
+        if (pk === "disneyplus") {
+            return item.disneyId ? "https://www.disneyplus.com/video/" + item.disneyId
+                                 : "https://www.disneyplus.com/search?q=" + enc;
+        }
+        if (pk === "sonyliv") {
+            return item.sonyLivId ? "https://www.sonyliv.com/shows/" + (item.sonyLivSlug || "show") + "-" + item.sonyLivId
+                                  : "https://www.sonyliv.com/search?searchTerm=" + enc;
         }
         return "";
     }
@@ -811,6 +830,12 @@
         close: close,
         isOpen: function () { return isOpen; },
         run: function (q, cb) { return run(q, cb); },
+        /* What a result would open, for the Top Shelf or a test: the app it
+           belongs to and the URL it is handed. */
+        deepLink: function (item) {
+            var app = item.type === "app" ? item.app : appFor(item || {});
+            return app ? { app: app, uri: deepUri(app, item || {}) } : null;
+        },
         clear: function () { cache = { movies: {}, shows: {}, offers: {}, apps: {} }; }
     };
 })(window);
