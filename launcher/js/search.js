@@ -115,14 +115,18 @@
        titles when nothing is typed yet, so the sheet is never empty. */
     function titles(media, q, bucket, limit, cb) {
         var query = String(q || "").trim();
-        var ck = query.toLowerCase() || "__trending__";
+        var reg = region();
+        var ck = (query.toLowerCase() || "__popular__") + "|" + reg;
         if (cache[bucket][ck]) { cb(clone(cache[bucket][ck])); return; }
         if (!key()) { cb([]); return; }
+        /* Nothing typed: what is popular on the services this region has, not
+           the world's trending, which is neither here nor necessarily here. */
         var url = query
             ? TMDB + "/search/" + media + "?api_key=" + encodeURIComponent(key()) +
               "&language=" + encodeURIComponent(language()) + "&include_adult=false&query=" + encodeURIComponent(query)
-            : TMDB + "/trending/" + media + "/day?api_key=" + encodeURIComponent(key()) +
-              "&language=" + encodeURIComponent(language());
+            : TMDB + "/discover/" + media + "?api_key=" + encodeURIComponent(key()) +
+              "&language=" + encodeURIComponent(language()) + "&sort_by=popularity.desc" +
+              "&watch_region=" + reg + "&with_watch_monetization_types=flatrate&vote_count.gte=20";
         fetchJSON(url, null, function (err, data) {
             var out = [], list = (data && data.results) || [], i, r, year;
             if (!err) {
@@ -626,6 +630,28 @@
         return null;
     }
 
+    /* A title's page inside the service, where the service takes one. These
+       are the apps' own search links: TMDB has no Netflix or Prime id, so the
+       exact title is what the app is handed, and it opens on that title. */
+    var DEEP = {
+        netflix: function (item) { return "nflx://www.netflix.com/search?q=" + encodeURIComponent(item.title); },
+        jiohotstar: function (item) { return "hotstar://search?q=" + encodeURIComponent(item.title); },
+        youtube: function (item) { return "vnd.youtube://results?search_query=" + encodeURIComponent(item.title); }
+    };
+
+    function openDeep(app, item) {
+        var uri = DEEP[app.key] ? DEEP[app.key](item) : "";
+        var tz = global.tizen;
+        if (!uri || !tz || !tz.application || !tz.application.launchAppControl) return false;
+        try {
+            var ctrl = new tz.ApplicationControl("http://tizen.org/appcontrol/operation/view", uri, null, null);
+            tz.application.launchAppControl(ctrl, app.id,
+                function () { close(); },
+                function () { close(); if (APL.openApp) APL.openApp(app); });
+            return true;
+        } catch (e) { return false; }
+    }
+
     function openItem(item) {
         if (item.type === "app") {
             close();
@@ -635,6 +661,7 @@
         }
         var app = appFor(item);
         if (app) {
+            if (openDeep(app, item)) return;
             close();
             if (APL.openApp) APL.openApp(app);
             else if (APL.launchApp) APL.launchApp(app.id);
@@ -667,8 +694,6 @@
         return "";
     }
 
-    var glassKey = "";
-
     /* The drawer's canvas is the wall at 192 px with no blur of its own (the
        drawer blurs it in CSS). Here the blur is baked once into a 320 px
        canvas, so the sheet gets the same frost with no filter on the stage. */
@@ -688,21 +713,18 @@
 
     function syncGlass() {
         if (!glassEl) return;
-        var wall = document.querySelector(".bg img");
-        var canvas = document.querySelector(".bgblur__canvas");
-        var wallOk = false;
-        try { wallOk = !!(wall && wall.naturalWidth >= 1280); } catch (e) {}
-        var k = (wallOk ? (wall.currentSrc || wall.src) : "") + "|" + (canvas ? canvas.width : 0);
-        if (k !== glassKey) {
-            glassKey = k;
-            glassKey_src = baked(wallOk ? wall : null, canvas) || blurSrc();
+        /* The Control Center's own material: the picture already baked and
+           frosted by glass.js. Nothing is filtered or drawn here. */
+        var src = APL.glass && APL.glass.src ? (APL.glass.src() || "") : "";
+        if (!src) {
+            var wall = document.querySelector(".bg img"), wallOk = false;
+            try { wallOk = !!(wall && wall.naturalWidth >= 1280); } catch (e) {}
+            src = baked(wallOk ? wall : null, document.querySelector(".bgblur__canvas")) || blurSrc();
         }
-        var src = glassKey_src || "";
         if (src && glassEl.getAttribute("src") !== src) glassEl.setAttribute("src", src);
         glassEl.hidden = !src;
         root.classList.toggle("has-art", !!src);
     }
-    var glassKey_src = "";
 
     /* ---------- the magnifier at the top left ---------- */
 
@@ -728,7 +750,10 @@
         if (k === " ") type(" ");
         else if (/[a-z0-9]/i.test(k)) type(k.toLowerCase());
         else return;
+        /* Caught before the navigation sees it: a letter is the field's, not
+           a step through the tabs or a select. */
         e.preventDefault();
+        e.stopPropagation();
     }
 
     function open() {
@@ -746,11 +771,10 @@
         root.classList.add("is-open");
         document.body.classList.add("has-search");
         APL.pushNav(nav);
-        document.addEventListener("keydown", onType);
+        document.addEventListener("keydown", onType, true);
         search("");
         nav.focus(0);
-                    glassKey = "";
-            syncGlass();
+                    syncGlass();
             if (APL.glassAfter) APL.glassAfter(root);
     }
 
@@ -758,7 +782,7 @@
         if (!isOpen) return;
         isOpen = false;
         seq++;                                       /* drop answers still in flight */
-        document.removeEventListener("keydown", onType);
+        document.removeEventListener("keydown", onType, true);
         root.classList.remove("is-open");
         document.body.classList.remove("has-search");
         APL.popNav(nav);
