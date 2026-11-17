@@ -889,6 +889,123 @@
         }).catch(function () { return null; });
     }
 
+    /* ---------- Universal Search ----------
+       What the screen's services stream in its country (TMDB/JustWatch), for search.js:
+       a title, its year, its picture and the services that have it. The service is named
+       by the catalog's key, so search.js matches it with the app that is installed.
+       No key (PC preview): a few open films, with the demo services. */
+    var PROVIDER_OF = {};
+    (function () {
+        for (var k in TMDB_PROVIDERS) {
+            if (!Object.prototype.hasOwnProperty.call(TMDB_PROVIDERS, k)) continue;
+            String(TMDB_PROVIDERS[k]).split("|").forEach(function (id) { PROVIDER_OF[id] = k; });
+        }
+    })();
+    var DEMO_SEARCH = [
+        ["Sintel", "2010", "/msqeiEyIRpPAtrCeRGFNZQ9tkJL.jpg", "primevideo", "Prime Video"],
+        ["Big Buck Bunny", "2008", "/xtdybjRRZ15mCrPOvEld305myys.jpg", "netflix", "Netflix"],
+        ["Sprite Fright", "2021", "/aCMT1okuiKFnyKHdCOez66rJKyT.jpg", "appletv", "Apple TV"],
+        ["Charge", "2022", "/hwvuivrtKFA4tPkW81txs7oKJOx.jpg", "primevideo", "Prime Video"],
+        ["Tears of Steel", "2012", "/fOy6SL5Zs2PFcNXwqEPIDPrLB1q.jpg", "netflix", "Netflix"],
+        ["Cosmos Laundromat", "2015", "/f2wABsgj2lIR2dkDEfBZX8p4Iyk.jpg", "appletv", "Apple TV"]
+    ];
+    function demoSearch(q) {
+        var list = DEMO_SEARCH;
+        if (q.length >= 2) {
+            list = DEMO_SEARCH.filter(function (d) { return d[0].toLowerCase().indexOf(q) !== -1; });
+        }
+        return list.map(function (d, i) {
+            return { id: "demo" + i, kind: "movie", title: d[0], year: d[1], backdrop: IMG + "w300" + d[2],
+                     poster: "", providers: [{ key: d[3], name: d[4] }] };
+        });
+    }
+    function providersOf(r) {
+        var kind = r.media_type === "movie" ? "movie" : "tv";
+        var out = {
+            id: r.id, kind: kind, title: r.title || r.name || "",
+            year: String(r.release_date || r.first_air_date || "").substr(0, 4),
+            backdrop: r.backdrop_path ? IMG + "w300" + r.backdrop_path : "",
+            poster: r.poster_path ? IMG + "w342" + r.poster_path : "",
+            providers: []
+        };
+        return getJson(TMDB + "/" + kind + "/" + r.id + "/watch/providers?api_key=" + KEYS.tmdb).then(function (j) {
+            var reg = (j.results || {})[REGION] || {};
+            (reg.flatrate || []).forEach(function (p) {
+                var key = PROVIDER_OF[p.provider_id];
+                if (key) out.providers.push({
+                    key: key,
+                    name: p.provider_name,
+                    link: buildDeepLink(key, r.id, kind)
+                });
+            });
+            return out;
+        }, function () { return out; });
+    }
+    function buildDeepLink(key, tmdbId, kind) {
+        // Build service-specific deep link payloads for APL.launchDeepLink
+        switch (key) {
+            case "primevideo":
+                // Prime Video uses GTI; TMDB doesn't provide it directly
+                // Fallback: eden_resume with TMDB ID
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "appletv":
+                // Apple TV+ uses appletv://video/<id> or eden_resume
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "disneyplus":
+            case "hotstar":
+            case "jiohotstar":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "netflix":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "sonyliv":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "hbomax":
+            case "max":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "canalplus":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "arte":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "paramountplus":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "crunchyroll":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "rakutentv":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            case "plutotv":
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+            default:
+                return JSON.stringify({ action: "play", tmdbId: tmdbId, tmdbType: kind });
+        }
+    }
+    function searchTitles(q) {
+        q = String(q || "").trim().toLowerCase();
+        if (!KEYS.tmdb) return Promise.resolve(demoSearch(q));
+        var key = "srch." + REGION + "." + q, hit = cacheGet(key);
+        if (hit) return Promise.resolve(hit);
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale +
+                       "&include_adult=false&query=" + encodeURIComponent(q)).then(function (j) {
+            var list = (j.results || []).filter(function (r) {
+                return (r.media_type === "movie" || r.media_type === "tv") && (r.poster_path || r.backdrop_path);
+            }).slice(0, 50);
+            return Promise.all(list.map(providersOf)).then(function (rows) {
+                var out = rows.filter(function (r) { return r.providers.length; });
+                if (out.length) cachePut(key, out);
+                return out;
+            });
+        }, function () { return []; });
+    }
+    function demoSearch(q) {
+        var list = DEMO_SEARCH;
+        if (q.length >= 2) {
+            list = DEMO_SEARCH.filter(function (d) { return d[0].toLowerCase().indexOf(q) !== -1; });
+        }
+        return list.map(function (d, i) {
+            return { id: "demo" + i, kind: "movie", title: d[0], year: d[1], backdrop: IMG + "w300" + d[2],
+                     poster: IMG + "w342" + d[2], providers: [{ key: d[3], name: d[4] }] };
+        });
+    }
+
     // Once Vetro is up (system.js checks it at 4 s): the first app in focus already has its own rows
     if (!APL.sys.PREVIEW) setTimeout(refreshHub, 6000);
 
@@ -896,6 +1013,7 @@
         searchArt: searchArt,
         logoOf: logoArt,
         findImdb: findImdb,
+        searchTitles: searchTitles,
         itemsFor: itemsFor,
         itemsNow: itemsNow,
         noteOf: noteOf,
