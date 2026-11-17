@@ -432,7 +432,7 @@ html, body {
     from { transform: translateX(-110%); }
     to   { transform: translateX(280%); }
 }
-.reduce-motion .boot__bar i, .slow .boot__bar i { animation: none; width: 100%; opacity: 0.6; }
+.reduce-motion .boot__bar i { animation: none; width: 100%; opacity: 0.6; }
 /* A start-up that is still going after twenty seconds (launcher.js): the line sits
    still instead of sweeping, so it reads as slow rather than as loading. */
 .boot--slow .boot__bar i { animation: none; width: 100%; opacity: 0.3; }
@@ -1479,6 +1479,9 @@ html.is-webos, .is-webos body { background: transparent; }
 html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
 .is-cc-overlay .bg, .is-cc-overlay .bgblur, .is-cc-overlay .scrim, .is-cc-overlay .status, .is-cc-overlay .shelfinfo,
 .is-cc-overlay .hint, .is-cc-overlay .home { display: none; }
+/* And the start-up screen: LG opens this window as a page of its own over the app in front, so the
+   launcher's boot runs again in it and would cover what is playing with a black plate and the mark. */
+.is-cc-overlay .boot { display: none; }
 
 /* ---------- Trailer over the full-screen artwork ----------
    A layer of its own, between the pictures and the scrim: the picture under it
@@ -1512,15 +1515,7 @@ html.is-cc-overlay, html.is-cc-overlay body { background: transparent; }
     border: 0;
 }
 
-/* ===================== SMOOTH ON A SLOW PANEL =====================
-   Measured at start-up (launcher.js measureSpeed): a television that cannot hold
-   38 frames a second gets the same screens with nothing that redraws on its own.
-   Only the timing and the drifting artwork change - every surface, every colour
-   and the baked glass stay exactly as they are. */
-.slow { --glass-ms: 240ms; }
-.slow .bg.is-motion { animation: none; }
-.slow .bg.is-slide { animation-duration: 240ms; }
-.slow .tile, .slow .tile__card, .slow .dock__item, .slow .status { transition-duration: 90ms; }
+/* ===================== NOTHING DRIFTS UNDER A PANEL ===================== */
 /* Nothing drifts while a panel is over the wall: the artwork's slow move was
    costing a full-screen transform every frame behind the Control Center. */
 .has-cc .bg.is-motion,

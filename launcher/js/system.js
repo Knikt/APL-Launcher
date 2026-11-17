@@ -113,10 +113,14 @@
        updater), and the six-hour content lists — the apps' own Top Shelf rows,
        which come back by themselves and would only make the copy big and the
        restore slow on a panel with little flash. */
-    var COPY_SKIP = /^apl\.(bundle$|live\.)/;
+    /* Nor the screen's own state: which window it is in (apl.webos.*), whether the
+       Control Center has been seen (apl.ccSeen), when the copy last put itself
+       back (apl.copyRestored*). Those say nothing about a setting and are written
+       on every window change. */
+    var COPY_SKIP = /^apl\.(bundle$|live\.|webos\.|ccSeen$|copyRestored)/;
     var COPY_MAX = 262144;                     // 256 KB per value: a restore stays quick
     var COPY_REV = "apl.rev";                  // when the settings were last written, in both stores
-    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false;
+    var copyDb = null, copyPending = {}, copyTimer = null, copyHold = false, copySweepTimer = 0;
 
     /* The connection is reopened whenever the browser closes it under us (a screen
        that clears its storage, a browser that restarts it): with a cached closed
@@ -149,6 +153,16 @@
            after a change kept the copy from before it, and the setting was gone
            when the power came back. */
         copyTimer = setTimeout(copyFlush, 280);
+        copySweepSoon();
+    }
+    /* The modules that write straight into local storage (the Home Assistant
+       connection, a picture's address, the chosen region) do not go through
+       save(), so a sweep follows a change to catch them. It is not on a clock:
+       reading every key every twenty seconds walked over the generated artwork
+       for nothing, which is the kind of background work 1.3.0 took out on LG. */
+    function copySweepSoon() {
+        if (copySweepTimer) return;
+        copySweepTimer = global.setTimeout(function () { copySweepTimer = 0; copySweep(); }, 2000);
     }
     function copyWrite(batch) {
         return copyOpen().then(function (db) {
@@ -170,19 +184,18 @@
         var batch = copyPending;
         copyPending = {};
         if (!Object.keys(batch).length) return;
-        /* A batch that fails is not retried here: copySeen was not updated for it,
-           so the next sweep reads those keys out of local storage again and queues
-           them. Only the connection is dropped, so the next attempt reopens it. */
+        /* A batch that fails is not retried here: the next sweep reads local
+           storage again and queues what it finds. Only the connection is dropped,
+           so the next attempt reopens it. */
         copyWrite(batch)["catch"](function () { copyDb = null; });
     }
     function copyDrop(k) { copyPending[k] = null; copyLater(); }
     /* Everything the launcher keeps, read out of local storage and written to the
        copy. Most modules write straight into local storage (the Home Assistant
        connection, the address of each app's picture, the chosen region) without
-       passing through save(), so the copy is swept rather than only fed by it.
-       Only what changed since the last sweep is written, so a sweep costs a walk
-       over the keys and nothing else. */
-    var copySeen = {};
+       passing through save(), so the copy is swept rather than only fed by it - a
+       walk over the keys after a change, and at the moment the page is hidden or
+       closed, which is when the power can go. */
     function copySweep() {
         var changed = 0;
         try {
@@ -191,8 +204,6 @@
                 if (!k || !COPY_KEYS.test(k) || COPY_SKIP.test(k) || k === COPY_REV) continue;
                 var v = global.localStorage.getItem(k);
                 if (typeof v !== "string" || v.length > COPY_MAX) continue;
-                if (copySeen[k] === v) continue;
-                copySeen[k] = v;
                 copyPending[k] = v;
                 changed++;
             }
@@ -257,7 +268,7 @@
                 } catch (e) {}
                 /* A minute of slack: two clocks that disagree must not cause a restore. */
                 var behind = !!there && there > here + 60000;
-                if (!partial && !behind) { copyHold = false; copySweep(); return; }
+                if (!partial && !behind) { copyHold = false; return; }   // nothing to put back: the copy follows a change from here
                 /* The guard is here to stop a reload loop, not to stop the next
                    restore: it used to live in window.name, which survives every
                    reload in the tab, so one restore in a session turned every
@@ -269,7 +280,7 @@
                 if (last && Date.now() - last < 30000) { copyPending = {}; copyHold = false; return; }
                 var wrote = 0;
                 for (var j = 0; j < keys.length; j++) {
-                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); copySeen[keys[j]] = saved[keys[j]]; wrote++; } catch (e) {}
+                    try { global.localStorage.setItem(keys[j], saved[keys[j]]); wrote++; } catch (e) {}
                 }
                 if (!wrote) { copyHold = false; return; }   // nothing could be written: leave the copy alone
                 try { global.sessionStorage.setItem("apl.copyRestoredAt", String(Date.now())); } catch (e) {}
@@ -286,12 +297,6 @@
             if (global.document && global.document.hidden) copySweep();
         });
     }
-    /* The modules that write straight into local storage do it at their own pace
-       (the Home Assistant connection when it is made, a picture's address when it
-       is first seen): a sweep shortly after the start, then one every half
-       minute, is what puts those in the copy without them knowing it exists. */
-    global.setInterval(copySweep, 20000);
-
     var prefs = load("apl.prefs", {});
     var household = load("apl.profiles", null);
     if (!household || !household.list || !household.list.length) {

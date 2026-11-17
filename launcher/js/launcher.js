@@ -368,12 +368,12 @@
        time the row was scrolled, not only on the first pass. An <img> whose
        decode has finished is painted whole. The layer keeps its own colour
        underneath and the glass reads the picture from the element (glass.js). */
-    /* low: a small copy of the same picture, when the screen has one.
-       A 1280 JPEG takes a while to decode on a Tizen 6.5 panel, and until it
-       was ready the layer stayed on the last app's picture: scrolling showed the
-       app before. The small copy (480 px, kept beside it) is decoded first and
-       painted, then swapped for the big one in place, which no one sees because
-       the bitmap is already decoded by then. */
+    /* place: the app's own artwork, drawn in the layer while its backdrop is
+       decoded. A 1280 JPEG takes a while to decode on a Tizen 6.5 panel, and until
+       it was ready the layer stayed on the last app's picture: stepping showed the
+       app before. The app's artwork is bundled and local, so it is there in the
+       frame the layer is, and the picture takes its place once it is decoded -
+       neither a smaller copy of the picture nor the one before it. */
     var seenPics = {}, preloads = {}, preloadOrder = [];
     /* A picture held decoded, out of sight, before it is asked for: the next title
        of a shelf, usually. Its bitmap is then in memory and the element that shows
@@ -384,34 +384,23 @@
         im.decoding = "sync";
         preloads[url] = im;
         preloadOrder.push(url);
-        /* Four at most: a decoded 1920 picture is a few megabytes each, and a
-           television is not a workstation. */
-        while (preloadOrder.length > 4) { var old = preloadOrder.shift(); if (old !== url) delete preloads[old]; }
+        /* Three at most: a decoded 1920 picture is a few megabytes each, and a
+           television is not a workstation. Three is what a step needs - the title
+           on the wall and the app either side of it. */
+        while (preloadOrder.length > 3) { var old = preloadOrder.shift(); if (old !== url) delete preloads[old]; }
         if (im.decode) im.decode().then(function () { im._ok = true; }, function () {});
         else im.onload = function () { im._ok = true; };
         im.src = url;
     }
 
-    /* The small copy of each dock app's kept picture, decoded once at start-up: on
-       a 6.5 screen the first step then has a bitmap to paint, not a decode. */
-    function preheatDock() {
-        if (!APL.artCache || !APL.artCache.first || !APL.artCache.low || !apps || !apps.length) return;
-        for (var i = 0; i < Math.min(apps.length, 7); i++) {
-            var a = apps[i];
-            if (!a) continue;
-            var u = APL.artCache.first(a.id);
-            if (u) preload(APL.artCache.low(u));
-        }
-    }
-
-    function showPicture(layer, url, then, low, revealNow) {
+    function showPicture(layer, url, then, place, revealNow) {
         var pic = layer.querySelector("img:not(.brandcard__icon)");   // the brand card's logo is not the backdrop
         if (pic && pic.getAttribute("src") === url && pic.complete && pic.naturalWidth) {
             if (then) then(pic);                                 // the same picture, already decoded
             return;
         }
         if (pic) pic.parentNode.removeChild(pic);
-        var quick = (low && low !== url) ? low : url;
+        var quick = (place && place !== url) ? place : url;
         pic = document.createElement("img");
         pic.alt = "";
         pic.decoding = "sync";
@@ -419,10 +408,10 @@
         layer.appendChild(pic);
         var called = false;
         function done() { if (called) return; called = true; if (pic.naturalWidth) seenPics[quick] = true; if (then) then(pic); }
-        /* Nothing to lay under it (a picture host that cannot be kept, so no small
-           copy): the layer goes up at once on its own backdrop, and the picture
-           takes its place when it arrives, instead of the previous app's picture
-           staying there and reading as the wrong show. */
+        /* Nothing to lay under it (an app with no artwork of its own): the layer
+           goes up at once on its own backdrop, and the picture takes its place when
+           it arrives, instead of the previous app's picture staying there and
+           reading as the wrong show. */
         if (revealNow) global.setTimeout(done, 0);
         if (quick !== url) {
             /* The full picture is decoded off screen, then takes the element's
@@ -433,10 +422,11 @@
             if (full.decode) full.decode().then(swap, function () {});
             else full.onload = swap;
         }
-        /* A small copy that has already been decoded once is painted at once:
-           asking for its decode again was a frame of the old picture. One frame
-           later, so the layer never fades in on an element that has not drawn
-           its bitmap yet (that is what a blank wall on a focus looked like). */
+        /* A bitmap that has already been decoded once (preloaded for the title
+           that comes next, or painted a moment ago) is on screen at once: asking
+           for its decode again was a frame of the old picture. One frame later, so
+           the layer never fades in on an element that has not drawn its bitmap yet
+           (that is what a blank wall on a focus looked like). */
         if (seenPics[quick]) {
             if (global.requestAnimationFrame) global.requestAnimationFrame(function () { global.setTimeout(done, 0); });
             else global.setTimeout(done, 0);
@@ -444,12 +434,6 @@
         }
         if (pic.decode) pic.decode().then(done, done);
         else { pic.onload = done; pic.onerror = done; }
-    }
-
-    /* The small copy the screen keeps of a picture, if it has one. */
-    function lowOf(url) {
-        if (!url || !APL.artCache || !APL.artCache.low) return "";
-        return APL.artCache.low(url) || "";
     }
 
     /* Drawing a full-screen image takes 100 ms on the M8, whatever the effect: the dock
@@ -635,7 +619,7 @@
             showPicture(dockLayer, image, function (pic) {
                 if (token !== backdropToken) return;
                 reveal(app, dockLayer, image, pic);
-            }, lowOf(image));
+            });
             return;
         }
         if (bgActive.dataset.app === app.id) return;
@@ -649,7 +633,7 @@
             showPicture(next, image, function (pic) {
                 if (token !== backdropToken) return;
                 reveal(app, next, image, pic);
-            }, lowOf(image));
+            });
         });
     }
 
@@ -1136,13 +1120,11 @@
         wantBlur(item.bgSmall || item.bg || null, app, null);
         /* The picture from TMDB, Plex or YouTube is an <img> revealed once its
            decode is done, so it can never be painted a band at a time. */
-        /* What fills the wall while the big picture comes: the small copy kept
-           with it, else the app's own artwork (bundled, local, instant), else the
-           item's 300 px address. TMDB's image host refuses to be read (no
-           Access-Control-Allow-Origin), so those pictures can never be kept, and
-           without this the previous app's picture stayed on screen until the
-           1280 JPEG had decoded. */
-        var lowPic = lowOf(item.bg) || artOf(app) || item.bgSmall || "";
+        /* What fills the wall while the big picture is decoded: the app's own
+           artwork (bundled, local, instant), else the item's 300 px address. Without
+           this the previous app's picture stayed on screen until the 1280 JPEG had
+           decoded, which read as the wrong show. */
+        var place = artOf(app) || item.bgSmall || "";
         showPicture(next, srcOf(item), function (pic) {
             /* Two quick ◀ presses reuse the same layer: an answer for the title
                before this one must not fade it in, or its picture lands under
@@ -1182,7 +1164,7 @@
                     refreshGlass();
                 }, pic);
             }
-        }, lowPic, !lowPic);
+        }, place, !place);
     }
 
     /* An image that fails (a network answer that never comes, a file that cannot
@@ -1246,11 +1228,11 @@
         if (!items || !items.length) return;
         var item = items[i % items.length];
         if (!item || !item.bg) return;
-        /* The small copy of the title that is coming, decoded before it is asked
-           for: the step then paints instead of decoding. The big one is not kept
-           decoded in memory - it is a few megabytes each and it only replaces the
-           small one once it is ready, which no one sees. */
-        preload(lowOf(item.bg));
+        /* The whole picture of the title that is coming, decoded before it is
+           asked for: the step then paints a bitmap instead of decoding a 1280 JPEG
+           on the panel. One picture at a time, not the row's: a decoded one is a
+           few megabytes, and the list here moves on with the rotation. */
+        preload(item.bg);
         if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(item.bg);
     }
 
@@ -1271,12 +1253,15 @@
        stepping along the row never waits for one, which was the last place a
        pane could still arrive a moment after the picture it belongs to. */
     function warmNear(i) {
-        if (!APL.glass || !APL.glass.prefetch) return;
         [-1, 1].forEach(function (d) {
             var app = apps[i + d];
             if (!app) return;
             var art = artOf(app);
-            if (art) APL.glass.prefetch(art);
+            if (!art) return;
+            /* Decoded before the arrow is pressed, so a step paints a bitmap: this
+               is what a smaller copy used to buy, at the picture's own size. */
+            preload(art);
+            if (APL.glass && APL.glass.prefetch) APL.glass.prefetch(art);
         });
     }
 
@@ -1688,10 +1673,6 @@
         APL.sys.onPref("visualEffects", applyPerf);
         applyTheme();
         blurLayer();                 // the drawer's blurred canvas, made once, before it is needed
-        /* Once the kept pictures have been read back out of the store: before that
-           there is nothing to decode yet. */
-        global.setTimeout(preheatDock, 2000);
-        global.setTimeout(measureSpeed, 3000);  // and how fast this screen is
         APL.sys.onPref("appearance", applyTheme);
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
@@ -2170,28 +2151,7 @@
     /* Performance mode: no real-time blur or glass (which made the screen lag). */
     function applyPerf() {
         // Over an app there is no picture behind the glass to bend: the plain tiles
-        document.body.classList.toggle("perf", !!APL.ccOverlay || !!APL.slow || !APL.sys.pref("visualEffects"));
-    }
-
-    /* How fast this screen is, measured once, a few seconds after the Home Screen
-       is up: a panel that cannot hold 38 frames a second takes the cheap path by
-       itself (no live blur, no drifting artwork, shorter moves) instead of asking
-       its owner to find Settings › Appearance › Visual Effects. */
-    function measureSpeed() {
-        if (!global.requestAnimationFrame || APL.slow) return;
-        var t0 = 0, frames = 0;
-        function tick(t) {
-            if (!t0) t0 = t;
-            frames++;
-            if (t - t0 < 800) { global.requestAnimationFrame(tick); return; }
-            var ms = (t - t0) / frames;
-            if (ms > 26) {
-                APL.slow = true;
-                document.body.classList.add("slow");
-                applyPerf();
-            }
-        }
-        global.requestAnimationFrame(tick);
+        document.body.classList.toggle("perf", !!APL.ccOverlay || !APL.sys.pref("visualEffects"));
     }
 
     /* Tip shown on the first start-ups. */

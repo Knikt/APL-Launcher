@@ -205,11 +205,11 @@
 
     /* Three ways of showing the same video, tried in order, the last of them
        needing nothing from this page at all:
-         1. www.youtube.com with the JS API and this page's origin. That origin is
-            the documented requirement, and without it the player ignores the
-            commands posted to it (which is why the frame used to sit on its
-            thumbnail on a Tizen 6.5). The canonical host is also the one every
-            engine has been tested against.
+         1. www.youtube.com with the JS API, and this page's origin when it is
+            served over http. That origin is the documented requirement, and
+            without it the player ignores the commands posted to it (which is why
+            the frame used to sit on its thumbnail on a Tizen 6.5). The canonical
+            host is also the one every engine has been tested against.
          2. www.youtube-nocookie.com with the same parameters. Some networks and
             some TV stacks serve one of the two hosts and not the other.
          3. www.youtube.com with no JS API and nothing to answer: the frame is
@@ -224,9 +224,16 @@
         var q = "?autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0" +
                 "&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&loop=0";
         if (api) {
+            q += "&enablejsapi=1";
+            /* The player posts its answers back to the origin it is given, so it
+               is only given one that can reach this page. An LG or a Samsung runs
+               the launcher from file://, where origin is "null" and there is
+               nowhere to post to; given none, the player answers to any origin,
+               which is what the handshake needs. Given one it cannot reach (that
+               file://, or a fallback of www.youtube.com), every trailer sat here
+               until this attempt timed out before the plain frame came. */
             var origin = String(global.location.origin || "");
-            if (!origin || origin === "null") origin = "https://www.youtube.com";
-            q += "&enablejsapi=1&origin=" + encodeURIComponent(origin);
+            if (/^https?:/i.test(origin)) q += "&origin=" + encodeURIComponent(origin);
         }
         return "https://" + hostname + "/embed/" + encodeURIComponent(id) + q;
     }
