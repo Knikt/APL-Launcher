@@ -55,7 +55,9 @@ body.glass .scard__art--glass {
 /* The direct pane: the slice is an image composited from its own small bitmap, the shade a plain layer
    whose opacity is the shade. A new picture is one src and one opacity: nothing is painted. The pane's
    round shape clips both. Its ::after keeps the light only (the rules for the tiles and the cards follow). */
-.cg__glass--direct { overflow: hidden; background-image: none; }
+/* A layer of its own too: an older engine (Tizen 6.5, a Frame 2022) does not clip a composited child to the
+   round corners of a parent that is not one, and every pane showed its square corners (#68). */
+.cg__glass--direct { overflow: hidden; background-image: none; will-change: transform; }
 .cg__glass--direct > .cg__pic { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; max-width: none; will-change: transform; }
 .cg__glass--direct > .cg__shade { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: #000;
     opacity: var(--glass-shade, 0); will-change: opacity; }

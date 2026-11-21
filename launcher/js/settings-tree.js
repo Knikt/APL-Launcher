@@ -109,6 +109,8 @@
                 toggle(APL.t("Visual Effects"), "visualEffects", APL.t("Blur and glass. Prettier but slower: off by default so the screen stays smooth.")),
                 toggle(APL.t("Trailers in Full Screen"), "trailers",
                     APL.t("A muted trailer of the title on the wall, two seconds after ▲, in full screen. Needs a TMDB key. Nothing is fetched while you browse.")),
+                toggle(APL.t("Trailer Sound"), "trailerSound",
+                    APL.t("The trailers in full screen with their sound, in the screen's language when there is one. Off: muted, as on Apple TV.")),
                 toggle(APL.t("Slow Background Motion"), "bgMotion", APL.t("A slow camera move over the Home Screen images. Pretty, but it keeps the screen very busy and slows everything else down.")),
                 /* The weather in the clock pill (weather.js), for a city typed with the screen's keyboard */
                 menu(APL.t("Weather"), "sun", [

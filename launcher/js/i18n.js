@@ -52,5 +52,16 @@
     APL.t = t;
     APL.lang = lang;                                // "en", "fr", "ms", "pl" or "tr"
     APL.locale = lang === "fr" ? "fr-FR" : lang === "ms" ? "ms-MY" : lang === "pl" ? "pl-PL" : lang === "tr" ? "tr-TR" : "en-US"; // for dates, sorting and TMDB
+    /* The language of the films' descriptions, logos and trailers (TMDB): the screen's own, even where the interface
+       has no translation in it (an Italian screen: Italian summaries, under English menus; #56). A language picked
+       in Settings wins. */
+    (function () {
+        var nav = String((global.navigator && (global.navigator.language || global.navigator.userLanguage)) || "").replace("_", "-");
+        var m = /^([a-z]{2})(?:-([a-z]{2}))?/i.exec(nav);
+        if ((choice && choice !== "auto") || !m) { APL.contentLocale = APL.locale; APL.contentLang = lang; return; }
+        var two = m[1].toLowerCase();
+        APL.contentLang = two;
+        APL.contentLocale = two + "-" + (m[2] ? m[2].toUpperCase() : two === "en" ? "US" : two.toUpperCase());
+    })();
     try { document.documentElement.lang = lang; } catch (e) {}
 })(window);

@@ -450,6 +450,9 @@
             return;
         }
         if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
+        /* Not made yet (the panes are made away from the page since 1.3.5, a moment later): the panes go until
+           it lands, so the dock shows its own tint instead of the app before's picture (#68, scrolling the dock) */
+        if (!cache[src] && baked) veil();
         render(src, function (data) {
             /* A render that lands after the focus has moved on is kept for next
                time, not shown. Without this a fast scroll shows panes out of
@@ -460,6 +463,8 @@
                 forget();
                 paint();
                 notify();
+            } else if (data && data === baked && src === wanted) {
+                paint();                       // the same picture back: the veiled panes come back on
             } else if (!data && src === wanted && baked) {
                 /* The picture cannot be read back (a host that serves no CORS
                    header): keeping the pane that was there left the app before
@@ -477,6 +482,15 @@
        app in focus): made now, so the change lands on a ready slice. */
     function prefetch(src) {
         if (src && !cache[src] && src !== bakedFrom) render(src, function () {});
+    }
+
+    /* The panes off for a moment, the picture kept: paint() puts them back on (bake) */
+    function veil() {
+        var list = document.querySelectorAll(TARGETS.join(",")), i, l;
+        for (i = 0; i < list.length; i++) {
+            l = list[i].__cgLayer;
+            if (l) { l.classList.remove("is-on"); l.__src = ""; }
+        }
     }
 
     /* No artwork: hide every lens and leave the CSS fills in charge. */

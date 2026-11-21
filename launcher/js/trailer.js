@@ -103,16 +103,20 @@
     }
 
     function findKey(found) {
-        var q = TMDB + "/" + found.kind + "/" + found.id + "/videos?api_key=" + KEYS.tmdb + "&language=en-US";
+        /* The screen's language first (an Italian trailer on an Italian screen, #56), then English */
+        var mine = String(APL.contentLang || "en");
+        var q = TMDB + "/" + found.kind + "/" + found.id + "/videos?api_key=" + KEYS.tmdb + "&include_video_language=" + mine + ",en,null";
         return getJson(q).then(function (j) {
             var list = (j.results || []).filter(function (v) {
                 return v && v.site === "YouTube" && v.key;
             });
-            function by(type) {
-                for (var i = 0; i < list.length; i++) if (String(list[i].type).toLowerCase() === type) return list[i];
+            function by(type, lang) {
+                for (var i = 0; i < list.length; i++) {
+                    if (String(list[i].type).toLowerCase() === type && (!lang || list[i].iso_639_1 === lang)) return list[i];
+                }
                 return null;
             }
-            var v = by("trailer") || by("teaser") || list[0];
+            var v = by("trailer", mine) || by("teaser", mine) || by("trailer", "en") || by("trailer") || by("teaser") || list[0];
             return v ? v.key : null;
         }, function () { return null; });
     }
@@ -130,7 +134,7 @@
     }
 
     function resolve(pick, cb) {
-        var key = norm(pick.title) + "|" + (pick.year || "");
+        var key = norm(pick.title) + "|" + (pick.year || "") + "|" + (APL.contentLang || "en");
         var c = read(key);
         if (c && has(c, "secs")) { cb(c); return; }
         /* An answer kept before the length was asked for: only the length is
@@ -180,6 +184,17 @@
     /* As on Apple TV, the video comes in a moment after it starts: the player shows its title strip for its first
        second, and the picture under it stays until the film itself is there. */
     var REVEAL_AFTER = 900, revealTimer = 0;
+    /* Settings › Appearance › Trailer Sound (#56): it starts muted, which every engine lets play by itself, and the
+       sound comes on once it plays. */
+    var sounded = 0;
+    function soundOn() {
+        if (!pref("trailerSound") || !box || !box.contentWindow || sounded === frameToken) return;
+        sounded = frameToken;
+        try {
+            box.contentWindow.postMessage(JSON.stringify({ event: "command", func: "unMute", args: [] }), "*");
+            box.contentWindow.postMessage(JSON.stringify({ event: "command", func: "setVolume", args: [70] }), "*");
+        } catch (e) {}
+    }
     function revealTrailer() {
         if (revealTimer) return;
         var mine = frameToken;
@@ -218,7 +233,7 @@
             var state = typeof d.info === "number" ? d.info
                       : (d.info && typeof d.info === "object" && d.info.playerState !== undefined) ? d.info.playerState
                       : (d.infoDelivery && d.infoDelivery.playerState);
-            if ((state === 1 || state === 3) && (d.event === "onStateChange" || d.event === "infoDelivery")) revealTrailer();
+            if ((state === 1 || state === 3) && (d.event === "onStateChange" || d.event === "infoDelivery")) { revealTrailer(); soundOn(); }
         });
     }
 

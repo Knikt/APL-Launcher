@@ -705,5 +705,7 @@ window.APL_LANG_MS = {
     "Reminder at Start-Up": "Peringatan semasa permulaan",
     "After each full start of the screen, the Ko-fi code shows once over the Home Screen. Back or OK closes it.": "Selepas setiap permulaan penuh skrin, kod Ko-fi dipaparkan sekali di atas Skrin Utama. Kembali atau OK menutupnya.",
     "Cards": "Kad",
-    "What you were watching in Stremio, Nuvio, APL TV and the IPTV apps: as cards over the Top Shelf, in full screen on the wall (◀ ▶ through them, OK to resume), or not at all.": "Apa yang anda tonton dalam Stremio, Nuvio, APL TV dan aplikasi IPTV: sebagai kad di atas Top Shelf, dalam skrin penuh pada latar (◀ ▶ untuk beralih, OK untuk menyambung), atau tidak langsung."
+    "What you were watching in Stremio, Nuvio, APL TV and the IPTV apps: as cards over the Top Shelf, in full screen on the wall (◀ ▶ through them, OK to resume), or not at all.": "Apa yang anda tonton dalam Stremio, Nuvio, APL TV dan aplikasi IPTV: sebagai kad di atas Top Shelf, dalam skrin penuh pada latar (◀ ▶ untuk beralih, OK untuk menyambung), atau tidak langsung.",
+    "Trailer Sound": "Bunyi treler",
+    "The trailers in full screen with their sound, in the screen's language when there is one. Off: muted, as on Apple TV.": "Treler dalam skrin penuh dengan bunyinya, dalam bahasa skrin jika ada. Mati: tanpa bunyi, seperti di Apple TV."
 };

@@ -43,7 +43,7 @@
     })();
     var KEYS = global.APL_KEYS;
     var TTL = 6 * 3600 * 1000;
-    var CACHE_VERSION = 7;              // 7: films and series carry their overview (#56: kept 6 h, it never showed after 1.3.6); 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown; 6: all audiences only on LG
+    var CACHE_VERSION = 8;              // 8: in the screen's own language (APL.contentLocale, #56); 7: films and series carry their overview (#56: kept 6 h, it never showed after 1.3.6); 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown; 6: all audiences only on LG
     var MIN_VOTES = 20;                 // below that, a rating doesn't mean anything yet
 
     /* The screen's country, for trending videos, charts, prices and what each service streams there.
@@ -390,7 +390,7 @@
 
     /* Popular movies and series on a service (Netflix, Prime Video…) in the screen's country. */
     function tmdb(providerId) {
-        var common = "api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&watch_region=" + REGION +
+        var common = "api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale) + "&watch_region=" + REGION +
                      "&with_watch_providers=" + encodeURIComponent(providerId) + "&sort_by=popularity.desc";
         return Promise.all([
             getJson(TMDB + "/discover/tv?" + common).catch(function () { return { results: [] }; }),
@@ -410,7 +410,7 @@
 
     /* Popular Japanese anime (anime websites and apps). */
     function anime() {
-        var q = "api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&with_genres=16&with_original_language=ja&sort_by=popularity.desc";
+        var q = "api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale) + "&with_genres=16&with_original_language=ja&sort_by=popularity.desc";
         return Promise.all([
             getJson(TMDB + "/discover/tv?" + q).catch(function () { return { results: [] }; }),
             getJson(TMDB + "/discover/movie?" + q).catch(function () { return { results: [] }; })
@@ -860,7 +860,7 @@
     }
     function searchArt(title, year) {
         if (!KEYS.tmdb || !title) return Promise.resolve(null);
-        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&query=" + encodeURIComponent(title)).then(function (d) {
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale) + "&query=" + encodeURIComponent(title)).then(function (d) {
             var found = (d.results || []).filter(function (r) { return r.backdrop_path && (r.media_type === "tv" || r.media_type === "movie"); });
             // The same title (and the same year, if the provider gives it) before the first one found
             var exact = found.filter(function (r) { return same(r.name || r.title, title) || same(r.original_name || r.original_title, title); });
@@ -879,15 +879,15 @@
             return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
                 .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
         }
-        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&query=" + encodeURIComponent(title)).then(function (d) {
+        return getJson(TMDB + "/search/multi?api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale) + "&query=" + encodeURIComponent(title)).then(function (d) {
             var found = (d.results || []).filter(function (r) { return r.media_type === "tv" || r.media_type === "movie"; });
             var exact = found.filter(function (r) { return same(r.name || r.title, title) || same(r.original_name || r.original_title, title); });
             var dated = exact.filter(function (r) { return year && String(r.first_air_date || r.release_date || "").substr(0, 4) === year; });
             var hit = dated[0] || exact[0] || found[0];
             if (!hit) return "";
             var kind = hit.media_type === "tv" ? "tv" : "movie";
-            return getJson(TMDB + "/" + kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
-                var logo = pickLogo(im.logos, APL.lang) || pickLogo(im.logos, "en");
+            return getJson(TMDB + "/" + kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + (APL.contentLang || APL.lang) + ",en,null").then(function (im) {
+                var logo = pickLogo(im.logos, APL.contentLang || APL.lang) || pickLogo(im.logos, "en");
                 return logo ? IMG + big("w500") + logo.file_path : "";
             });
         }).catch(function () { return ""; });
@@ -900,14 +900,14 @@
     function cardSize() { return global.APL_HIRES ? "w1280" : "w780"; }
     function keyArt(hit) {
         var plain = { image: IMG + cardSize() + hit.backdrop_path };
-        return getJson(TMDB + "/" + hit._kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + APL.lang + ",en,null").then(function (im) {
+        return getJson(TMDB + "/" + hit._kind + "/" + hit.id + "/images?api_key=" + KEYS.tmdb + "&include_image_language=" + (APL.contentLang || APL.lang) + ",en,null").then(function (im) {
             function best(list, lang) {
                 return (list || []).filter(function (b) { return b.iso_639_1 === lang && b.file_path; })
                     .sort(function (a, b) { return (b.vote_average || 0) - (a.vote_average || 0); })[0];
             }
-            var titled = best(im.backdrops, APL.lang) || best(im.backdrops, "en");
+            var titled = best(im.backdrops, APL.contentLang || APL.lang) || best(im.backdrops, "en");
             if (titled) return { image: IMG + cardSize() + titled.file_path, titled: true };
-            var logo = best(im.logos, APL.lang) || best(im.logos, "en");
+            var logo = best(im.logos, APL.contentLang || APL.lang) || best(im.logos, "en");
             return { image: plain.image, logo: logo ? IMG + big("w500") + logo.file_path : "" };
         }).catch(function () { return plain; });
     }
@@ -920,7 +920,7 @@
     /* The same from an IMDb id (Stremio uses them). */
     function findImdb(imdbId) {
         if (!KEYS.tmdb || !/^tt[0-9]+$/.test(imdbId)) return Promise.resolve(null);
-        return getJson(TMDB + "/find/" + imdbId + "?api_key=" + KEYS.tmdb + "&language=" + APL.locale + "&external_source=imdb_id").then(function (d) {
+        return getJson(TMDB + "/find/" + imdbId + "?api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale) + "&external_source=imdb_id").then(function (d) {
             var film = (d.movie_results || []).filter(function (r) { return r.backdrop_path; })[0];
             var show = (d.tv_results || []).filter(function (r) { return r.backdrop_path; })[0];
             var hit = film || show;

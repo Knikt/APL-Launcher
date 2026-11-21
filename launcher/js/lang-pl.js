@@ -827,5 +827,7 @@ window.APL_LANG_PL = {
     "Reminder at Start-Up": "Przypomnienie przy starcie",
     "After each full start of the screen, the Ko-fi code shows once over the Home Screen. Back or OK closes it.": "Po każdym pełnym uruchomieniu ekranu kod Ko-fi pojawia się raz na ekranie głównym. Wstecz lub OK go zamyka.",
     "Cards": "Karty",
-    "What you were watching in Stremio, Nuvio, APL TV and the IPTV apps: as cards over the Top Shelf, in full screen on the wall (◀ ▶ through them, OK to resume), or not at all.": "To, co oglądałeś w Stremio, Nuvio, APL TV i aplikacjach IPTV: jako karty nad Top Shelf, na pełnym ekranie w tle (◀ ▶ przełącza, OK wznawia) albo wcale."
+    "What you were watching in Stremio, Nuvio, APL TV and the IPTV apps: as cards over the Top Shelf, in full screen on the wall (◀ ▶ through them, OK to resume), or not at all.": "To, co oglądałeś w Stremio, Nuvio, APL TV i aplikacjach IPTV: jako karty nad Top Shelf, na pełnym ekranie w tle (◀ ▶ przełącza, OK wznawia) albo wcale.",
+    "Trailer Sound": "Dźwięk zwiastunów",
+    "The trailers in full screen with their sound, in the screen's language when there is one. Off: muted, as on Apple TV.": "Zwiastuny na pełnym ekranie z dźwiękiem, w języku ekranu, jeśli jest dostępny. Wyłączone: bez dźwięku, jak na Apple TV."
 };
