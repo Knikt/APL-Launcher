@@ -4,7 +4,7 @@
 - **Round glass on older screens** (#68). Since 1.3.5 every screen uses the direct glass panes, and an older engine (Tizen 6.5, a Frame 2022) did not clip them to the round corners: each tile of the Control Center showed a square of picture around it. The pane is now a layer of its own, as it already was on LG. Not tried on a Tizen 6.5 screen.
 - **No wrong picture under the dock while scrolling** (#68). When the next app's glass was not made yet, the dock kept the previous app's picture for a moment; it now shows its own tint until the right one is there.
 - **Films in the screen's language** (#56). Descriptions, title logos and trailers follow the screen's own language, even one the menus are not translated into (Italian summaries and trailers on an Italian screen, under English menus). A language picked in Settings wins.
-- **Trailer Sound** (#56). *Settings › Appearance › Trailer Sound*: the trailers with their sound. They still start muted, which every engine lets play by itself, and the sound comes on once they play. Off by default.
+- **Trailer Sound** (#56). *Settings › Appearance › Trailer Sound*: the trailers with their sound. Tried on a Samsung M8: the trailer plays with its sound. Off by default.
 - **Turkish** (#67): five wordings corrected by goldsnow3.
 
 ## 1.3.8

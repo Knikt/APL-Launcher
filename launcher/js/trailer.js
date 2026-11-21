@@ -184,8 +184,8 @@
     /* As on Apple TV, the video comes in a moment after it starts: the player shows its title strip for its first
        second, and the picture under it stays until the film itself is there. */
     var REVEAL_AFTER = 900, revealTimer = 0;
-    /* Settings › Appearance › Trailer Sound (#56): it starts muted, which every engine lets play by itself, and the
-       sound comes on once it plays. */
+    /* Settings › Appearance › Trailer Sound (#56): it starts with its sound (embedUrl); the player is told to unmute as
+       well once it plays, for an engine that started it muted anyway. */
     var sounded = 0;
     function soundOn() {
         if (!pref("trailerSound") || !box || !box.contentWindow || sounded === frameToken) return;
@@ -260,7 +260,9 @@
        has had time to load), so an attempt that failed is never seen - each one
        starts the video at its beginning, and that restart would be. */
     function embedUrl(id, api, hostname) {
-        var q = "?autoplay=1&mute=1&playsinline=1&controls=0&modestbranding=1&rel=0" +
+        /* Trailer Sound: started with its sound. Unmuting it once it played was refused by the screen's autoplay
+           rule (a Samsung M8: the command reached the player, the video stayed muted); started so, it plays. */
+        var q = "?autoplay=1&mute=" + (pref("trailerSound") ? "0" : "1") + "&playsinline=1&controls=0&modestbranding=1&rel=0" +
                 "&iv_load_policy=3&disablekb=1&fs=0&cc_load_policy=0&loop=0&vq=hd1080";     // full screen: ask for HD
         if (api) {
             q += "&enablejsapi=1";
