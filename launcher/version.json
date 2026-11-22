@@ -1,8 +1,8 @@
 {
- "version": "1.3.9",
+ "version": "1.3.10",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "Round glass on older screens, films in the screen's language, trailer sound",
+ "notes": "Fast again on Android TV, round glass on Tizen 6, trailers stop under a panel",
  "scripts": [
   "js/diag.js",
   "js/webos.js",

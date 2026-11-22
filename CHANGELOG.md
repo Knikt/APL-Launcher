@@ -1,6 +1,6 @@
 # Changelog
 
-## Next version (not released yet)
+## 1.3.10
 - **Fast again on Android TV** (#67). 1.3.9 made each glass pane a layer of its own to round its corners on older screens: on a Google TV (Grundig, MStar) the Home Screen went from 26 to 73 ms a frame. That is undone. Tried on a Samsung M8: 17 ms a frame, as before.
 - **Round glass on Tizen 6** (#68). The layer did not round the panes on a Frame 2022 either: Tizen 6 now uses the glass it had before 1.3.5, painted with round corners. Tried on a Samsung M8 with that glass forced: round everywhere.
 - **The glass no longer blinks while scrolling** (#68). It only gives way to the dock's own frosted look when the next picture is more than a quarter of a second late.
