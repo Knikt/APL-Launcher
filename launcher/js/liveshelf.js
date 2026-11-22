@@ -43,7 +43,7 @@
     })();
     var KEYS = global.APL_KEYS;
     var TTL = 6 * 3600 * 1000;
-    var CACHE_VERSION = 8;              // 8: in the screen's own language (APL.contentLocale, #56); 7: films and series carry their overview (#56: kept 6 h, it never showed after 1.3.6); 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown; 6: all audiences only on LG
+    var CACHE_VERSION = 9;              // 9: What's Popular (Nuvio, trending) in the screen's language too (#56); 8: in the screen's own language (APL.contentLocale, #56); 7: films and series carry their overview (#56: kept 6 h, it never showed after 1.3.6); 3: movies and series carry their title and their rating; 4: Smart Hub items their deep link; 5: "tv" / "movie", translated when shown; 6: all audiences only on LG
     var MIN_VOTES = 20;                 // below that, a rating doesn't mean anything yet
 
     /* The screen's country, for trending videos, charts, prices and what each service streams there.
@@ -402,7 +402,7 @@
 
     /* Trending titles of the week, all services (movie and series websites). */
     function trending() {
-        return getJson(TMDB + "/trending/all/week?api_key=" + KEYS.tmdb + "&language=" + APL.locale).then(function (j) {
+        return getJson(TMDB + "/trending/all/week?api_key=" + KEYS.tmdb + "&language=" + (APL.contentLocale || APL.locale)).then(function (j) {   // the TV's language, like the others (#56: Nuvio in English)
             return pick((j.results || []).filter(function (r) { return r.media_type === "movie" || r.media_type === "tv"; })
                 .map(function (r) { r._kind = r.media_type; return r; })).then(decorate);
         });

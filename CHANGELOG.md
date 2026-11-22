@@ -1,5 +1,8 @@
 # Changelog
 
+## Next
+- **What's Popular in the screen's language** (#56). Nuvio and the other apps showing TMDB's trending titles still asked for them in the menus' language: under English menus on an Italian screen, the descriptions came in English while every other app's were Italian. They now follow the screen's language too.
+
 ## 1.3.10
 - **Fast again on Android TV** (#67). 1.3.9 made each glass pane a layer of its own to round its corners on older screens: on a Google TV (Grundig, MStar) the Home Screen went from 26 to 73 ms a frame. That is undone. Tried on a Samsung M8: 17 ms a frame, as before.
 - **Round glass on Tizen 6** (#68). The layer did not round the panes on a Frame 2022 either: Tizen 6 now uses the glass it had before 1.3.5, painted with round corners. Tried on a Samsung M8 with that glass forced: round everywhere.
