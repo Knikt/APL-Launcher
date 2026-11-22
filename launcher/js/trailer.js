@@ -463,6 +463,14 @@
        two seconds start, not only once the video is on screen. */
     function busy() { return !!timer || playing(); }
 
+    /* A panel over the wall (Control Center, Search, Settings, Sources): the trailer goes. Playing under it, an older
+       screen (a Frame, Tizen 6.5) became very slow to move in the panel (#68). */
+    if (global.MutationObserver && document.body) {
+        new global.MutationObserver(function () {
+            if (/has-(cc|search|settings|sources)/.test(document.body.className) && (box || timer)) stop(true);
+        }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    }
+
     APL.trailer = {
         arm: arm,
         stop: stop,

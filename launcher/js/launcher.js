@@ -205,17 +205,18 @@
         if (!title || !APL.live || !APL.live.logoOf) return;
         var key = title + "|" + (year || "");
         logoWanted = key;
+        /* No logo on TMDB (a Twitch video, a title it doesn't know): the name in words, never an empty line (#56) */
         if (logoCache[key] !== undefined) {
-            if (logoCache[key]) titleShow(title, logoCache[key]);
+            if (logoCache[key]) titleShow(title, logoCache[key]); else titleWords(title);
             return;
         }
         APL.live.logoOf(title, year).then(function (url) {
             url = url || "";
             logoCache[key] = url;
             /* Another title went up while this answer was coming: leave it alone. */
-            if (logoWanted !== key || !url) return;
-            titleShow(title, url);
-        }, function () {});
+            if (logoWanted !== key) return;
+            if (url) titleShow(title, url); else titleWords(title);
+        }, function () { if (logoWanted === key) titleWords(title); });
     }
 
     /* Logo + name in the centre, like the provided artwork (sharp Tizen icon, never blurred). */

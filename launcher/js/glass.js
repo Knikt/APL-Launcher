@@ -59,7 +59,14 @@
     /* Every screen since 1.3.5. On a Samsung M8 the old pane had the whole dock (1836 x 225) rastered again at
        each step, 0.47 s of the screen's processor a step (a trace of 10 steps: 4.65 s); with the direct panes the
        median frame went from 33 to 17 ms. Google TV (#67) and an LG C2 (#55) reported the same slowness. */
-    var DIRECT = true;
+    /* Tizen 6 (a Frame 2022, 6.5) keeps the painted panes it had before: its engine does not clip a direct pane to
+       its round corners, and making each pane a layer of its own did not fix it there, while it made a Google TV
+       three times slower (#67, #68, 1.3.9). */
+    var TIZEN_V = (function () {
+        if (APL.platform || !APL.sys || !APL.sys.product) return 0;
+        try { return parseFloat(APL.sys.product().tizen) || 0; } catch (e) { return 0; }
+    })();
+    var DIRECT = !(TIZEN_V && TIZEN_V < 7);
     /* Its picture is made at half the size, 240 x 135, without a canvas filter, and encoded away from the
        animation (toBlob): the 480 x 270 JPEG of toDataURL took 20 ms at rest on a G5, and 110 to 140 ms
        each while the focus moved along the dock, six times in a first pass. The picture is a 48 x 27
@@ -435,6 +442,7 @@
     }
 
     var wanted = "";         /* the artwork that should be on screen right now */
+    var veilTimer = 0;
 
     function bake(src, done, el) {
         if (!src) { drop(); return; }
@@ -452,8 +460,11 @@
         if (src === bakedFrom && baked) { paint(); if (done) done(); return; }
         /* Not made yet (the panes are made away from the page since 1.3.5, a moment later): the panes go until
            it lands, so the dock shows its own tint instead of the app before's picture (#68, scrolling the dock) */
-        if (!cache[src] && baked) veil();
+        /* ... but only once it has been late a quarter of a second: a pane made at once never flickers out (#68) */
+        clearTimeout(veilTimer);
+        if (!cache[src] && baked) veilTimer = global.setTimeout(function () { if (wanted === src && bakedFrom !== src) veil(); }, 250);
         render(src, function (data) {
+            clearTimeout(veilTimer);
             /* A render that lands after the focus has moved on is kept for next
                time, not shown. Without this a fast scroll shows panes out of
                order, and each late one is a jump the eye catches at once. */

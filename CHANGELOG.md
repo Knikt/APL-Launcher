@@ -1,5 +1,12 @@
 # Changelog
 
+## Next version (not released yet)
+- **Fast again on Android TV** (#67). 1.3.9 made each glass pane a layer of its own to round its corners on older screens: on a Google TV (Grundig, MStar) the Home Screen went from 26 to 73 ms a frame. That is undone. Tried on a Samsung M8: 17 ms a frame, as before.
+- **Round glass on Tizen 6** (#68). The layer did not round the panes on a Frame 2022 either: Tizen 6 now uses the glass it had before 1.3.5, painted with round corners. Tried on a Samsung M8 with that glass forced: round everywhere.
+- **The glass no longer blinks while scrolling** (#68). It only gives way to the dock's own frosted look when the next picture is more than a quarter of a second late.
+- **Trailers stop under a panel** (#68). Opening the Control Center, Search, Settings or Sources stops the trailer: playing under it, a Frame became very slow. Tried on a Samsung M8.
+- **Titles TMDB doesn't know** (#56). A Twitch video or any title with no logo on TMDB now shows its name instead of an empty line.
+
 ## 1.3.9
 - **Round glass on older screens** (#68). Since 1.3.5 every screen uses the direct glass panes, and an older engine (Tizen 6.5, a Frame 2022) did not clip them to the round corners: each tile of the Control Center showed a square of picture around it. The pane is now a layer of its own, as it already was on LG. Not tried on a Tizen 6.5 screen.
 - **No wrong picture under the dock while scrolling** (#68). When the next app's glass was not made yet, the dock kept the previous app's picture for a moment; it now shows its own tint until the right one is there.
