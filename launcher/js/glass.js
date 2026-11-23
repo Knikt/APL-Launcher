@@ -59,14 +59,16 @@
     /* Every screen since 1.3.5. On a Samsung M8 the old pane had the whole dock (1836 x 225) rastered again at
        each step, 0.47 s of the screen's processor a step (a trace of 10 steps: 4.65 s); with the direct panes the
        median frame went from 33 to 17 ms. Google TV (#67) and an LG C2 (#55) reported the same slowness. */
-    /* Tizen 6 (a Frame 2022, 6.5) keeps the painted panes it had before: its engine does not clip a direct pane to
-       its round corners, and making each pane a layer of its own did not fix it there, while it made a Google TV
-       three times slower (#67, #68, 1.3.9). */
+    /* Tizen 6 (a Frame 2022, 6.5): its engine does not clip a layer of its own to the pane's round corners, and the
+       direct pane's picture is one (will-change). 1.3.10 gave it back the painted panes, round but slow: a new
+       full-size slice repainted at every step, 33 ms a frame on an M8 against 17, and lag everywhere on a Frame
+       (#68). It keeps the direct pane, the pane being the layer and its picture and shade drawn in it
+       (cg__glass--flat): clipped by its round corners like any painting, as fast as the direct pane on an M8. */
     var TIZEN_V = (function () {
         if (APL.platform || !APL.sys || !APL.sys.product) return 0;
         try { return parseFloat(APL.sys.product().tizen) || 0; } catch (e) { return 0; }
     })();
-    var DIRECT = !(TIZEN_V && TIZEN_V < 7);
+    var DIRECT = true, FLAT = !!(TIZEN_V && TIZEN_V < 7);
     /* Its picture is made at half the size, 240 x 135, without a canvas filter, and encoded away from the
        animation (toBlob): the 480 x 270 JPEG of toDataURL took 20 ms at rest on a G5, and 110 to 140 ms
        each while the focus moved along the dock, six times in a first pass. The picture is a 48 x 27
@@ -534,7 +536,7 @@
         var l = el.__cgLayer;
         if (l && l.parentNode === el) return l;
         l = document.createElement("i");
-        l.className = "cg__glass" + (DIRECT ? " cg__glass--direct" : "");
+        l.className = "cg__glass" + (DIRECT ? " cg__glass--direct" : "") + (FLAT ? " cg__glass--flat" : "");
         l.setAttribute("aria-hidden", "true");
         if (DIRECT) {
             var pic = document.createElement("img"), shade = document.createElement("i");
