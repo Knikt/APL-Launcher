@@ -1,6 +1,7 @@
 # Changelog
 
 ## Next
+- **Overscan for Hue on the Home Screen** (#69). The Hue light sync app from Apps2Samsung has an id of its own (org.tizenhuesync.tv.ui) that the launcher did not count as an app; it is listed now, as Overscan for Hue so it is not mistaken for the Overscan browser.
 - **What's Popular in the screen's language** (#56). Nuvio and the other apps showing TMDB's trending titles still asked for them in the menus' language: under English menus on an Italian screen, the descriptions came in English while every other app's were Italian. They now follow the screen's language too.
 
 ## 1.3.10

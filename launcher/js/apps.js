@@ -34,6 +34,7 @@
         "xvvl3S1bvH.TizenBrewStandalone": { name: "TizenBrew",  accent: "#1fb6e6", eyebrow: "APPS", tile: "images/tile-tizenbrew.png", live: "youtube" },
         "6YLB5zo9te.HotIptv":             { name: "Hot IPTV",   accent: "#ff7a1a", eyebrow: "TELEVISION",   bg: "images/bg-hotiptv.jpg", tile: "images/tile-hotiptv.png", live: "trending" },
         "org.apps2samsung.overscan":      { name: "Overscan",   accent: "#2b6fff", eyebrow: "BROWSER" },
+        "org.tizenhuesync.tv.ui":         { name: "Overscan for Hue", eyebrow: "SMART HOME" },
         "org.tizen.browser":              { name: "Internet",   accent: "#2b6fff", eyebrow: "BROWSER",      bg: "images/bg-internet.jpg", tile: "images/tile-internet.png" },
         "org.tizen.browser.wrt":          { name: "Internet",   accent: "#2b6fff", eyebrow: "BROWSER",      bg: "images/bg-internet.jpg", tile: "images/tile-internet.png" },
         // The same apps on LG TVs (webOS)
@@ -85,7 +86,9 @@
        Reported on Tizen 6.5 (issue #21); the same ids on the M8. Netflix too (org.tizen.netflix-app, on the
        M8 and an S95C reported on Reddit): it was missing from the Home Screen and from Show on Home Screen. */
     var PRELOADED = ["org.tizen.primevideo", "com.samsung.tv.aria-video", "org.tizen.netflix-app"];
-    var THIRD_PARTY_APPS = ["org.omegatube.app"];
+    /* Apps with an id of their own rather than a Store one. Overscan for Hue (Hue light sync, a native app from
+       Apps2Samsung, github.com/burkben/Overscan) is org.tizenhuesync.tv.ui, named "Overscan" like the browser (#69). */
+    var THIRD_PARTY_APPS = ["org.omegatube.app", "org.tizenhuesync.tv.ui"];
     /* Not com.samsung.tv.tvPlusDeeplinker, Samsung TV Plus's entry on Tizen 6.5: launched alone it doesn't
        open TV Plus (#21). The Samsung TV Plus app from the store (HEPsqFNie0.tvplusstandalone) is listed. */
     function isRealApp(id, name) {
