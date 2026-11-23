@@ -1,6 +1,7 @@
 # Changelog
 
 ## Next
+- **A font close to SF Pro everywhere.** SF Pro (Apple's license) is only on the screens it was copied to; every other screen used its own font. They now get Inter Display, the free font closest to it (SIL Open Font License): measured against SF Pro Display, 84 to 89 % of each letter's shape the same and the same width within 1 %. It is in every package; a package installed before takes it from the launcher's web page. Tried on a Samsung M8 with SF Pro taken away.
 - **Tizen 6 fast again, with round glass** (#68). 1.3.10 gave Tizen 6 back its painted panes to keep their corners round, and they were slow: each step repainted a full-size slice, 33 ms a frame on an M8 against 17, and lag everywhere on a Frame 2022. Tizen 6 now has the direct panes, each pane a layer of its own with its picture drawn inside it, so its round corners clip it. Measured on a Samsung M8 with that glass forced: as fast as the direct panes, round corners. Not tried on a Tizen 6 screen.
 - **Overscan for Hue on the Home Screen** (#69). The Hue light sync app from Apps2Samsung has an id of its own (org.tizenhuesync.tv.ui) that the launcher did not count as an app; it is listed now, as Overscan for Hue so it is not mistaken for the Overscan browser.
 - **What's Popular in the screen's language** (#56). Nuvio and the other apps showing TMDB's trending titles still asked for them in the menus' language: under English menus on an Italian screen, the descriptions came in English while every other app's were Italian. They now follow the screen's language too.

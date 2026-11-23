@@ -8,6 +8,6 @@ Download it from Apple's developer site, then put the files here with these exac
 - `SFPRODISPLAYMEDIUM.OTF`
 - `SFPRODISPLAYBOLD.OTF`
 
-The CSS picks them up automatically. Without them, the interface uses the system font and works just the same.
+The CSS picks them up automatically. Without them, the interface uses **Inter Display** (the `InterDisplay-*.woff2` files here), the free font closest to SF Pro Display, under the SIL Open Font License (`Inter-OFL.txt`). It is in every package.
 
 The installer can also copy them while building, from `Downloads\sf-pro-display_2` (`03-build-launcher.ps1 -SfProDir <folder>`).

@@ -58,7 +58,7 @@ def skip(rel):
         return True                                   # handled below
     if release and (rel.startswith("images/avatars/custom/") or rel.startswith("images/avatars/memoji/")):
         return True
-    if release and rel.startswith("fonts/") and not rel.endswith((".css", ".md", ".txt")):
+    if release and rel.startswith("fonts/") and rel.lower().endswith((".otf", ".ttf")):
         return True                                   # SF Pro: Apple's license, never in a published package
     return False
 for base, dirs, files in os.walk(L):

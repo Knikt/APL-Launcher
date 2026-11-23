@@ -50,8 +50,8 @@ os.makedirs(app_dir); os.makedirs(svc_dir)
 SKIP_TOP = {"config.xml", "bridge", "version.json", ".manifest.tmp", "author-signature.xml", "signature1.xml"}
 PRIVATE = ("js/keys.local.js", "js/avatars.local.js", "js/keys.example.js")
 def is_personal(rel):
-    # SF Pro (Apple's license) and your own avatars; the launcher's sounds are in the repository and go everywhere
-    return (rel.startswith("fonts/") and not rel.endswith((".css", ".md", ".txt"))) or \
+    # SF Pro (Apple's license; Inter Display, free, goes everywhere) and your own avatars; the launcher's sounds are in the repository and go everywhere
+    return (rel.startswith("fonts/") and rel.lower().endswith((".otf", ".ttf"))) or \
            rel.startswith(("images/avatars/custom/", "images/avatars/memoji/"))
 for base, dirs, files in os.walk(L):
     for f in files:
