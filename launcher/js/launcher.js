@@ -1730,6 +1730,11 @@
         APL.sys.onPref("appsPerRow", function () { sizes(); render(); layout(); });
         APL.sys.profiles.onChange(applyTheme);
         setInterval(applyTheme, 60000);
+        /* The code runs: boot.js keeps this version. Said here rather than once the apps are listed (#70): at
+           power-on with Start on APL Launcher, the screen starts the launcher in the background and freezes it,
+           listing the apps then took more than boot.js's 15 s, and the update was set aside for good, back to the
+           installed version. The timeout runs after every script of the version has run. */
+        setTimeout(function () { global.APL_BOOT_OK = true; }, 0);
         APL.loadApps().then(function (list) {
             buildList(list);
             watchPackages();
@@ -1744,7 +1749,8 @@
             slowKeyRepeat(8);
             setTimeout(function () { bootCleanup(8); }, 25000);
             setTimeout(function () { supportReminder(15); }, 8000);
-            global.APL_BOOT_OK = true;          // the version (installed or updated) starts fine
+            global.APL_BOOT_OK = true;
+            global.APL_HOME_UP = true;          // the Home Screen is there (diag.js)
             if (requestedAction()) runAction(requestedAction());   // opened for a specific reason: TizenTube, App Switcher…
             hideBoot();
         });
@@ -1768,7 +1774,7 @@
         document.body.classList.toggle("reduce-motion", !!APL.sys.pref("reduceMotion"));
         applyPerf();
         applyTheme();
-        global.APL_BOOT_OK = true;
+        global.APL_BOOT_OK = global.APL_HOME_UP = true;
         hideBoot();
         if (APL.controlCenter) APL.controlCenter.open();
     }

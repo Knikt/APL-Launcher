@@ -1125,7 +1125,7 @@
 
     /* Once the launcher has started: what it was opened for, otherwise the first starts' questions */
     setTimeout(function wait() {
-        if (!global.APL_BOOT_OK) { setTimeout(wait, 300); return; }
+        if (!global.APL_HOME_UP) { setTimeout(wait, 300); return; }
         var a = String(B.takeAction() || "");
         if (a) runAction(a); else setTimeout(firstStarts, 1500);
         setTimeout(askListings, 6000);

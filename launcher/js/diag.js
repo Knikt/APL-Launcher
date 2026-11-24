@@ -2,7 +2,7 @@
    diag.js — a start-up that doesn't finish is said on screen.
 
    Loaded first. It notes the script errors, and if the Home Screen
-   hasn't appeared after 20 s on screen (APL_BOOT_OK, set by
+   hasn't appeared after 20 s on screen (APL_HOME_UP, set by
    launcher.js), it shows them with the version and the screen,
    instead of leaving a black screen nobody can explain. Back closes it.
    ============================================================ */
@@ -30,7 +30,7 @@
 
     // Only the time on screen counts: started in the background (at power-on), the launcher is frozen
     var shownFor = 0, watch = setInterval(function () {
-        if (global.APL_BOOT_OK) { clearInterval(watch); return; }
+        if (global.APL_HOME_UP) { clearInterval(watch); return; }
         if (document.hidden || !document.body || ++shownFor < 20) return;
         clearInterval(watch);
         show();
