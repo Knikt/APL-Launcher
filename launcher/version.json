@@ -1,8 +1,8 @@
 {
- "version": "1.3.10",
+ "version": "1.3.11",
  "loader": 1,
  "reinstall": "1.0.0",
- "notes": "Fast again on Android TV, round glass on Tizen 6, trailers stop under a panel",
+ "notes": "Updates kept with Start on APL Launcher, fast round glass on Tizen 6, Inter Display without SF Pro, Overscan for Hue, What's Popular in the screen's language",
  "scripts": [
   "js/diag.js",
   "js/webos.js",
