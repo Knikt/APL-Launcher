@@ -3,7 +3,7 @@
 
    The launcher is written in English. Other languages come from a
    table keyed by the English text: js/lang-fr.js for French,
-   js/lang-ms.js for Malay, js/lang-pl.js for Polish, js/lang-tr.js for Turkish.
+   js/lang-ms.js for Malay, js/lang-pl.js for Polish, js/lang-tr.js for Turkish, js/lang-pt.js for Brazilian Portuguese.
      APL.t("Settings")                          -> "Réglages" in French
      APL.t("Version {v} available", { v: "2" }) -> placeholders
    Text without a translation stays in English.
@@ -20,9 +20,9 @@
     "use strict";
 
     var APL = global.APL = global.APL || {};
-    var TABLES = { fr: global.APL_LANG_FR || {}, ms: global.APL_LANG_MS || {}, pl: global.APL_LANG_PL || {}, tr: global.APL_LANG_TR || {} };
+    var TABLES = { fr: global.APL_LANG_FR || {}, ms: global.APL_LANG_MS || {}, pl: global.APL_LANG_PL || {}, tr: global.APL_LANG_TR || {}, pt: global.APL_LANG_PT || {} };
 
-    /* The choice saved in Settings (screen-wide, not per profile): "auto", "en", "fr", "ms", "pl" or "tr". */
+    /* The choice saved in Settings (screen-wide, not per profile): "auto", "en", "fr", "ms", "pl", "tr" or "pt". */
     function saved() {
         try { return (JSON.parse(global.localStorage.getItem("apl.prefs") || "null") || {}).language; } catch (e) { return null; }
     }
@@ -32,6 +32,7 @@
         if (l.indexOf("ms") === 0) return "ms";               // not "ml": that is Malayalam
         if (l.indexOf("pl") === 0) return "pl";
         if (l.indexOf("tr") === 0) return "tr";
+        if (l.indexOf("pt") === 0) return "pt";
         return "en";
     }
 
@@ -50,8 +51,8 @@
     }
 
     APL.t = t;
-    APL.lang = lang;                                // "en", "fr", "ms", "pl" or "tr"
-    APL.locale = lang === "fr" ? "fr-FR" : lang === "ms" ? "ms-MY" : lang === "pl" ? "pl-PL" : lang === "tr" ? "tr-TR" : "en-US"; // for dates, sorting and TMDB
+    APL.lang = lang;                                // "en", "fr", "ms", "pl", "tr" or "pt"
+    APL.locale = lang === "fr" ? "fr-FR" : lang === "ms" ? "ms-MY" : lang === "pl" ? "pl-PL" : lang === "tr" ? "tr-TR" : lang === "pt" ? "pt-BR" : "en-US"; // for dates, sorting and TMDB
     /* The language of the films' descriptions, logos and trailers (TMDB): the screen's own, even where the interface
        has no translation in it (an Italian screen: Italian summaries, under English menus; #56). A language picked
        in Settings wins. */
